@@ -1,0 +1,120 @@
+site_name: "TrackAI Documentation"
+site_description: "Lightweight experiment tracker for deep learning"
+site_url: "https://github.com/tuliosouza99/TrackAI"
+repo_url: "https://github.com/tuliosouza99/TrackAI"
+repo_name: "tuliosouza99/TrackAI"
+
+theme:
+  name: "material"
+  custom_dir: docs/.overrides
+  favicon: assets/favicon.png
+  logo: assets/logo.svg
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.path
+    - navigation.sections
+    - announce.dismiss
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            heading_level: 3
+            merge_init_into_class: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_root_heading: true
+            show_source: true
+            show_signature_annotations: true
+            separate_signature: true
+
+nav:
+  - Overview: index.md
+  - Getting Started:
+    - Installation: getting_started/installation.md
+    - Quick Start: getting_started/quickstart.md
+    - Python SDK: getting_started/python_sdk.md
+    - Logging Metrics: getting_started/logging_metrics.md
+    - System Metrics: getting_started/system_metrics.md
+    - Context Manager: getting_started/context_manager.md
+    - Resuming Runs: getting_started/resuming_runs.md
+    - CLI Usage: getting_started/cli_usage.md
+    - S3 Storage: getting_started/s3_storage.md
+    - Web Interface: getting_started/web_interface.md
+    - REST API: getting_started/rest_api.md
+    - Migration from Neptune: getting_started/migration_from_neptune.md
+  - API Documentation:
+    - Python SDK:
+      - init(): api_documentation/python_sdk/init.md
+      - log(): api_documentation/python_sdk/log.md
+      - log_system(): api_documentation/python_sdk/log_system.md
+      - finish(): api_documentation/python_sdk/finish.md
+      - Run Class: api_documentation/python_sdk/run_class.md
+    - REST API:
+      - Projects: api_documentation/rest_api/projects.md
+      - Runs: api_documentation/rest_api/runs.md
+      - Metrics: api_documentation/rest_api/metrics.md
+      - Custom Views: api_documentation/rest_api/views.md
+      - MCP: api_documentation/rest_api/mcp.md
+    - CLI:
+      - Server Commands: api_documentation/cli/server.md
+      - Database Commands: api_documentation/cli/database.md
+      - Config Commands: api_documentation/cli/config.md
+      - Init Command: api_documentation/cli/init.md
+    - Data Models:
+      - Projects: api_documentation/models/project_models.md
+      - Runs: api_documentation/models/run_models.md
+      - Metrics: api_documentation/models/metric_models.md
+      - Configuration: api_documentation/models/config_models.md
+    - Database:
+      - Schema: api_documentation/database/schema.md
+      - Connection: api_documentation/database/connection.md
+    - Services:
+      - Logging Service: api_documentation/services/logger.md
+    - S3 Storage:
+      - Sync Functions: api_documentation/s3/sync.md
+    - Configuration: api_documentation/config.md
+  - GitHub: https://github.com/tuliosouza99/TrackAI
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+
+extra_javascript:
+  - javascripts/external-links.js

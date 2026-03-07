@@ -28,6 +28,17 @@ dev = [
     "httpx>=0.27.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.15",
+    "mkdocstrings-python>=1.16.12",
+]
+
 [project.scripts]
 trackai = "trackai.cli.main:cli"
 

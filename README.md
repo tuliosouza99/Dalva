@@ -298,12 +298,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Author
-
-**Túlio Souza** - [tulio.souza99@gmail.com](mailto:tulio.souza99@gmail.com)
-
-## Acknowledgments
-
-- Inspired by Weights & Biases and Neptune.ai
-- Built with modern tools for simplicity and performance

@@ -55,6 +55,30 @@ class FrontendBuildHook(BuildHookInterface):
                 "Install Node.js and npm, then run 'npm run build' in frontend/"
             )
 
+        # Check if node_modules exists, install dependencies if needed
+        node_modules = frontend_dir / "node_modules"
+        if not node_modules.exists():
+            print("Installing frontend dependencies...")
+            try:
+                result = subprocess.run(
+                    ["npm", "install"],
+                    cwd=frontend_dir,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                print("Frontend dependencies installed successfully!")
+            except subprocess.CalledProcessError as e:
+                print("ERROR: Failed to install frontend dependencies!")
+                if e.stdout:
+                    print(e.stdout)
+                if e.stderr:
+                    print(e.stderr)
+                raise RuntimeError(
+                    f"npm install failed with exit code {e.returncode}.\n"
+                    f"Run 'npm install' in frontend/ to see the full error."
+                )
+
         # Build frontend
         print(f"Building frontend in: {frontend_dir}")
         try:

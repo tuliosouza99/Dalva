@@ -9,6 +9,7 @@ from pathlib import Path
 import click
 
 from trackai.cli.utils import find_available_port
+from trackai.utils.paths import get_frontend_dir, is_development_mode
 
 
 @click.group()
@@ -37,23 +38,42 @@ def start(port, host, reload):
 
     click.echo(click.style("Starting TrackAI...", fg="blue", bold=True))
 
-    # Get paths
-    backend_dir = Path(__file__).parent.parent.parent.parent
-    frontend_dir = backend_dir.parent / "frontend"
+    # Check if in development mode
+    if not is_development_mode():
+        click.echo(
+            click.style(
+                "\nRunning in production mode (installed package)", fg="blue"
+            )
+        )
+        click.echo(
+            click.style(
+                "Frontend is pre-built and bundled in the package\n", fg="green"
+            )
+        )
+        # No need to build, static files are already in package
+        backend_dir = Path(__file__).parent.parent.parent.parent
+    else:
+        click.echo(
+            click.style(
+                "\nRunning in development mode (source repository)", fg="blue"
+            )
+        )
+        # Build frontend in dev mode
+        frontend_dir = get_frontend_dir()
+        backend_dir = Path(__file__).parent.parent.parent.parent
 
-    # Build frontend
-    click.echo(click.style("\nBuilding frontend...", fg="green"))
-    result = subprocess.run(
-        ["npm", "run", "build"],
-        cwd=frontend_dir,
-        capture_output=False,
-    )
+        click.echo(click.style("Building frontend...", fg="green"))
+        result = subprocess.run(
+            ["npm", "run", "build"],
+            cwd=frontend_dir,
+            capture_output=False,
+        )
 
-    if result.returncode != 0:
-        click.echo(click.style("Frontend build failed!", fg="red"), err=True)
-        sys.exit(1)
+        if result.returncode != 0:
+            click.echo(click.style("Frontend build failed!", fg="red"), err=True)
+            sys.exit(1)
 
-    click.echo(click.style("Frontend built successfully!\n", fg="green"))
+        click.echo(click.style("Frontend built successfully!\n", fg="green"))
 
     # Start backend
     click.echo(click.style(f"Starting backend server on port {port}...", fg="green"))
@@ -107,13 +127,27 @@ def dev(backend_port, frontend_port):
         frontend_port = find_available_port(5173)
         click.echo(f"Found available frontend port: {frontend_port}")
 
+    # Check if in development mode
+    if not is_development_mode():
+        click.echo(
+            click.style(
+                "ERROR: Development mode requires source repository.\n"
+                "The 'trackai server dev' command is only available when running "
+                "from the source code, not from an installed package.\n"
+                "Use 'trackai server start' instead.",
+                fg="red",
+            ),
+            err=True,
+        )
+        sys.exit(1)
+
     click.echo(
         click.style("\nStarting TrackAI in development mode...", fg="blue", bold=True)
     )
 
-    # Get paths
+    # Get paths - these will only work in dev mode
     backend_dir = Path(__file__).parent.parent.parent.parent
-    frontend_dir = backend_dir.parent / "frontend"
+    frontend_dir = get_frontend_dir()
 
     # Start backend process
     backend_cmd = [

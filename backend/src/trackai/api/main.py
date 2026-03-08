@@ -1,7 +1,6 @@
 """FastAPI application for TrackAI."""
 
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
@@ -12,8 +11,14 @@ from fastapi.staticfiles import StaticFiles
 from trackai.api.routes import mcp, metrics, projects, runs, views
 from trackai.config import load_config
 from trackai.db.connection import init_db
+from trackai.utils.paths import get_static_dir
 
-STATIC_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent / "static"
+# Get static directory (works in both dev and installed modes)
+try:
+    STATIC_DIR = get_static_dir()
+except FileNotFoundError as e:
+    print(f"WARNING: {e}")
+    STATIC_DIR = None
 
 
 @asynccontextmanager
@@ -65,8 +70,8 @@ app.include_router(mcp.router, prefix="/api/mcp", tags=["mcp"])
 app.include_router(views.router, prefix="/api/views", tags=["views"])
 
 
-# Serve frontend static files if the build output exists
-if STATIC_DIR.is_dir():
+# Serve frontend static files if available
+if STATIC_DIR and STATIC_DIR.is_dir():
     app.mount("/assets", StaticFiles(directory=STATIC_DIR / "assets"), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
@@ -76,6 +81,8 @@ if STATIC_DIR.is_dir():
         if full_path and file_path.is_file():
             return FileResponse(file_path)
         return FileResponse(STATIC_DIR / "index.html")
+else:
+    print("WARNING: Static files not found. Frontend will not be served.")
 
 
 if __name__ == "__main__":

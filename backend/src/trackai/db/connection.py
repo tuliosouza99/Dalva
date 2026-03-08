@@ -140,10 +140,13 @@ def _configure_s3(engine) -> None:
 def _create_duckdb_tables(engine) -> None:
     """Create DuckDB tables using raw SQL (DuckDB doesn't support SERIAL)."""
     with engine.connect() as conn:
+        # Create sequence for projects table ID
+        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS projects_id_seq START 1"))
+
         # Projects table
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS projects (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY DEFAULT nextval('projects_id_seq'),
                 name VARCHAR UNIQUE NOT NULL,
                 project_id VARCHAR UNIQUE NOT NULL,
                 created_at TIMESTAMP,
@@ -151,10 +154,13 @@ def _create_duckdb_tables(engine) -> None:
             )
         """))
 
+        # Create sequence for runs table ID
+        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS runs_id_seq START 1"))
+
         # Runs table
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS runs (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY DEFAULT nextval('runs_id_seq'),
                 project_id INTEGER NOT NULL,
                 run_id VARCHAR NOT NULL,
                 name VARCHAR,
@@ -167,10 +173,13 @@ def _create_duckdb_tables(engine) -> None:
             )
         """))
 
+        # Create sequence for configs table ID
+        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS configs_id_seq START 1"))
+
         # Configs table
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS configs (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY DEFAULT nextval('configs_id_seq'),
                 run_id INTEGER NOT NULL,
                 key VARCHAR NOT NULL,
                 value VARCHAR,
@@ -178,10 +187,13 @@ def _create_duckdb_tables(engine) -> None:
             )
         """))
 
+        # Create sequence for metrics table ID
+        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS metrics_id_seq START 1"))
+
         # Metrics table
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS metrics (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY DEFAULT nextval('metrics_id_seq'),
                 run_id INTEGER NOT NULL,
                 attribute_path VARCHAR NOT NULL,
                 attribute_type VARCHAR NOT NULL,
@@ -194,10 +206,13 @@ def _create_duckdb_tables(engine) -> None:
             )
         """))
 
+        # Create sequence for files table ID
+        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS files_id_seq START 1"))
+
         # Files table
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS files (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY DEFAULT nextval('files_id_seq'),
                 run_id INTEGER NOT NULL,
                 file_type VARCHAR NOT NULL,
                 file_path VARCHAR,
@@ -207,10 +222,13 @@ def _create_duckdb_tables(engine) -> None:
             )
         """))
 
+        # Create sequence for custom_views table ID
+        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS custom_views_id_seq START 1"))
+
         # Custom views table
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS custom_views (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY DEFAULT nextval('custom_views_id_seq'),
                 project_id INTEGER NOT NULL,
                 name VARCHAR NOT NULL,
                 filters VARCHAR,
@@ -220,10 +238,13 @@ def _create_duckdb_tables(engine) -> None:
             )
         """))
 
+        # Create sequence for dashboards table ID
+        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS dashboards_id_seq START 1"))
+
         # Dashboards table
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS dashboards (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY DEFAULT nextval('dashboards_id_seq'),
                 project_id INTEGER NOT NULL,
                 name VARCHAR NOT NULL,
                 widgets VARCHAR,

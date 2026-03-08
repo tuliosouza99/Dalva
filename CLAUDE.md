@@ -20,6 +20,32 @@ cd backend && uv sync
 trackai --help
 ```
 
+### First-Time Setup
+
+**IMPORTANT**: Before starting the server or logging experiments, run the setup wizard:
+
+```bash
+trackai init
+```
+
+This is the main command for first-time setup. It provides an interactive wizard that:
+- Lets you choose between local storage (default) or S3 cloud storage
+- Initializes the DuckDB database at `~/.trackai/trackai.duckdb`
+- Automatically detects and offers to migrate existing SQLite databases
+- For S3 storage: collects AWS credentials and S3 bucket configuration
+- Creates all necessary directories and configuration files
+
+**What happens during setup:**
+1. **Storage Type Selection**: Choose local or S3 storage
+2. **Database Initialization**: Creates the DuckDB database
+3. **Migration Check**: Detects existing SQLite databases and offers migration
+4. **S3 Setup** (if selected): Configures AWS credentials and bucket settings
+
+After running `trackai init`, you can:
+- Start the server with `trackai server start`
+- View configuration with `trackai config show`
+- Begin logging experiments with the Python API
+
 ### Quick Start (Production Mode)
 
 TrackAI serves both backend and frontend from a single port in production:

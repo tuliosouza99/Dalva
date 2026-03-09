@@ -83,16 +83,18 @@ class Run:
 
         # Create run in database — returns plain scalars, no open session kept
         logger = LoggingService()
-        self.run_id, self.run_name = logger.create_run(
+        db_id, run_id_str, descriptive_name = logger.create_run(
             project_name=project,
             run_name=name,
             group=group,
             config=config,
             resume=resume,
         )
-        # run_name may have been auto-generated; keep the actual value
-        if name is None:
-            name = self.run_name
+
+        # Store identifiers
+        self._db_id = db_id  # Internal database ID (for logging operations)
+        self.run_id = run_id_str  # User-facing run identifier (e.g., "FAS-1")
+        self.name = descriptive_name  # Optional descriptive name
 
     def log(self, metrics: dict[str, Any], step: Optional[int] = None):
         """Log metrics to the run.
@@ -109,7 +111,7 @@ class Run:
             self._step_counter += 1
 
         LoggingService().log_metrics(
-            run_id=self.run_id,
+            run_id=self._db_id,
             metrics=metrics,
             step=step,
             timestamp=datetime.utcnow(),
@@ -124,7 +126,7 @@ class Run:
             metrics: Dictionary of system metrics
         """
         LoggingService().log_metrics(
-            run_id=self.run_id,
+            run_id=self._db_id,
             metrics=metrics,
             step=None,
             timestamp=datetime.utcnow(),
@@ -132,7 +134,7 @@ class Run:
 
     def finish(self):
         """Finish the run and mark it as completed."""
-        LoggingService().finish_run(self.run_id)
+        LoggingService().finish_run(self._db_id)
 
         # Optional S3 push after finishing
         if self._push:
@@ -151,9 +153,9 @@ class Run:
         if exc_type is None:
             self.finish()
         else:
-            LoggingService().fail_run(self.run_id)
+            LoggingService().fail_run(self._db_id)
         return False
 
     def __repr__(self):
         """String representation."""
-        return f"Run(project='{self.project_name}', name='{self.run_name}', id={self.run_id})"
+        return f"Run(project='{self.project_name}', name='{self.name}', id={self.run_id})"

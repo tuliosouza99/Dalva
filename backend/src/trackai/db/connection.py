@@ -1,6 +1,7 @@
 """Database connection and session management."""
 
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator
 
@@ -168,57 +169,70 @@ def init_db(db_path: str | None = None) -> None:
 
     db_dir.mkdir(parents=True, exist_ok=True)
 
-    engine = create_engine(get_db_url(), echo=False)
+    engine = create_engine(get_db_url(), echo=False, poolclass=NullPool)
     _create_duckdb_tables(engine)
 
 
 def get_engine():
-    """Get the SQLAlchemy engine.
+    """Return a fresh SQLAlchemy engine with NullPool.
 
-    Uses NullPool so connections are never cached — every request gets a fresh
-    DuckDB connection that sees all data committed by other processes (e.g. the
-    Python SDK running in a training script).  Without NullPool, the default
-    QueuePool keeps connections alive with a stale MVCC snapshot, hiding rows
-    that were committed after the pool connection was first opened.
+    NullPool is essential for DuckDB:
+    - DuckDB only allows **one writer** at a time across processes.
+    - With the default QueuePool the connection (and its write lock) is kept
+      alive between requests / log calls, blocking every other process.
+    - NullPool closes the underlying DuckDB connection immediately after each
+      session is released, so the write lock is held only for the duration of
+      a single commit — a fraction of a second.
     """
     return create_engine(get_db_url(), echo=False, poolclass=NullPool)
 
 
-# Lazy session factory (don't create engine at import time)
-_SessionLocal = None
+@contextmanager
+def session_scope() -> Generator[Session, None, None]:
+    """Context manager that opens a fresh session, commits on success,
+    rolls back on error, and *always* closes the connection before returning.
 
+    This is the only correct way to interact with DuckDB from the SDK: the
+    write lock is acquired, the operation is committed, and the lock is
+    released — all within the ``with`` block.  The UI (FastAPI) can then
+    connect freely between SDK log calls.
 
+    Usage::
 
-def _get_session_factory():
-    """Get or create the session factory lazily."""
-    global _SessionLocal
-    if _SessionLocal is None:
-        _SessionLocal = sessionmaker(
-            autocommit=False,
-            autoflush=False,
-            bind=get_engine(),
-        )
-    return _SessionLocal
+        with session_scope() as db:
+            db.add(some_object)
+        # connection is already closed here
+    """
+    engine = get_engine()
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 def get_db() -> Generator[Session, None, None]:
-    """
-    Dependency for FastAPI to get database sessions.
+    """FastAPI dependency that yields a short-lived database session.
 
-    Usage:
-        @app.get("/...")
-        def endpoint(db: Session = Depends(get_db)):
-            ...
+    Uses session_scope() so every HTTP request gets a fresh DuckDB connection
+    (no stale snapshots) and releases the write lock immediately after the
+    response is sent.
     """
-    SessionLocal = _get_session_factory()
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    with session_scope() as session:
+        yield session
 
 
 def get_session() -> Session:
-    """Get a standalone database session (for non-FastAPI usage)."""
-    SessionLocal = _get_session_factory()
+    """Return a standalone session for one-off usage outside FastAPI.
+
+    The caller is responsible for calling ``session.commit()`` and
+    ``session.close()``.  Prefer ``session_scope()`` when possible.
+    """
+    engine = get_engine()
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return SessionLocal()

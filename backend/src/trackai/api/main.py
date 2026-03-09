@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -77,7 +77,15 @@ if STATIC_DIR and STATIC_DIR.is_dir():
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
-        """Serve the frontend SPA - return index.html for all non-API routes."""
+        """Serve the frontend SPA - return index.html for all non-API routes.
+
+        API routes must NOT fall through to here: when the router has no route
+        for a path (e.g. '/api/projects' without trailing slash) FastAPI would
+        otherwise match this catch-all and return HTML instead of a 404/redirect,
+        breaking every API call that omits the trailing slash.
+        """
+        if full_path.startswith("api"):
+            raise HTTPException(status_code=404, detail="Not found")
         file_path = STATIC_DIR / full_path
         if full_path and file_path.is_file():
             return FileResponse(file_path)

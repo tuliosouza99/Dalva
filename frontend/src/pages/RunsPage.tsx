@@ -8,7 +8,8 @@ import {
   useCustomViews,
   useCreateCustomView,
   useUpdateCustomView,
-  useDeleteCustomView
+  useDeleteCustomView,
+  useDeleteRun,
 } from '../api/client';
 import type { RunFilters, CustomView } from '../api/client';
 import VirtualRunsTable from '../components/RunsTable/VirtualRunsTable';
@@ -37,6 +38,14 @@ export default function RunsPage() {
   const createViewMutation = useCreateCustomView(projectIdNum);
   const updateViewMutation = useUpdateCustomView(projectIdNum);
   const deleteViewMutation = useDeleteCustomView(projectIdNum);
+  const deleteRunMutation = useDeleteRun();
+
+  const handleDeleteSelectedRuns = async () => {
+    if (selectedRunIds.length === 0) return;
+    if (!confirm(`Delete ${selectedRunIds.length} selected run(s)? This cannot be undone.`)) return;
+    await Promise.all(selectedRunIds.map((id) => deleteRunMutation.mutateAsync(id)));
+    setSelectedRunIds([]);
+  };
   const isMetricSort = sortBy.startsWith('metric:');
 
   const {
@@ -411,6 +420,13 @@ export default function RunsPage() {
               disabled={selectedRunIds.length < 2}
             >
               Compare Runs
+            </button>
+            <button
+              onClick={handleDeleteSelectedRuns}
+              disabled={deleteRunMutation.isPending}
+              className="px-3 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50"
+            >
+              {deleteRunMutation.isPending ? 'Deleting…' : '🗑️ Delete Selected'}
             </button>
             <button
               onClick={() => setSelectedRunIds([])}

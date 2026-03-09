@@ -6,6 +6,7 @@ from typing import Generator
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from trackai.config import load_config
 
@@ -172,8 +173,15 @@ def init_db(db_path: str | None = None) -> None:
 
 
 def get_engine():
-    """Get the SQLAlchemy engine."""
-    return create_engine(get_db_url(), echo=False)
+    """Get the SQLAlchemy engine.
+
+    Uses NullPool so connections are never cached — every request gets a fresh
+    DuckDB connection that sees all data committed by other processes (e.g. the
+    Python SDK running in a training script).  Without NullPool, the default
+    QueuePool keeps connections alive with a stale MVCC snapshot, hiding rows
+    that were committed after the pool connection was first opened.
+    """
+    return create_engine(get_db_url(), echo=False, poolclass=NullPool)
 
 
 # Lazy session factory (don't create engine at import time)

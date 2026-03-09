@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { useRun, useRunSummary, useRunMetrics } from '../api/client';
+import { useRun, useRunSummary, useRunMetrics, useDeleteRun } from '../api/client';
 import MetricBrowser from '../components/Charts/MetricBrowser';
 import MetricViewer from '../components/Charts/MetricViewer';
 
@@ -13,6 +13,15 @@ export default function RunDetailPage() {
   const { data: run, isLoading: runLoading } = useRun(parseInt(runId || '0'));
   const { data: summary, isLoading: summaryLoading } = useRunSummary(parseInt(runId || '0'));
   const { data: metricNames, isLoading: metricsLoading } = useRunMetrics(parseInt(runId || '0'));
+  const deleteRunMutation = useDeleteRun();
+
+  const handleDeleteRun = () => {
+    if (!run) return;
+    if (!confirm(`Delete run "${run.name}"? This cannot be undone.`)) return;
+    deleteRunMutation.mutate(run.id, {
+      onSuccess: () => navigate(`/projects/${run.project_id}/runs`),
+    });
+  };
 
   const isLoading = runLoading || summaryLoading || metricsLoading;
 
@@ -72,17 +81,27 @@ export default function RunDetailPage() {
               )}
             </p>
           </div>
-          <span
-            className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
-              run.state === 'running'
-                ? 'bg-green-100 text-green-800'
-                : run.state === 'completed'
-                ? 'bg-blue-100 text-blue-800'
-                : 'bg-red-100 text-red-800'
-            }`}
-          >
-            {run.state}
-          </span>
+          <div className="flex items-center gap-3">
+            <span
+              className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
+                run.state === 'running'
+                  ? 'bg-green-100 text-green-800'
+                  : run.state === 'completed'
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-red-100 text-red-800'
+              }`}
+            >
+              {run.state}
+            </span>
+            <button
+              onClick={handleDeleteRun}
+              disabled={deleteRunMutation.isPending}
+              className="px-3 py-1 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50"
+              title="Delete this run"
+            >
+              {deleteRunMutation.isPending ? 'Deleting…' : '🗑️ Delete Run'}
+            </button>
+          </div>
         </div>
       </div>
 

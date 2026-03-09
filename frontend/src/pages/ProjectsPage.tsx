@@ -1,9 +1,15 @@
 import { useNavigate } from 'react-router-dom';
-import { useProjects } from '../api/client';
+import { useProjects, useDeleteProject } from '../api/client';
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
   const { data: projects, isLoading, error } = useProjects();
+  const deleteProjectMutation = useDeleteProject();
+
+  const handleDeleteProject = (projectId: number, projectName: string) => {
+    if (!confirm(`Delete project "${projectName}" and ALL its runs? This cannot be undone.`)) return;
+    deleteProjectMutation.mutate(projectId);
+  };
 
   if (isLoading) {
     return (
@@ -81,12 +87,20 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="mt-4 pt-4 border-t border-gray-200 flex gap-2">
                 <button
                   onClick={() => navigate(`/projects/${project.id}/runs`)}
-                  className="w-full px-3 py-2 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors"
+                  className="flex-1 px-3 py-2 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 transition-colors"
                 >
                   View Runs
+                </button>
+                <button
+                  onClick={() => handleDeleteProject(project.id, project.name)}
+                  disabled={deleteProjectMutation.isPending}
+                  className="px-3 py-2 text-sm text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+                  title="Delete project and all its runs"
+                >
+                  🗑️
                 </button>
               </div>
 

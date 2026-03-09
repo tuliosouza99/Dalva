@@ -165,6 +165,15 @@ export const api = {
   deleteCustomView: async (viewId: number): Promise<void> => {
     await apiClient.delete(`/views/views/${viewId}`);
   },
+
+  // Delete
+  deleteProject: async (projectId: number): Promise<void> => {
+    await apiClient.delete(`/projects/${projectId}`);
+  },
+
+  deleteRun: async (runId: number): Promise<void> => {
+    await apiClient.delete(`/runs/${runId}`);
+  },
 };
 
 // React Query Hooks
@@ -303,6 +312,27 @@ export function useDeleteCustomView(projectId: number) {
     mutationFn: (viewId: number) => api.deleteCustomView(viewId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['custom-views', projectId] });
+    },
+  });
+}
+
+export function useDeleteProject() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (projectId: number) => api.deleteProject(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+}
+
+export function useDeleteRun() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (runId: number) => api.deleteRun(runId),
+    onSuccess: (_data, runId) => {
+      queryClient.invalidateQueries({ queryKey: ['runs'] });
+      queryClient.removeQueries({ queryKey: ['runs', runId] });
     },
   });
 }

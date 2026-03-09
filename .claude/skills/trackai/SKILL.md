@@ -70,6 +70,21 @@ with trackai.init(project="my-project") as run:
     # Run automatically finished on context exit
 ```
 
+**S3 sync flags** (requires `trackai config s3` and valid AWS credentials):
+```python
+# Pull from S3 before starting, push to S3 after finishing
+with trackai.init(project="my-project", pull=True, push=True) as run:
+    ...
+
+# Pull only (read shared data, keep local)
+with trackai.init(project="my-project", pull=True) as run:
+    ...
+
+# Push only (write shared data, no pull)
+with trackai.init(project="my-project", push=True) as run:
+    ...
+```
+
 **Resume modes**:
 ```python
 # Resume if exists, create if not
@@ -97,9 +112,9 @@ trackai db reset
 # Migrate from SQLite to DuckDB
 trackai db migrate --sqlite-path ~/.trackai/trackai.db --duckdb-path ~/.trackai/trackai.duckdb --yes
 
-# Sync with S3 (if configured)
-trackai db sync --direction upload
-trackai db sync --direction download
+# S3 sync (requires 'trackai config s3' + valid AWS credentials)
+trackai db pull   # Download S3 → ~/.trackai/trackai.duckdb
+trackai db push   # Upload ~/.trackai/trackai.duckdb → S3
 ```
 
 ### S3 Configuration
@@ -113,32 +128,42 @@ export AWS_DEFAULT_REGION="us-east-1"
 # Configure TrackAI for S3
 trackai config s3 --bucket my-trackai-experiments --key trackai.duckdb --region us-east-1
 
+# Push existing local database to S3 (first-time setup)
+trackai db push
+
+# Pull latest data from S3
+trackai db pull
+
 # View current configuration
 trackai config show
 ```
 
 ## Key Concepts
 
-### Split S3 Architecture
+### Local-First S3 Architecture
 
-TrackAI uses a unique split architecture for S3 storage:
+TrackAI uses a local-first architecture for S3 storage. All reads and writes go to `~/.trackai/trackai.duckdb`. S3 sync is opt-in.
 
-**SDK (logging mode)**:
-- Downloads database from S3 on `trackai.init()`
-- Writes to local temp file during training (fast!)
-- Uploads complete database to S3 on `trackai.finish()`
+**SDK (Python logging)**:
+- Always writes to `~/.trackai/trackai.duckdb` — zero S3 latency during training
+- `pull=True` on `trackai.init()` — downloads from S3 before the run starts
+- `push=True` on `trackai.init()` — uploads to S3 after the run finishes
+- Both default to `False` — no S3 interaction unless explicitly requested
 
-**Server (visualization mode)**:
-- Uses DuckDB ATTACH for read-only S3 access
-- No downloads (instant startup)
-- No uploads (clean shutdown)
-- Always shows latest data from S3
+**Server (dashboard)**:
+- Always reads from `~/.trackai/trackai.duckdb`
+- Mid-run metrics visible in real time — same file the SDK writes to
+- Never touches S3 — instant startup and clean shutdown
+
+**CLI sync**:
+- `trackai db pull` — download S3 → `~/.trackai/trackai.duckdb`
+- `trackai db push` — upload `~/.trackai/trackai.duckdb` → S3
 
 **Benefits**:
-- ✅ No slow startup/shutdown for server
-- ✅ No manual sync commands needed
-- ✅ Fast local writes during training
-- ✅ Automatic S3 backup on experiment completion
+- ✅ Mid-run visibility — dashboard shows live metrics during training
+- ✅ Zero S3 latency during training
+- ✅ Simple server — no S3 ATTACH, no hanging on shutdown
+- ✅ Explicit sync — no magic auto-sync, you control when to pull/push
 
 ### Resume Modes
 
@@ -275,7 +300,7 @@ trackai server start
 trackai server start --port 8080
 ```
 
-### S3 Upload Fails
+### S3 Push/Pull Fails
 
 **Check AWS credentials**:
 ```bash

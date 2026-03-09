@@ -4,7 +4,6 @@ import click
 
 from trackai.cli.config import config
 from trackai.cli.database import db
-from trackai.cli.init import init
 from trackai.cli.server import server
 
 
@@ -15,7 +14,6 @@ def cli():
     pass
 
 # Register commands and command groups
-cli.add_command(init)
 cli.add_command(server)
 cli.add_command(db)
 cli.add_command(config)

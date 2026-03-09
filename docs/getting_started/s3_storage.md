@@ -4,16 +4,17 @@ Guide to configuring and using S3 storage for TrackAI experiments.
 
 ## Overview
 
-TrackAI supports storing experiments in Amazon S3 with a unique **split architecture**:
+TrackAI supports storing experiments in Amazon S3 with a **local-first architecture**:
 
-- **SDK (logging)**: Downloads database on `init()`, uploads on `finish()`
-- **Server (visualization)**: Uses DuckDB ATTACH for read-only S3 access
+- **SDK (logging)**: Writes directly to `~/.trackai/trackai.duckdb`. Pass `pull=True` to download from S3 before starting and `push=True` to upload to S3 after finishing.
+- **Server (dashboard)**: Always reads from `~/.trackai/trackai.duckdb` — metrics are visible in real time during runs.
+- **Manual sync**: Use `trackai db pull` / `trackai db push` from the CLI whenever you need to sync.
 
 **Benefits**:
-- ✅ No slow startup/shutdown for server
-- ✅ No manual sync commands needed
-- ✅ Fast local writes during training
-- ✅ Automatic S3 backup on experiment completion
+- ✅ Mid-run visibility — dashboard reads the same local DB that the SDK writes to
+- ✅ Explicit sync — no magic auto-sync, you decide when to pull and push
+- ✅ Fast logging — zero S3 latency during training
+- ✅ Simple server — never touches S3 directly, instant startup and clean shutdown
 
 ## Quick Start
 
@@ -42,80 +43,75 @@ trackai config s3 \
   --region us-east-1
 ```
 
-### 3. Start Visualization Server
+### 3. Start the Dashboard
 
 ```bash
 trackai server start
 ```
 
-Server reads directly from S3 (no download required).
+The dashboard reads from `~/.trackai/trackai.duckdb`.
 
 ### 4. Log Experiments
 
 ```python
 import trackai
 
-# Automatically downloads DB from S3 on init()
-with trackai.init(project="training") as run:
-    trackai.log({"loss": 0.5}, step=0)
-# Automatically uploads DB to S3 on context exit
+# pull=True downloads from S3 before starting (picks up runs from other machines)
+# push=True uploads to S3 after finishing
+with trackai.init(project="training", pull=True, push=True) as run:
+    for epoch in range(100):
+        trackai.log({"loss": 0.5}, step=epoch)
+# Database uploaded to S3 on context exit (because push=True)
 ```
 
-## Split Architecture
+### 5. Sync Manually (CLI)
+
+```bash
+trackai db pull   # Download S3 → ~/.trackai/trackai.duckdb
+trackai db push   # Upload ~/.trackai/trackai.duckdb → S3
+```
+
+## Architecture
 
 ### How It Works
 
-TrackAI uses two different modes depending on the use case:
+#### SDK (Python logging)
 
-#### Logging Mode (Python SDK)
+The SDK always writes to `~/.trackai/trackai.duckdb`. S3 sync is opt-in per run:
 
-When running experiments with the Python SDK:
+- **`pull=True`** (on `init()`): Downloads the database from S3 before the run starts, so you pick up any runs logged elsewhere.
+- **`push=True`** (on `finish()`): Uploads the database to S3 after the run finishes.
+- Both default to `False` — no S3 interaction unless you ask for it.
 
-1. **On `init()`**:
-   - Downloads database from S3 to temporary location
-   - Uses local file for fast writes
-   - No network latency during training
+```python
+# No S3 interaction (default)
+with trackai.init(project="p") as run:
+    ...
 
-2. **During training**:
-   - All `log()` calls write to local database
-   - Maximum write performance
-   - No S3 interaction
+# Pull before, push after
+with trackai.init(project="p", pull=True, push=True) as run:
+    ...
 
-3. **On `finish()`**:
-   - Uploads complete database back to S3
-   - Atomic update of S3 object
-   - Local temp file cleaned up
+# Pull before only (read shared data, keep local)
+with trackai.init(project="p", pull=True) as run:
+    ...
 
-#### Visualization Mode (Server)
+# Push after only (write shared data, no pull)
+with trackai.init(project="p", push=True) as run:
+    ...
+```
 
-When viewing experiments in the web interface:
+#### Dashboard (visualization server)
 
-1. **On server start**:
-   - No download from S3
-   - Instant startup
-   - Attaches to S3 using DuckDB HTTPFS extension
+The dashboard always reads from `~/.trackai/trackai.duckdb`:
 
-2. **During queries**:
-   - Reads data directly from S3
-   - No local cache (always up-to-date)
-   - Read-only access
+- Mid-run results are visible in real time — the server reads the same file the SDK writes to
+- The server never touches S3 — instant startup and clean shutdown
+- Run `trackai db pull` to fetch completed runs from S3 that were logged on other machines
 
-3. **On server shutdown**:
-   - No upload required
-   - No hanging or delays
-   - Clean shutdown
+### Why Local-First?
 
-### Why This Architecture?
-
-**Traditional approach** (used by many tools):
-- Download entire database on server start (slow)
-- Upload entire database on server shutdown (slow, may fail)
-- Local cache can become stale
-
-**TrackAI's split approach**:
-- SDK downloads/uploads only when logging (infrequent)
-- Server never downloads/uploads (frequent startups/shutdowns)
-- Server always sees latest data from S3
+The alternative (server reads S3 directly via DuckDB ATTACH) can't show in-progress runs because the SDK writes locally and only syncs to S3 on `finish()`. With local-first, the server reads the same local file, so metrics appear live.
 
 ## Configuration
 
@@ -165,11 +161,10 @@ This creates/updates `~/.trackai/config.json`:
 ```json
 {
   "database": {
-    "storage_type": "s3",
+    "db_path": "~/.trackai/trackai.duckdb",
     "s3_bucket": "my-trackai-experiments",
     "s3_key": "trackai.duckdb",
-    "s3_region": "us-east-1",
-    "local_cache_path": "~/.trackai/trackai.duckdb"
+    "s3_region": "us-east-1"
   }
 }
 ```
@@ -184,90 +179,55 @@ trackai config show
 
 ### Logging Experiments
 
-No code changes needed! Use TrackAI normally:
-
 ```python
 import trackai
 
-# Automatically handles S3 download/upload
+# Minimal — no S3 interaction
 with trackai.init(project="training", config={"lr": 0.001}) as run:
     for epoch in range(100):
         trackai.log({"loss": 0.5}, step=epoch)
 
-# Database uploaded to S3 on context exit
+# With explicit S3 sync
+with trackai.init(project="training", config={"lr": 0.001}, pull=True, push=True) as run:
+    for epoch in range(100):
+        trackai.log({"loss": 0.5}, step=epoch)
 ```
-
-**What happens**:
-1. `init()` downloads database from S3
-2. Training logs to local temp file (fast)
-3. Context exit uploads to S3
-4. Temp file cleaned up
 
 ### Viewing Experiments
 
-Start the server to view experiments:
+Start the server:
 
 ```bash
 trackai server start
 ```
 
-Server reads directly from S3 using DuckDB's HTTPFS extension.
-
-### Multiple Concurrent Experiments
-
-Each experiment downloads, logs locally, and uploads:
-
-```python
-# Experiment 1
-with trackai.init(project="exp1") as run:
-    trackai.log({"loss": 0.5}, step=0)
-# Uploads to S3
-
-# Experiment 2 (sees results from Experiment 1)
-with trackai.init(project="exp2") as run:
-    trackai.log({"loss": 0.4}, step=0)
-# Uploads to S3
-```
-
-TrackAI handles concurrent uploads correctly.
-
-## Manual Sync (Optional)
-
-The SDK automatically syncs, but you can manually sync if needed:
-
-### Upload to S3
+To get the latest runs from S3 first:
 
 ```bash
-trackai db sync --direction upload
+trackai db pull && trackai server start
 ```
 
-### Download from S3
+### Manual CLI Sync
 
 ```bash
-trackai db sync --direction download
+trackai db pull   # Download S3 → ~/.trackai/trackai.duckdb
+trackai db push   # Upload ~/.trackai/trackai.duckdb → S3
 ```
 
-### Sync Both Ways
+**When to `pull`**:
+- Before starting a session to pick up runs from teammates
+- To restore from S3 after a local issue
 
-```bash
-trackai db sync --direction both
-```
-
-**When to use manual sync**:
-- Backup/restore operations
-- Migration between machines
-- Emergency data recovery
-
-**When NOT to use**:
-- Normal SDK usage (automatic)
-- Server operation (read-only from S3)
+**When to `push`**:
+- Manual backup
+- Share a set of local runs with the team without starting a new experiment
 
 ## Migrating to S3
 
 ### From Local to S3
 
 ```bash
-# 1. Backup local database (safety)
+# 1. Backup local database
 trackai db backup --output ~/backups/local-backup.duckdb
 
 # 2. Configure S3
@@ -276,8 +236,8 @@ trackai config s3 \
   --key trackai.duckdb \
   --region us-east-1
 
-# 3. Upload local database to S3
-trackai db sync --direction upload
+# 3. Push to S3
+trackai db push
 
 # 4. Verify
 trackai db info
@@ -286,14 +246,12 @@ trackai db info
 ### From S3 to Local
 
 ```bash
-# 1. Download from S3
-trackai db sync --direction download
+# 1. Pull from S3
+trackai db pull
 
-# 2. Update config to use local storage
-# Edit ~/.trackai/config.json:
+# 2. Remove S3 config — edit ~/.trackai/config.json and delete the s3_* fields:
 {
   "database": {
-    "storage_type": "local",
     "db_path": "~/.trackai/trackai.duckdb"
   }
 }
@@ -304,46 +262,35 @@ trackai db info
 
 ## Best Practices
 
-1. **Use context manager** - Ensures S3 upload happens:
+1. **Use `pull=True` when collaborating** — Pick up teammates' runs before starting:
    ```python
-   with trackai.init(project="p") as run:
-       trackai.log({"loss": 0.5}, step=0)
-   # ✅ Upload guaranteed
+   with trackai.init(project="p", pull=True, push=True) as run:
+       ...
    ```
 
-2. **Set AWS credentials in shell config** - Add to `~/.bashrc`/`~/.zshrc`:
+2. **Use `push=False` for exploratory runs** — Don't pollute shared S3 with every local experiment:
+   ```python
+   with trackai.init(project="p") as run:  # no push
+       ...
+   ```
+
+3. **Set AWS credentials in shell config** — Add to `~/.bashrc`/`~/.zshrc`:
    ```bash
    export AWS_ACCESS_KEY_ID="your-key"
    export AWS_SECRET_ACCESS_KEY="your-secret"
    export AWS_DEFAULT_REGION="us-east-1"
    ```
 
-3. **Use S3 for shared experiments** - Team members can all use same bucket
-
-4. **Monitor S3 costs** - DuckDB files are small, but check usage:
-   ```bash
-   aws s3 ls s3://my-trackai-experiments/ --summarize
-   ```
-
-5. **Backup before migration** - Always backup before switching storage modes
+4. **Backup before migration** — Always backup before switching storage modes.
 
 ## Troubleshooting
 
-### S3 Upload Fails
+### S3 Push/Pull Fails
 
 **Check AWS credentials**:
 
 ```bash
 aws sts get-caller-identity
-```
-
-Expected output:
-```json
-{
-    "UserId": "AIDAXXXXXXXXX",
-    "Account": "123456789012",
-    "Arn": "arn:aws:iam::123456789012:user/your-user"
-}
 ```
 
 **Check bucket permissions**:
@@ -354,10 +301,10 @@ aws s3 ls s3://my-trackai-experiments/
 
 ### Database Not Found in S3
 
-**First upload**:
+Push your local database first:
 
 ```bash
-trackai db sync --direction upload
+trackai db push
 ```
 
 **Verify upload**:
@@ -366,48 +313,33 @@ trackai db sync --direction upload
 aws s3 ls s3://my-trackai-experiments/trackai.duckdb
 ```
 
-### Server Can't Read from S3
+### Dashboard Shows Stale Data
 
-**Check HTTPFS extension**:
-
-Server uses DuckDB HTTPFS extension. If it fails:
-
-1. Check AWS credentials are set
-2. Check bucket/key are correct
-3. Check bucket permissions allow `s3:GetObject`
-
-**Test S3 access**:
+Pull the latest from S3:
 
 ```bash
-aws s3 cp s3://my-trackai-experiments/trackai.duckdb /tmp/test.duckdb
+trackai db pull
+```
+
+### Database Missing Locally
+
+Pull from S3:
+
+```bash
+trackai db pull
 ```
 
 ### Concurrent Upload Conflicts
 
-If multiple experiments finish simultaneously, last-write-wins. To avoid:
-
-```python
-# Use different run names
-with trackai.init(project="p", name="unique-run-1") as run:
-    trackai.log({"loss": 0.5}, step=0)
-
-with trackai.init(project="p", name="unique-run-2") as run:
-    trackai.log({"loss": 0.4}, step=0)
-```
-
-## Advanced: Multi-Region Setup
-
-For team members in different AWS regions:
+If multiple machines push simultaneously, last-write-wins. To avoid data loss, use separate S3 keys per machine:
 
 ```bash
-# US team
-trackai config s3 --bucket trackai-us --key trackai.duckdb --region us-east-1
+# Machine A
+trackai config s3 --bucket my-bucket --key machine-a.duckdb --region us-east-1
 
-# EU team
-trackai config s3 --bucket trackai-eu --key trackai.duckdb --region eu-west-1
+# Machine B
+trackai config s3 --bucket my-bucket --key machine-b.duckdb --region us-east-1
 ```
-
-Use S3 replication to sync buckets (outside TrackAI scope).
 
 ## Cost Estimation
 
@@ -417,14 +349,14 @@ Use S3 replication to sync buckets (outside TrackAI scope).
 - Monthly cost: ~$0.001-$0.002 (negligible)
 
 **Request costs**:
-- SDK upload: 1 PUT per experiment
-- Server reads: Multiple GETs per page load
+- 1 PUT per `push` (run or CLI)
+- 1 GET per `pull` (run or CLI)
 - Typical monthly cost: < $0.01
 
 **Total**: Usually under $1/month for active use.
 
 ## Next Steps
 
-- [CLI Usage](cli_usage.md) - Database sync commands
+- [CLI Usage](cli_usage.md) - Full CLI reference including `pull` and `push`
 - [Python SDK](python_sdk.md) - Using SDK with S3
-- [Context Manager](context_manager.md) - Guaranteed S3 upload
+- [Context Manager](context_manager.md) - Guaranteed S3 push with context manager

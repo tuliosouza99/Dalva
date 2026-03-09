@@ -3,23 +3,25 @@
 import json
 import os
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Optional
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 
 class DatabaseConfig(BaseModel):
-    """Database configuration."""
+    """Database configuration.
 
-    storage_type: Literal["local", "s3"] = "local"
-    mode: Literal["logging", "visualization", "auto"] = "auto"
+    The database always lives at ``db_path`` on the local filesystem.
+    ``s3_bucket`` / ``s3_key`` / ``s3_region`` are optional — when set they
+    enable ``trackai db pull`` / ``trackai db push`` and the ``pull``/``push``
+    flags on ``trackai.init()``.
+    """
+
     db_path: str = str(Path.home() / ".trackai" / "trackai.duckdb")
     s3_bucket: Optional[str] = None
     s3_key: str = "trackai.duckdb"
     s3_region: str = "us-east-1"
-    local_cache_path: str = str(Path.home() / ".trackai" / "cache.duckdb")
-    sync_interval: int = 300  # seconds
 
 
 class TrackAIConfig(BaseModel):
@@ -60,11 +62,6 @@ def load_config() -> TrackAIConfig:
             print("Using default configuration")
 
     # Override with environment variables
-    if os.getenv("TRACKAI_STORAGE_TYPE"):
-        storage_type = os.getenv("TRACKAI_STORAGE_TYPE")
-        if storage_type in ["local", "s3"]:
-            config.database.storage_type = storage_type  # type: ignore
-
     if os.getenv("TRACKAI_DB_PATH"):
         config.database.db_path = os.getenv("TRACKAI_DB_PATH")  # type: ignore
 
@@ -106,15 +103,17 @@ def update_s3_config(
     bucket: str, key: str = "trackai.duckdb", region: str = "us-east-1"
 ) -> None:
     """
-    Update S3 configuration and switch to S3 storage mode.
+    Save S3 credentials to config.
+
+    Once set, ``trackai db pull`` / ``trackai db push`` and the ``pull``/
+    ``push`` flags on ``trackai.init()`` become available.
 
     Args:
         bucket: S3 bucket name
-        key: S3 object key (path where the database file will be stored within the bucket)
+        key: S3 object key (path where the database file will be stored)
         region: AWS region
     """
     config = load_config()
-    config.database.storage_type = "s3"
     config.database.s3_bucket = bucket
     config.database.s3_key = key
     config.database.s3_region = region

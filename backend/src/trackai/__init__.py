@@ -19,6 +19,8 @@ def init(
     group: Optional[str] = None,
     config: Optional[dict] = None,
     resume: str = "never",
+    pull: bool = False,
+    push: bool = False,
     **kwargs,
 ) -> Run:
     """
@@ -30,6 +32,10 @@ def init(
         group: Optional group name for organizing runs
         config: Optional configuration dictionary
         resume: Resume mode ("never", "allow", "must")
+        pull: If True, download the database from S3 before starting the run.
+              Requires S3 to be configured (``trackai config s3``).
+        push: If True, upload the database to S3 after the run finishes.
+              Requires S3 to be configured (``trackai config s3``).
         **kwargs: Additional arguments (for compatibility with trackio)
 
     Returns:
@@ -49,6 +55,8 @@ def init(
         group=group,
         config=config,
         resume=resume,
+        pull=pull,
+        push=push,
         **kwargs,
     )
 

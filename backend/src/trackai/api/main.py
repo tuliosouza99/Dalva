@@ -1,6 +1,7 @@
 """FastAPI application for TrackAI."""
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
@@ -26,16 +27,16 @@ async def lifespan(app: FastAPI):
     """Handle application startup and shutdown."""
     config = load_config()
 
-    if config.database.storage_type == "s3":
-        print("S3 storage mode enabled - using READ-ONLY access")
-        print(f"Reading from: s3://{config.database.s3_bucket}/{config.database.s3_key}")
+    if config.database.s3_bucket:
+        db_path = Path(config.database.db_path).expanduser()
+        print(f"S3 configured — dashboard reads from: {db_path}")
+        print("Use 'trackai db pull' to fetch the latest data from S3.")
 
-    # Initialize database (will ATTACH S3 in read-only mode for visualization)
+    # Initialize database
     init_db()
 
     yield
 
-    # No sync needed in visualization mode
     print("Server shutdown complete")
 
 

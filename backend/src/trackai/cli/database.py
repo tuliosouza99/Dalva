@@ -14,7 +14,37 @@ from trackai.migration.sqlite_to_duckdb import (
     check_sqlite_exists,
     migrate_sqlite_to_duckdb,
 )
-from trackai.s3.sync import sync_to_s3
+from trackai.s3.sync import sync_from_s3, sync_to_s3
+
+
+def _require_s3(config) -> None:
+    """Exit with a clear error message if S3 is not configured."""
+    if not config.database.s3_bucket:
+        click.echo(
+            click.style(
+                "S3 not configured. Run 'trackai config s3 --bucket <name>' first.",
+                fg="red",
+            ),
+            err=True,
+        )
+        sys.exit(1)
+
+
+def _require_s3_credentials() -> None:
+    """Exit with a clear error message if AWS credentials are missing."""
+    from trackai.s3.sync import validate_s3_credentials
+
+    if not validate_s3_credentials():
+        click.echo(
+            click.style("AWS credentials not found or invalid.", fg="red"),
+            err=True,
+        )
+        click.echo(
+            "Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_DEFAULT_REGION "
+            "(or store them in ~/.trackai/.env).",
+            err=True,
+        )
+        sys.exit(1)
 
 
 @click.group(name="db")
@@ -27,32 +57,23 @@ def db():
 def info():
     """Show database statistics."""
     config = load_config()
+    db_path = Path(config.database.db_path).expanduser()
 
     click.echo(click.style("Database Information", fg="blue", bold=True))
-    click.echo(f"\nStorage Type: {config.database.storage_type}")
-    click.echo(f"Mode: {config.database.mode}")
+    click.echo(f"\nDatabase Path: {db_path}")
 
-    if config.database.storage_type == "local":
-        db_path = Path(config.database.db_path).expanduser()
-        click.echo(f"Database Path: {db_path}")
+    if config.database.s3_bucket:
+        click.echo(f"S3 Bucket:     {config.database.s3_bucket}")
+        click.echo(f"S3 Key:        {config.database.s3_key}")
+        click.echo(f"S3 Region:     {config.database.s3_region}")
 
-        if not db_path.exists():
-            click.echo(click.style("\nDatabase does not exist yet.", fg="yellow"))
-            return
-    else:
-        click.echo(f"S3 Bucket: {config.database.s3_bucket}")
-        click.echo(f"S3 Key: {config.database.s3_key}")
-        click.echo(f"S3 Region: {config.database.s3_region}")
-        db_path = Path(config.database.local_cache_path).expanduser()
-        click.echo(f"Local Cache: {db_path}")
-
-        if not db_path.exists():
-            click.echo(click.style("\nLocal cache does not exist yet.", fg="yellow"))
-            return
+    if not db_path.exists():
+        click.echo(click.style("\nDatabase does not exist yet.", fg="yellow"))
+        return
 
     # Show file size
     file_size_mb = db_path.stat().st_size / (1024 * 1024)
-    click.echo(f"File Size: {file_size_mb:.2f} MB")
+    click.echo(f"File Size:     {file_size_mb:.2f} MB")
 
     # Connect and show table statistics
     engine = create_engine(get_db_url())
@@ -113,11 +134,7 @@ def migrate(sqlite_path, duckdb_path, yes):
     # Use config path if not provided
     if duckdb_path is None:
         config = load_config()
-        duckdb_path = (
-            config.database.db_path
-            if config.database.storage_type == "local"
-            else config.database.local_cache_path
-        )
+        duckdb_path = config.database.db_path
 
     click.echo(click.style("Migrating SQLite to DuckDB", fg="blue", bold=True))
     click.echo(f"\nSource (SQLite): {sqlite_path}")
@@ -146,11 +163,7 @@ def migrate(sqlite_path, duckdb_path, yes):
 def backup(output):
     """Create a backup of the database."""
     config = load_config()
-
-    if config.database.storage_type == "local":
-        source_path = Path(config.database.db_path).expanduser()
-    else:
-        source_path = Path(config.database.local_cache_path).expanduser()
+    source_path = Path(config.database.db_path).expanduser()
 
     if not source_path.exists():
         click.echo(click.style("Database does not exist", fg="red"), err=True)
@@ -175,11 +188,7 @@ def backup(output):
 def reset():
     """Delete the database (requires confirmation)."""
     config = load_config()
-
-    if config.database.storage_type == "local":
-        db_path = Path(config.database.db_path).expanduser()
-    else:
-        db_path = Path(config.database.local_cache_path).expanduser()
+    db_path = Path(config.database.db_path).expanduser()
 
     if db_path.exists():
         db_path.unlink()
@@ -189,38 +198,40 @@ def reset():
 
 
 @db.command()
-@click.option(
-    "--direction",
-    type=click.Choice(["upload", "download", "both"]),
-    default="upload",
-    help="Sync direction (default: upload)",
-)
-def sync(direction):
-    """Sync local database to/from S3."""
-    from trackai.s3.sync import sync_from_s3
-
+def pull():
+    """Download the database from S3 to ~/.trackai/trackai.duckdb."""
     config = load_config()
+    _require_s3(config)
+    _require_s3_credentials()
 
-    if config.database.storage_type != "s3":
-        click.echo(
-            click.style(
-                "S3 storage not configured. Use 'trackai config s3' to configure.",
-                fg="yellow",
-            )
-        )
+    local_path = Path(config.database.db_path).expanduser()
+
+    try:
+        click.echo(f"Downloading from S3 → {local_path} ...")
+        sync_from_s3(destination=local_path)
+        click.echo(click.style("✓ Successfully pulled from S3!", fg="green"))
+    except Exception as e:
+        click.echo(click.style(f"✗ Pull failed: {e}", fg="red"), err=True)
+        sys.exit(1)
+
+
+@db.command()
+def push():
+    """Upload ~/.trackai/trackai.duckdb to S3."""
+    config = load_config()
+    _require_s3(config)
+    _require_s3_credentials()
+
+    local_path = Path(config.database.db_path).expanduser()
+
+    if not local_path.exists():
+        click.echo(click.style("Database does not exist locally.", fg="red"), err=True)
         sys.exit(1)
 
     try:
-        if direction in ["download", "both"]:
-            click.echo("Downloading from S3...")
-            sync_from_s3()
-            click.echo(click.style("✓ Successfully downloaded from S3!", fg="green"))
-
-        if direction in ["upload", "both"]:
-            click.echo("Uploading to S3...")
-            sync_to_s3()
-            click.echo(click.style("✓ Successfully uploaded to S3!", fg="green"))
-
+        click.echo(f"Uploading {local_path} → S3 ...")
+        sync_to_s3(source=local_path)
+        click.echo(click.style("✓ Successfully pushed to S3!", fg="green"))
     except Exception as e:
-        click.echo(click.style(f"✗ Sync failed: {e}", fg="red"), err=True)
+        click.echo(click.style(f"✗ Push failed: {e}", fg="red"), err=True)
         sys.exit(1)

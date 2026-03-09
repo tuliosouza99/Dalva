@@ -1,6 +1,5 @@
 """S3 sync operations for TrackAI database."""
 
-from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
@@ -19,34 +18,56 @@ def sync_to_s3(source: Path | None = None) -> None:
     Raises:
         ValueError: If S3 storage is not configured
         ClientError: If S3 upload fails
+        RuntimeError: If upload verification fails
     """
     config = load_config()
 
-    if config.database.storage_type != "s3":
+    if not config.database.s3_bucket:
         raise ValueError(
-            "S3 storage not configured. Use 'trackai config s3' to configure."
+            "S3 bucket not configured. Run 'trackai config s3 --bucket <name>' first."
         )
 
-    if not config.database.s3_bucket:
-        raise ValueError("S3 bucket not configured")
-
     if source is None:
-        source = Path(config.database.local_cache_path).expanduser()
+        source = Path(config.database.db_path).expanduser()
     else:
         source = Path(source).expanduser()
 
     if not source.exists():
         raise FileNotFoundError(f"Local database file not found: {source}")
 
+    # Get local file size for verification
+    local_size = source.stat().st_size
+    if local_size == 0:
+        raise ValueError(f"Source database file is empty: {source}")
+
     s3_client = boto3.client("s3")
 
     try:
+        # Upload the file
         s3_client.upload_file(
             str(source), config.database.s3_bucket, config.database.s3_key
         )
         print(
             f"Successfully uploaded to s3://{config.database.s3_bucket}/{config.database.s3_key}"
         )
+
+        # VERIFY the upload
+        print("Verifying S3 upload...")
+        response = s3_client.head_object(
+            Bucket=config.database.s3_bucket,
+            Key=config.database.s3_key
+        )
+        s3_size = response["ContentLength"]
+
+        if s3_size != local_size:
+            raise RuntimeError(
+                f"Upload verification failed! "
+                f"Local file size: {local_size} bytes, "
+                f"S3 file size: {s3_size} bytes"
+            )
+
+        print(f"✓ Upload verified: {local_size} bytes")
+
     except ClientError as e:
         print(f"Failed to upload to S3: {e}")
         raise
@@ -64,16 +85,15 @@ def sync_from_s3(destination: Path | None = None) -> None:
     """
     config = load_config()
 
-    if config.database.storage_type != "s3":
-        return
-
     if not config.database.s3_bucket:
-        raise ValueError("S3 bucket not configured")
+        raise ValueError(
+            "S3 bucket not configured. Run 'trackai config s3 --bucket <name>' first."
+        )
 
     s3_client = boto3.client("s3")
 
     if destination is None:
-        destination = Path(config.database.local_cache_path).expanduser()
+        destination = Path(config.database.db_path).expanduser()
     else:
         destination = Path(destination).expanduser()
 
@@ -93,34 +113,6 @@ def sync_from_s3(destination: Path | None = None) -> None:
             print(f"Failed to download from S3: {e}")
             raise
 
-
-def check_s3_version_newer() -> bool:
-    """
-    Check if S3 version is newer than local cache.
-
-    Returns:
-        True if S3 version is newer, False otherwise
-    """
-    config = load_config()
-    local_path = Path(config.database.local_cache_path).expanduser()
-
-    if not local_path.exists():
-        return True
-
-    local_mtime = datetime.fromtimestamp(local_path.stat().st_mtime, tz=timezone.utc)
-
-    s3_client = boto3.client("s3")
-    try:
-        response = s3_client.head_object(
-            Bucket=config.database.s3_bucket, Key=config.database.s3_key
-        )
-        s3_mtime = response["LastModified"]
-
-        return s3_mtime > local_mtime
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "404":
-            return False
-        raise
 
 
 def validate_s3_credentials() -> bool:

@@ -1,11 +1,13 @@
 # Init Command
 
-Initialize TrackAI (first-time setup).
+> **Removed.** `trackai init` no longer exists.
 
-## Command
+First-time S3 setup is done with [`trackai config s3`](config.md):
 
-### trackai init
+```bash
+trackai config s3 --bucket my-bucket --key trackai.duckdb --region us-east-1
+```
 
-Creates configuration directory and initializes database location.
+The database (`~/.trackai/trackai.duckdb`) is created automatically the first time the server starts or an experiment is logged.
 
-See the [CLI Usage Guide](../../getting_started/cli_usage.md) for complete documentation.
+See the [CLI Usage Guide](../../getting_started/cli_usage.md) for details.

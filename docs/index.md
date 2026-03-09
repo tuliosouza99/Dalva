@@ -129,12 +129,13 @@ Runs support three resume modes for checkpoint recovery:
 - `resume="allow"` - Resume if exists, otherwise create new
 - `resume="must"` - Must resume existing run or fail
 
-### S3 Split Architecture
+### S3 Local-First Architecture
 
-When S3 storage is configured, TrackAI uses a unique split architecture:
+When S3 storage is configured, TrackAI uses a local-first architecture:
 
-- **SDK (logging)**: Downloads database on `init()`, uploads on `finish()` for fast local writes
-- **Server (visualization)**: Uses DuckDB ATTACH for read-only S3 access (no downloads, instant startup)
+- **SDK (logging)**: Downloads database on `init()`, writes locally during training, uploads on `finish()`
+- **Server (dashboard)**: Always reads from `~/.trackai/trackai.duckdb` — mid-run metrics visible in real time
+- **Manual sync**: `trackai db pull` / `trackai db push` to sync with S3 on demand (requires `trackai config s3`)
 
 ## Architecture
 

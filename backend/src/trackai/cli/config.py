@@ -54,7 +54,7 @@ def s3(bucket, key, region):
     )
     click.echo("\nNext steps:")
     click.echo("  1. Run 'trackai db migrate' if you have existing SQLite data")
-    click.echo("  2. Run 'trackai db sync' to upload your database to S3")
+    click.echo("  2. Run 'trackai db push' to upload your local database to S3")
     click.echo("  3. Run 'trackai server start' to start the server")
 
 
@@ -80,7 +80,6 @@ def show():
     import os
 
     env_vars = [
-        "TRACKAI_STORAGE_TYPE",
         "TRACKAI_DB_PATH",
         "TRACKAI_S3_BUCKET",
         "TRACKAI_S3_KEY",

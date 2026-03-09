@@ -102,7 +102,6 @@ trackai db info
 Database Information
 
 Storage Type: local
-Mode: auto
 Database Path: /Users/you/.trackai/trackai.duckdb
 File Size: 12.45 MB
 
@@ -180,22 +179,28 @@ trackai db migrate \
 - Migrates all tables (projects, runs, metrics, etc.)
 - Preserves all data and relationships
 
-### `trackai db sync`
+### `trackai db pull`
 
-Sync database with S3:
+Download the database from S3 to `~/.trackai/trackai.duckdb`:
 
 ```bash
-# Upload to S3 (default)
-trackai db sync
+trackai db pull
+```
 
-# Explicitly specify direction
-trackai db sync --direction upload
+**Requirements**:
+- S3 storage must be configured (`trackai config s3`)
+- AWS credentials must be set
 
-# Download from S3
-trackai db sync --direction download
+**When to use**:
+- Pick up runs logged on other machines before starting the dashboard
+- Restore from S3 after a local issue
 
-# Sync both ways
-trackai db sync --direction both
+### `trackai db push`
+
+Upload `~/.trackai/trackai.duckdb` to S3:
+
+```bash
+trackai db push
 ```
 
 **Requirements**:
@@ -204,10 +209,9 @@ trackai db sync --direction both
 
 **When to use**:
 - Manual backup to S3
-- Restore from S3
-- Sync after batch updates
+- Share local runs with teammates without starting a new experiment
 
-**Note**: SDK automatically downloads on `init()` and uploads on `finish()`, so manual sync is usually not needed.
+**Note**: You can also trigger pull/push per run using the `pull=True` and `push=True` flags on `trackai.init()`. See [S3 Storage](s3_storage.md) for details.
 
 ## Configuration Commands
 
@@ -254,31 +258,14 @@ TrackAI Configuration
 
 Database:
   Storage Type: s3
-  Mode: auto
   Local DB Path: /Users/you/.trackai/trackai.duckdb
 
 S3 Settings:
   Bucket: my-trackai-experiments
   Key: trackai.duckdb
   Region: us-east-1
-  Local Cache: /Users/you/.trackai/trackai.duckdb
+  Database Path: /Users/you/.trackai/trackai.duckdb
 ```
-
-## Init Command
-
-### `trackai init`
-
-Initialize TrackAI (first-time setup):
-
-```bash
-trackai init
-```
-
-**What it does**:
-- Creates `~/.trackai/` directory
-- Initializes configuration file
-- Sets up database location
-- Validates installation
 
 ## Common Workflows
 
@@ -330,8 +317,8 @@ trackai config s3 \
   --key trackai.duckdb \
   --region us-east-1
 
-# 4. Upload current database
-trackai db sync --direction upload
+# 4. Upload current database to S3
+trackai db push
 
 # 5. Verify configuration
 trackai config show
@@ -379,13 +366,7 @@ trackai server start --port 8080
 
 ### Database Not Found
 
-Initialize TrackAI:
-
-```bash
-trackai init
-```
-
-### S3 Upload Fails
+### S3 Push/Pull Fails
 
 Check AWS credentials:
 

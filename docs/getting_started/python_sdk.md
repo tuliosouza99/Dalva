@@ -221,14 +221,21 @@ with trackai.init(project="my-project") as run:
 # Automatically finished on context exit
 ```
 
-### Finish with S3 Upload
+### Finish with S3 Push
 
-If S3 storage is configured, `finish()` automatically uploads the database:
+If S3 storage is configured, pass `push=True` to upload the database to S3 on finish:
 
 ```python
-with trackai.init(project="my-project") as run:
+with trackai.init(project="my-project", push=True) as run:
     trackai.log({"loss": 0.5}, step=0)
-# Context exit triggers S3 upload
+# Context exit triggers S3 push (because push=True)
+```
+
+Use `pull=True` to download from S3 before the run starts:
+
+```python
+with trackai.init(project="my-project", pull=True, push=True) as run:
+    trackai.log({"loss": 0.5}, step=0)
 ```
 
 ## Resume Support

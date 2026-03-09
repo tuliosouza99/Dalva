@@ -1,7 +1,6 @@
 """Server management commands."""
 
 import os
-import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -41,9 +40,7 @@ def start(port, host, reload):
     # Check if in development mode
     if not is_development_mode():
         click.echo(
-            click.style(
-                "\nRunning in production mode (installed package)", fg="blue"
-            )
+            click.style("\nRunning in production mode (installed package)", fg="blue")
         )
         click.echo(
             click.style(
@@ -54,9 +51,7 @@ def start(port, host, reload):
         backend_dir = Path(__file__).parent.parent.parent.parent
     else:
         click.echo(
-            click.style(
-                "\nRunning in development mode (source repository)", fg="blue"
-            )
+            click.style("\nRunning in development mode (source repository)", fg="blue")
         )
         # Build frontend in dev mode
         frontend_dir = get_frontend_dir()
@@ -92,7 +87,7 @@ def start(port, host, reload):
 
     click.echo(click.style("\nTrackAI is running!", fg="blue", bold=True))
     click.echo(
-        f"Access the app at: {click.style('http://localhost:{port}', fg='yellow')}"
+        f"Access the app at: {click.style(f'http://localhost:{port}', fg='yellow')}"
     )
     click.echo(click.style("\nPress Ctrl+C to stop the server\n", fg="red"))
 

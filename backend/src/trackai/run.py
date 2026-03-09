@@ -1,8 +1,5 @@
 """Run class for experiment tracking."""
 
-import os
-import shutil
-import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -12,6 +9,17 @@ from trackai.db.connection import init_db
 from trackai.db.schema import Run as DBRun
 from trackai.s3.sync import sync_from_s3, sync_to_s3
 from trackai.services.logger import LoggingService
+
+
+def _require_s3_config(action: str) -> None:
+    """Raise a clear error if S3 is not configured."""
+    config = load_config()
+    if not config.database.s3_bucket:
+        raise ValueError(
+            f"{action} requires S3 to be configured. "
+            "Run 'trackai config s3 --bucket <name>' first and make sure your "
+            "AWS credentials are set (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY)."
+        )
 
 
 class Run:
@@ -28,6 +36,8 @@ class Run:
         group: Optional[str] = None,
         config: Optional[dict] = None,
         resume: str = "never",
+        pull: bool = False,
+        push: bool = False,
         **kwargs,
     ):
         """
@@ -39,6 +49,11 @@ class Run:
             group: Optional group name for organizing runs
             config: Optional configuration dictionary
             resume: Resume mode ("never", "allow", "must")
+            pull: If True, download the database from S3 before starting.
+                  Requires S3 to be configured (``trackai config s3``).
+                  Useful to pick up runs logged on other machines.
+            push: If True, upload the database to S3 when the run finishes.
+                  Requires S3 to be configured (``trackai config s3``).
             **kwargs: Additional arguments (for compatibility)
         """
         self.project_name = project
@@ -46,26 +61,24 @@ class Run:
         self.group_name = group
         self.config = config or {}
         self._step_counter = 0
-        self._temp_db_path = None
+        self._push = push
 
-        # Handle S3 download for logging mode
         db_config = load_config()
-        if db_config.database.storage_type == "s3":
-            # In logging mode, download DB from S3 to temp location
-            self._temp_db_path = Path(tempfile.mkdtemp()) / "trackai.duckdb"
-            print("Downloading database from S3...")
-            try:
-                sync_from_s3(destination=self._temp_db_path)
-                print(f"✓ Downloaded database to {self._temp_db_path}")
-            except Exception as e:
-                print(f"Note: Could not download from S3: {e}")
-                print("Starting with empty database")
 
-            # Override db connection to use temp file
-            os.environ["TRACKAI_DB_PATH"] = str(self._temp_db_path)
+        # Optional S3 pull before starting
+        if pull:
+            _require_s3_config("pull=True")
+            db_path = Path(db_config.database.db_path).expanduser()
+            print(f"Pulling database from S3 → {db_path} ...")
+            sync_from_s3(destination=db_path)
+            print("✓ Pull complete")
 
-            # Initialize database with temp path
-            init_db(str(self._temp_db_path))
+        # Validate push config eagerly so we fail fast, not at finish()
+        if push:
+            _require_s3_config("push=True")
+
+        # Ensure database and tables exist
+        init_db()
 
         # Initialize logging service
         self._logger = LoggingService()
@@ -114,7 +127,7 @@ class Run:
         self._logger.log_metrics(
             run_id=self.run_id,
             metrics=metrics,
-            step=None,  # System metrics don't have steps
+            step=None,
             timestamp=datetime.utcnow(),
         )
 
@@ -123,21 +136,13 @@ class Run:
         self._logger.finish_run(self.run_id)
         self._logger.close()
 
-        # Auto-sync to S3 if configured
-        try:
+        # Optional S3 push after finishing
+        if self._push:
             db_config = load_config()
-            if db_config.database.storage_type == "s3" and self._temp_db_path:
-                print("Uploading database to S3...")
-                sync_to_s3(source=self._temp_db_path)
-                print("✓ Uploaded to S3")
-
-                # Cleanup temp file
-                if self._temp_db_path.exists():
-                    # Remove the temp directory and all its contents
-                    shutil.rmtree(self._temp_db_path.parent, ignore_errors=True)
-                    print("✓ Cleaned up temp files")
-        except Exception as e:
-            print(f"Warning: Failed to sync to S3: {e}")
+            db_path = Path(db_config.database.db_path).expanduser()
+            print(f"Pushing database to S3 ← {db_path} ...")
+            sync_to_s3(source=db_path)
+            print("✓ Push complete")
 
     def __enter__(self):
         """Context manager entry."""
@@ -146,21 +151,13 @@ class Run:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit - automatically finish the run."""
         if exc_type is None:
-            # No exception, mark as completed
             self.finish()
         else:
-            # Exception occurred, mark as failed
             run = self._logger.db.query(DBRun).filter(DBRun.id == self.run_id).first()
             if run:
                 run.state = "failed"
                 self._logger.db.commit()
             self._logger.close()
-
-            # Cleanup temp files even on failure
-            db_config = load_config()
-            if db_config.database.storage_type == "s3" and self._temp_db_path:
-                if self._temp_db_path.exists():
-                    shutil.rmtree(self._temp_db_path.parent, ignore_errors=True)
         return False
 
     def __repr__(self):

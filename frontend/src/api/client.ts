@@ -71,6 +71,31 @@ export interface CustomViewCreate {
   sort_by?: string | null;
 }
 
+export interface S3Config {
+  bucket: string | null;
+  key: string;
+  region: string;
+}
+
+export interface S3ConfigUpdate {
+  bucket: string;
+  key?: string;
+  region?: string;
+}
+
+export interface S3Status {
+  configured: boolean;
+  credentials_valid: boolean;
+  bucket: string | null;
+  key: string | null;
+  region: string | null;
+}
+
+export interface OperationResult {
+  success: boolean;
+  message: string;
+}
+
 // API Client
 const apiClient = axios.create({
   baseURL: '/api',
@@ -173,6 +198,32 @@ export const api = {
 
   deleteRun: async (runId: number): Promise<void> => {
     await apiClient.delete(`/runs/${runId}`);
+  },
+
+  // S3
+  getS3Status: async (): Promise<S3Status> => {
+    const { data } = await apiClient.get('/s3/status');
+    return data;
+  },
+
+  getS3Config: async (): Promise<S3Config> => {
+    const { data } = await apiClient.get('/s3/config');
+    return data;
+  },
+
+  updateS3Config: async (config: S3ConfigUpdate): Promise<OperationResult> => {
+    const { data } = await apiClient.post('/s3/config', config);
+    return data;
+  },
+
+  pullFromS3: async (): Promise<OperationResult> => {
+    const { data } = await apiClient.post('/s3/pull');
+    return data;
+  },
+
+  pushToS3: async (): Promise<OperationResult> => {
+    const { data } = await apiClient.post('/s3/push');
+    return data;
   },
 };
 
@@ -334,5 +385,49 @@ export function useDeleteRun() {
       queryClient.invalidateQueries({ queryKey: ['runs'] });
       queryClient.removeQueries({ queryKey: ['runs', runId] });
     },
+  });
+}
+
+// S3 Hooks
+export function useS3Status(options?: Omit<UseQueryOptions<S3Status, Error>, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['s3', 'status'],
+    queryFn: api.getS3Status,
+    ...options,
+  });
+}
+
+export function useS3Config(options?: Omit<UseQueryOptions<S3Config, Error>, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['s3', 'config'],
+    queryFn: api.getS3Config,
+    ...options,
+  });
+}
+
+export function useUpdateS3Config() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (config: S3ConfigUpdate) => api.updateS3Config(config),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['s3'] });
+    },
+  });
+}
+
+export function usePullFromS3() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.pullFromS3,
+    onSuccess: () => {
+      // Invalidate all queries to refresh with new data
+      queryClient.invalidateQueries();
+    },
+  });
+}
+
+export function usePushToS3() {
+  return useMutation({
+    mutationFn: api.pushToS3,
   });
 }

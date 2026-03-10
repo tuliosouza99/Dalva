@@ -144,9 +144,15 @@ export default function VirtualRunsTable({
       label: 'Run ID',
       width: '150px',
       render: (run) => (
-        <span className="text-sm font-medium text-primary-600 font-mono">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/runs/${run.id}`);
+          }}
+          className="text-sm font-medium text-primary-600 font-mono hover:text-primary-800 hover:underline cursor-pointer"
+        >
           {run.run_id}
-        </span>
+        </button>
       ),
     },
     {
@@ -217,9 +223,15 @@ export default function VirtualRunsTable({
           label: 'Run ID',
           width: '150px',
           render: (run) => (
-            <span className="text-sm font-medium text-primary-600 font-mono">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/runs/${run.id}`);
+              }}
+              className="text-sm font-medium text-primary-600 font-mono hover:text-primary-800 hover:underline cursor-pointer"
+            >
               {run.run_id}
-            </span>
+            </button>
           ),
         },
         {
@@ -402,14 +414,13 @@ export default function VirtualRunsTable({
                 key={virtualRow.index}
                 className={`absolute top-0 left-0 w-full flex items-center ${
                   !isLoaderRow
-                    ? 'hover:bg-gray-50 cursor-pointer border-b border-gray-200'
+                    ? 'hover:bg-gray-50 border-b border-gray-200'
                     : ''
                 }`}
                 style={{
                   height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
-                onClick={() => !isLoaderRow && navigate(`/runs/${run.id}`)}
               >
                 {isLoaderRow ? (
                   <div className="w-full px-6 py-4 text-center text-sm text-gray-500">

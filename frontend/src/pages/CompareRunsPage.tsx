@@ -1,13 +1,12 @@
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
-import { useRun, useRunSummary } from '../api/client';
+import { useRun, useRunSummary, useRunMetrics, useMetricValues } from '../api/client';
 import { MultiMetricChart } from '../components/Charts';
 
 export default function CompareRunsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [highlightDifferences, setHighlightDifferences] = useState(true);
-  const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
+  const [expandedMetrics, setExpandedMetrics] = useState<Set<string>>(new Set());
 
   // Get run IDs from query params (e.g., ?runs=1,2,3)
   const runIds = useMemo(() => {
@@ -23,55 +22,45 @@ export default function CompareRunsPage() {
     run: useRun(runId),
     // eslint-disable-next-line react-hooks/rules-of-hooks
     summary: useRunSummary(runId),
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    metricNames: useRunMetrics(runId),
   }));
 
   const isLoading = runsData.some((r) => r.run.isLoading || r.summary.isLoading);
   const error = runsData.find((r) => r.run.error || r.summary.error);
 
-  // Get all unique metric keys across all runs
-  const allMetricKeys = useMemo(() => {
-    const keysSet = new Set<string>();
+  // Get all unique metric names across all runs
+  const allMetricNames = useMemo(() => {
+    const namesSet = new Set<string>();
     runsData.forEach((r) => {
-      if (r.summary.data) {
-        Object.keys(r.summary.data).forEach((key) => keysSet.add(key));
+      if (r.metricNames.data) {
+        r.metricNames.data.forEach((name: string) => namesSet.add(name));
       }
     });
-    return Array.from(keysSet).sort();
+    return Array.from(namesSet).sort();
   }, [runsData]);
 
-  // Check if a value differs across runs
-  const isDifferent = (key: string) => {
-    const values = runsData.map((r) => r.summary.data?.[key]);
-    const uniqueValues = new Set(values.map((v) => JSON.stringify(v)));
-    return uniqueValues.size > 1;
+  const toggleMetric = (metricPath: string) => {
+    setExpandedMetrics((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(metricPath)) {
+        newSet.delete(metricPath);
+      } else {
+        newSet.add(metricPath);
+      }
+      return newSet;
+    });
   };
 
-  // Export to CSV
-  const exportToCSV = () => {
-    const headers = ['Metric', ...runsData.map((r) => r.run.data?.run_id || `Run ${r.runId}`)];
-    const rows = allMetricKeys.map((key) => [
-      key,
-      ...runsData.map((r) => {
-        const value = r.summary.data?.[key];
-        return typeof value === 'number' ? value.toFixed(6) : String(value ?? '');
-      }),
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.join(',')),
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `runs_comparison_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const expandAll = () => {
+    setExpandedMetrics(new Set(allMetricNames));
   };
+
+  const collapseAll = () => {
+    setExpandedMetrics(new Set());
+  };
+
+  const allExpanded = expandedMetrics.size === allMetricNames.length && allMetricNames.length > 0;
 
   if (runIds.length === 0) {
     return (
@@ -120,6 +109,8 @@ export default function CompareRunsPage() {
     );
   }
 
+  const runNames = runsData.map((r) => r.run.data?.run_id || `Run ${r.runId}`);
+
   return (
     <div className="p-8">
       {/* Header */}
@@ -131,30 +122,15 @@ export default function CompareRunsPage() {
               Comparing {runIds.length} {runIds.length === 1 ? 'run' : 'runs'}
             </p>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setHighlightDifferences(!highlightDifferences)}
-              className={`px-4 py-2 text-sm rounded-md transition-colors ${
-                highlightDifferences
-                  ? 'bg-primary-100 text-primary-700 border border-primary-300'
-                  : 'bg-gray-100 text-gray-700 border border-gray-300'
-              }`}
-            >
-              {highlightDifferences ? '✓ ' : ''}Highlight Differences
-            </button>
-            <button onClick={exportToCSV} className="btn-secondary text-sm">
-              Export CSV
-            </button>
-            <button onClick={() => navigate(-1)} className="btn-secondary text-sm">
-              Back
-            </button>
-          </div>
+          <button onClick={() => navigate(-1)} className="btn-secondary text-sm">
+            Back
+          </button>
         </div>
       </div>
 
       {/* Run Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {runsData.map(({ runId, run, summary }) => (
+        {runsData.map(({ runId, run, metricNames }) => (
           <div key={runId} className="card">
             <div className="flex items-start justify-between mb-2">
               <h3 className="text-lg font-semibold text-gray-900 truncate">
@@ -177,105 +153,253 @@ export default function CompareRunsPage() {
               <p className="text-sm text-gray-600">Group: {run.data.group_name}</p>
             )}
             <p className="text-xs text-gray-500 mt-2">
-              {summary.data ? Object.keys(summary.data).length : 0} metrics
+              {metricNames.data?.length || 0} metrics
             </p>
           </div>
         ))}
       </div>
 
-      {/* Comparison Table */}
-      <div className="card mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Metrics Comparison</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
-                  Metric
-                </th>
-                {runsData.map(({ runId, run }) => (
-                  <th
-                    key={runId}
-                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    <div className="truncate max-w-xs" title={run.data?.run_id}>
-                      {run.data?.run_id}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {allMetricKeys.map((key) => {
-                const different = isDifferent(key);
-                const shouldHighlight = highlightDifferences && different;
+      {/* Metrics Comparison */}
+      {allMetricNames.length === 0 ? (
+        <div className="card text-center py-12">
+          <svg
+            className="w-16 h-16 text-gray-300 mx-auto mb-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+            />
+          </svg>
+          <p className="text-gray-500 text-lg">No metrics found</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Header with Expand/Collapse All */}
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-gray-600">
+              {allMetricNames.length} metric{allMetricNames.length !== 1 ? 's' : ''} available
+            </p>
+            <button
+              onClick={allExpanded ? collapseAll : expandAll}
+              className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+            >
+              {allExpanded ? 'Collapse All' : 'Expand All'}
+            </button>
+          </div>
 
-                return (
-                  <tr
-                    key={key}
-                    className={shouldHighlight ? 'bg-yellow-50' : 'hover:bg-gray-50'}
+          {/* Metrics List */}
+          <div className="space-y-2">
+            {allMetricNames.map((metricPath) => {
+              const isExpanded = expandedMetrics.has(metricPath);
+              
+              return (
+                <div key={metricPath} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Collapsed Header */}
+                  <button
+                    onClick={() => toggleMetric(metricPath)}
+                    className="w-full px-6 py-4 bg-white hover:bg-gray-50 transition-colors flex items-center justify-between"
                   >
-                    <td className="px-4 py-3 text-sm font-mono text-gray-900 sticky left-0 bg-inherit">
-                      <button
-                        onClick={() => {
-                          if (selectedMetrics.includes(key)) {
-                            setSelectedMetrics(selectedMetrics.filter((m) => m !== key));
-                          } else {
-                            setSelectedMetrics([...selectedMetrics, key]);
-                          }
-                        }}
-                        className={`text-left hover:text-primary-600 transition-colors ${
-                          selectedMetrics.includes(key) ? 'text-primary-600 font-semibold' : ''
+                    <div className="flex items-center gap-3">
+                      <svg
+                        className={`w-5 h-5 text-gray-500 transition-transform ${
+                          isExpanded ? 'rotate-90' : ''
                         }`}
-                        title="Click to visualize"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        {key}
-                      </button>
-                    </td>
-                    {runsData.map(({ runId, summary }) => {
-                      const value = summary.data?.[key];
-                      return (
-                        <td key={runId} className="px-4 py-3 text-sm text-gray-700">
-                          {typeof value === 'number'
-                            ? value.toFixed(6)
-                            : value === null || value === undefined
-                            ? '-'
-                            : String(value)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                      <span className="text-sm font-mono text-gray-900">{metricPath}</span>
+                    </div>
+                    {isExpanded && (
+                      <span className="text-xs text-gray-500">Click to collapse</span>
+                    )}
+                  </button>
+
+                  {/* Expanded Content - Only render when expanded */}
+                  {isExpanded && (
+                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                      <MetricComparisonViewer
+                        metricPath={metricPath}
+                        runIds={runIds}
+                        runNames={runNames}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Component that loads metric data and decides what to show
+interface MetricComparisonViewerProps {
+  metricPath: string;
+  runIds: number[];
+  runNames: string[];
+}
+
+function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparisonViewerProps) {
+  // Fetch metric data for all runs
+  const metricsData = runIds.map((runId) => ({
+    runId,
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    data: useMetricValues(runId, metricPath),
+  }));
+
+  const isLoading = metricsData.some((m) => m.data.isLoading);
+  const error = metricsData.find((m) => m.data.error);
+
+  // Analyze the metric type using first run's data
+  const metricAnalysis = useMemo(() => {
+    const firstData = metricsData[0]?.data.data?.data;
+    
+    if (!firstData || firstData.length === 0) {
+      return { type: 'empty' };
+    }
+
+    const numericValues = firstData.filter((v: any) => typeof v.value === 'number');
+
+    // Single value
+    if (firstData.length === 1) {
+      return { type: 'single' };
+    }
+
+    // Multiple numeric values - chartable!
+    if (numericValues.length > 1) {
+      return { type: 'chart' };
+    }
+
+    // Multiple non-numeric values
+    return { type: 'list' };
+  }, [metricsData]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+          <p className="mt-2 text-sm text-gray-600">Loading metric data...</p>
         </div>
       </div>
+    );
+  }
 
-      {/* Metric Charts */}
-      {selectedMetrics.length > 0 && (
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-gray-900">Selected Metrics</h2>
-          {selectedMetrics.map((metricPath) => (
-            <MultiMetricChart
-              key={metricPath}
-              metrics={runIds.map((runId, idx) => ({
-                runId,
-                metricPath,
-                name: runsData[idx].run.data?.run_id || `Run ${runId}`,
-              }))}
-              title={metricPath}
-              height={400}
-            />
-          ))}
-        </div>
-      )}
+  if (error) {
+    return (
+      <div className="bg-red-50 rounded-lg border border-red-200 p-4">
+        <p className="text-red-700 text-sm">Error loading metric: {error.data.error?.message}</p>
+      </div>
+    );
+  }
 
-      {selectedMetrics.length === 0 && allMetricKeys.length > 0 && (
-        <div className="card text-center py-8">
-          <p className="text-gray-500">Click on metric names in the table to visualize them</p>
-        </div>
-      )}
+  if (metricAnalysis.type === 'empty') {
+    return (
+      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 text-center">
+        <p className="text-gray-600 text-sm">No data available for this metric</p>
+      </div>
+    );
+  }
+
+  if (metricAnalysis.type === 'single') {
+    // Extract single values from all runs
+    const values = metricsData.map((m) => {
+      const metricData = m.data.data?.data;
+      if (metricData && metricData.length > 0) {
+        return metricData[0].value;
+      }
+      return null;
+    });
+
+    // Find min/max for highlighting (only for numeric values)
+    const numericValues = values.filter((v) => typeof v === 'number') as number[];
+    let minValue: number | null = null;
+    let maxValue: number | null = null;
+    
+    if (numericValues.length > 1) {
+      minValue = Math.min(...numericValues);
+      maxValue = Math.max(...numericValues);
+    }
+
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <table className="min-w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              {runNames.map((name, idx) => (
+                <th
+                  key={idx}
+                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  {name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {values.map((value, idx) => {
+                let bgColor = '';
+                
+                // Apply color coding for numeric values
+                if (minValue !== null && maxValue !== null && typeof value === 'number' && minValue !== maxValue) {
+                  if (value === maxValue) {
+                    bgColor = 'bg-green-100';
+                  } else if (value === minValue) {
+                    bgColor = 'bg-red-100';
+                  }
+                }
+                
+                return (
+                  <td
+                    key={idx}
+                    className={`px-4 py-4 text-sm font-semibold ${bgColor}`}
+                  >
+                    {value === null || value === undefined
+                      ? '-'
+                      : typeof value === 'number'
+                      ? value.toFixed(6)
+                      : String(value)}
+                  </td>
+                );
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  if (metricAnalysis.type === 'list') {
+    return (
+      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 text-center">
+        <p className="text-gray-600 text-sm">This metric contains non-numeric values and cannot be charted</p>
+      </div>
+    );
+  }
+
+  // metricAnalysis.type === 'chart'
+  return (
+    <div className="bg-white rounded-lg">
+      <MultiMetricChart
+        metrics={runIds.map((runId, idx) => ({
+          runId,
+          metricPath,
+          name: runNames[idx],
+        }))}
+        title=""
+        height={400}
+      />
     </div>
   );
 }

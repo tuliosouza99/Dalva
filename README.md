@@ -31,22 +31,6 @@ cd frontend
 npm install
 ```
 
-### First-Time Setup
-
-Before using TrackAI, run the setup wizard to configure your database:
-
-```bash
-trackai init
-```
-
-This interactive wizard will:
-- Let you choose between local storage or S3 cloud storage
-- Initialize the database at `~/.trackai/trackai.duckdb`
-- Automatically detect and migrate existing SQLite databases
-- For S3 storage: collect AWS credentials and configure cloud sync
-
-**Note**: This is the recommended way to set up TrackAI. After running `trackai init`, you're ready to start the server and log experiments.
-
 ### Running the App
 
 **Option 1: Using the CLI (Recommended)**

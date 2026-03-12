@@ -13,7 +13,7 @@ export default {
           200: '#90caf9',
           300: '#64b5f6',
           400: '#42a5f5',
-          500: '#1976d2', // Main Neptune.ai blue
+          500: '#1976d2', // Primary blue
           600: '#1565c0',
           700: '#0d47a1',
           800: '#0a3d91',

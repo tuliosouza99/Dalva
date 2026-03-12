@@ -6,7 +6,7 @@ See the [API Reference](../api_documentation/python_sdk/init.md) for detailed fu
 
 ## Overview
 
-TrackAI provides a simple Python API inspired by trackio (Neptune.ai SDK) for easy migration. The API consists of four main functions:
+TrackAI provides a simple Python API for logging experiments. The API consists of four main functions:
 
 - `trackai.init()` - Initialize a new run
 - `trackai.log()` - Log training metrics with steps

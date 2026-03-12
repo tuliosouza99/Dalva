@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from trackai.api.routes import mcp, metrics, projects, runs, s3, views
+from trackai.api.routes import metrics, projects, runs, s3, views
 from trackai.config import load_config
 from trackai.db.connection import init_db
 from trackai.utils.paths import get_static_dir
@@ -67,7 +67,6 @@ async def health():
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
 app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
-app.include_router(mcp.router, prefix="/api/mcp", tags=["mcp"])
 app.include_router(views.router, prefix="/api/views", tags=["views"])
 app.include_router(s3.router, prefix="/api", tags=["s3"])
 

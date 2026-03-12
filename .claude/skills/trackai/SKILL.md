@@ -14,7 +14,6 @@ Use this skill when working with:
 - Setting up TrackAI servers and databases
 - Configuring S3 storage for experiments
 - Troubleshooting TrackAI installations
-- Migrating from Neptune.ai or Weights & Biases
 - Comparing model training runs
 - Logging metrics, hyperparameters, and system resources
 
@@ -345,33 +344,30 @@ with trackai.init(project="p") as run:
 # Upload happens on context exit regardless
 ```
 
-## API Compatibility
+## Python API
 
-TrackAI is **trackio-compatible** for easy migration from Neptune.ai:
+TrackAI provides a simple Python API for logging experiments:
 
-**Neptune.ai**:
-```python
-import neptune
-
-run = neptune.init_run(project="workspace/project", api_token="TOKEN")
-run["train/loss"].log(0.5)
-run.stop()
-```
-
-**TrackAI**:
 ```python
 import trackai
 
-run = trackai.init(project="project")
-trackai.log({"train/loss": 0.5}, step=0)
+# Using context manager (recommended)
+with trackai.init(project="my-project", config={"lr": 0.001}) as run:
+    for step in range(100):
+        trackai.log({"loss": 0.5, "accuracy": 0.8}, step=step)
+        trackai.log_system({"gpu_util": 0.95})
+
+# Or using explicit init/finish
+run = trackai.init(project="my-project")
+trackai.log({"loss": 0.5}, step=0)
 trackai.finish()
 ```
 
-**Key differences**:
+**Key features**:
 - No cloud account or API token needed
-- Dict-based logging instead of object-based
-- Explicit step numbers recommended
-- Context manager pattern preferred
+- Dict-based logging
+- Step numbers for training metrics
+- Timestamps for system metrics
 
 ## Best Practices
 

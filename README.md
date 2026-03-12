@@ -2,12 +2,12 @@
 
 > A lightweight, self-hosted experiment tracker for deep learning
 
-TrackAI is a minimal alternative to tools like Weights & Biases and Neptune.ai. It provides a simple Python API for logging experiments and a clean web interface for visualizing and comparing results.
+TrackAI is a minimal alternative to tools like Weights & Biases. It provides a simple Python API for logging experiments and a clean web interface for visualizing and comparing results.
 
 ## Features
 
-- **Simple Python API** - trackio-compatible interface for easy migration
-- **Self-Hosted** - All data stored locally in SQLite
+- **Simple Python API** - Easy-to-use Python interface
+- **Self-Hosted** - All data stored locally in DuckDB
 - **Flexible Metrics** - Log any metrics without predefined schemas
 - **Real-time Visualization** - Interactive charts with Plotly.js
 - **Run Comparison** - Compare metrics across multiple experiments
@@ -308,15 +308,6 @@ uv run python backend/examples/context_manager.py
 
 # Resume run example
 uv run python backend/examples/resume_run.py
-```
-
-## Import Existing Data
-
-TrackAI can import data from Neptune.ai exports:
-
-```bash
-# Place export files in backend/exports/
-uv run python backend/scripts/import_exports.py
 ```
 
 ## Contributing

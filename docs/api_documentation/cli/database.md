@@ -16,10 +16,6 @@ Backup database to a file.
 
 Delete all data (warning: irreversible).
 
-### trackai db migrate
-
-Migrate from SQLite to DuckDB.
-
 ### trackai db pull
 
 Download the database from S3 to `~/.trackai/trackai.duckdb`.

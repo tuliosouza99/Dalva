@@ -10,14 +10,6 @@ Lightweight experiment tracker backend built with FastAPI.
 uv sync
 ```
 
-### Import existing data
-
-Import Neptune export data from the `exports/` directory:
-
-```bash
-uv run python scripts/import_exports.py
-```
-
 ### Run the server
 
 ```bash
@@ -104,7 +96,7 @@ rm ~/.trackai/trackai.db
 
 ## Python Logging API
 
-TrackAI provides a trackio-compatible API for logging experiments directly from your Python code.
+TrackAI provides a simple Python API for logging experiments directly from your Python code.
 
 ### Basic Usage
 

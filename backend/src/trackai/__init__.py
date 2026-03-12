@@ -1,7 +1,5 @@
 """
 TrackAI - Lightweight experiment tracker for deep learning.
-
-Compatible with trackio API for easy migration.
 """
 
 from typing import Any, Optional
@@ -36,7 +34,7 @@ def init(
               Requires S3 to be configured (``trackai config s3``).
         push: If True, upload the database to S3 after the run finishes.
               Requires S3 to be configured (``trackai config s3``).
-        **kwargs: Additional arguments (for compatibility with trackio)
+        **kwargs: Additional arguments
 
     Returns:
         Run object

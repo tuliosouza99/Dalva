@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-TrackAI is a lightweight experiment tracker for deep learning, built as an alternative to tools like Neptune.ai and Weights & Biases. It consists of a FastAPI backend with a React/TypeScript frontend for visualizing experiments.
+TrackAI is a lightweight experiment tracker for deep learning, built as an alternative to tools like Weights & Biases. It consists of a FastAPI backend with a React/TypeScript frontend for visualizing experiments.
 
 ## Development Commands
 
@@ -31,12 +31,6 @@ trackai config s3 --bucket my-bucket --key trackai.duckdb --region us-east-1
 ```
 
 This saves S3 coordinates to `~/.trackai/config.json`. Requires AWS credentials in the environment (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`).
-
-**Migrate from SQLite** (if you have legacy data):
-
-```bash
-trackai db migrate --sqlite-path ~/.trackai/trackai.db --yes
-```
 
 ### Quick Start (Production Mode)
 
@@ -91,9 +85,6 @@ cd backend && uv run uvicorn trackai.api.main:app --reload
 
 # Run example scripts
 cd backend && uv run python examples/simple_experiment.py
-
-# Import Neptune export data
-cd backend && uv run python scripts/import_exports.py
 ```
 
 **Important**: Before running custom Python scripts, access the uv skill for better understanding how to run and manage them.
@@ -136,12 +127,12 @@ cd frontend && npm run lint
 - `src/trackai/run.py` - Run class that manages experiment lifecycle
 - `src/trackai/services/logger.py` - LoggingService for database operations
 - `src/trackai/api/main.py` - FastAPI app entry point
-- `src/trackai/api/routes/` - API route handlers (projects, runs, metrics, mcp)
+- `src/trackai/api/routes/` - API route handlers (projects, runs, metrics)
 - `src/trackai/db/schema.py` - SQLAlchemy table definitions
 - `src/trackai/db/connection.py` - Database connection and initialization
 
 **Python Logging API**:
-TrackAI provides a trackio-compatible API for logging experiments:
+TrackAI provides a simple Python API for logging experiments:
 - `trackai.init()` - Initialize a run (supports resume modes: "never", "allow", "must")
 - `trackai.log()` - Log training metrics with step numbers
 - `trackai.log_system()` - Log system metrics without steps (uses timestamps)
@@ -218,11 +209,6 @@ trackai db backup --output ~/backups/trackai-backup.duckdb
 **Reset (deletes all data)**:
 ```bash
 trackai db reset
-```
-
-**Migrate from SQLite**:
-```bash
-trackai db migrate --sqlite-path ~/.trackai/trackai.db --duckdb-path ~/.trackai/trackai.duckdb --yes
 ```
 
 **S3 sync** (requires `trackai config s3` + AWS credentials):
@@ -322,7 +308,6 @@ The CLI automatically finds available ports for both servers:
 - **Database Location**: Centralized at `~/.trackai/trackai.duckdb` to access experiments from any project
 - **S3 Storage**: Local-first architecture - all reads/writes use `~/.trackai/trackai.duckdb`; `pull=True`/`push=True` flags on `trackai.init()` for per-run S3 sync; `trackai db pull/push` for manual CLI sync; no `storage_type` flag needed
 - **CLI Management**: Unified `trackai` CLI command for server management, database operations, and configuration
-- **API Compatibility**: Python API designed to be trackio-compatible for easy migration
 - **Frontend Performance**: Virtualized tables and React Query caching for handling large datasets
 - **Resume Support**: Runs can be resumed using `resume="allow"` or `resume="must"` modes
 

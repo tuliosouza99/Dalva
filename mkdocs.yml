@@ -67,7 +67,6 @@ nav:
     - S3 Storage: getting_started/s3_storage.md
     - Web Interface: getting_started/web_interface.md
     - REST API: getting_started/rest_api.md
-    - Migration from Neptune: getting_started/migration_from_neptune.md
   - API Documentation:
     - Python SDK:
       - init(): api_documentation/python_sdk/init.md
@@ -80,7 +79,6 @@ nav:
       - Runs: api_documentation/rest_api/runs.md
       - Metrics: api_documentation/rest_api/metrics.md
       - Custom Views: api_documentation/rest_api/views.md
-      - MCP: api_documentation/rest_api/mcp.md
     - CLI:
       - Server Commands: api_documentation/cli/server.md
       - Database Commands: api_documentation/cli/database.md

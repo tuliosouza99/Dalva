@@ -1,11 +1,12 @@
 """Configuration management commands."""
 
+import os
 import json
 import sys
 
 import click
 
-from trackai.config import update_s3_config
+from trackai.config import CONFIG_FILE, load_config, update_s3_config
 from trackai.s3.sync import validate_s3_credentials
 
 
@@ -61,8 +62,6 @@ def s3(bucket, key, region):
 @config.command()
 def show():
     """Show current configuration."""
-    from trackai.config import CONFIG_FILE, load_config
-
     config = load_config()
 
     click.echo(click.style("TrackAI Configuration", fg="blue", bold=True))
@@ -77,8 +76,6 @@ def show():
     click.echo(json.dumps(config.model_dump(), indent=2))
 
     # Show environment variable overrides
-    import os
-
     env_vars = [
         "TRACKAI_DB_PATH",
         "TRACKAI_S3_BUCKET",

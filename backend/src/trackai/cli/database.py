@@ -10,10 +10,6 @@ from sqlalchemy import create_engine, text
 
 from trackai.config import load_config
 from trackai.db.connection import get_db_url
-from trackai.migration.sqlite_to_duckdb import (
-    check_sqlite_exists,
-    migrate_sqlite_to_duckdb,
-)
 from trackai.s3.sync import sync_from_s3, sync_to_s3
 
 
@@ -97,65 +93,6 @@ def info():
                 click.echo(f"  {table:15s}: {count:>8,} rows")
     except Exception as e:
         click.echo(click.style(f"\nError reading database: {e}", fg="red"), err=True)
-
-
-@db.command()
-@click.option(
-    "--sqlite-path",
-    default=None,
-    help="Path to SQLite database (default: ~/.trackai/trackai.db)",
-)
-@click.option(
-    "--duckdb-path",
-    default=None,
-    help="Path to DuckDB database (default: from config)",
-)
-@click.option(
-    "--yes",
-    "-y",
-    is_flag=True,
-    help="Skip confirmation prompt",
-)
-def migrate(sqlite_path, duckdb_path, yes):
-    """Migrate data from SQLite to DuckDB."""
-    # Auto-detect SQLite path if not provided
-    if sqlite_path is None:
-        sqlite_path = check_sqlite_exists()
-        if sqlite_path is None:
-            click.echo(
-                click.style(
-                    "No SQLite database found at ~/.trackai/trackai.db",
-                    fg="yellow",
-                )
-            )
-            click.echo("Specify a custom path with --sqlite-path")
-            sys.exit(1)
-
-    # Use config path if not provided
-    if duckdb_path is None:
-        config = load_config()
-        duckdb_path = config.database.db_path
-
-    click.echo(click.style("Migrating SQLite to DuckDB", fg="blue", bold=True))
-    click.echo(f"\nSource (SQLite): {sqlite_path}")
-    click.echo(f"Destination (DuckDB): {duckdb_path}\n")
-
-    # Confirm
-    if not yes and not click.confirm("Proceed with migration?"):
-        click.echo("Migration cancelled")
-        sys.exit(0)
-
-    # Perform migration
-    success = migrate_sqlite_to_duckdb(sqlite_path, duckdb_path)
-
-    if success:
-        click.echo(
-            click.style("\n✓ Migration completed successfully!", fg="green", bold=True)
-        )
-        sys.exit(0)
-    else:
-        click.echo(click.style("\n✗ Migration failed!", fg="red", bold=True), err=True)
-        sys.exit(1)
 
 
 @db.command()

@@ -383,12 +383,6 @@ POST /api/views
 
 **Response**: Same as individual view
 
-## MCP API
-
-Model Context Protocol endpoints for AI integration.
-
-See [MCP Documentation](../api_documentation/rest_api/mcp.md) for details.
-
 ## Authentication
 
 Currently, TrackAI does not require authentication. For production deployments, consider:
@@ -502,4 +496,3 @@ print(f"Found {len(runs)} runs")
 
 - [API Reference](../api_documentation/rest_api/projects.md) - Detailed endpoint docs
 - [Python SDK](python_sdk.md) - Python client (easier than REST API)
-- [MCP Documentation](../api_documentation/rest_api/mcp.md) - AI integration

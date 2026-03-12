@@ -24,8 +24,6 @@ def _require_s3_config(action: str) -> None:
 class Run:
     """Run object for tracking experiments.
 
-    Compatible with trackio.Run API.
-
     Connection design
     -----------------
     Each SDK call (``log``, ``finish``, etc.) acquires a fresh DuckDB write

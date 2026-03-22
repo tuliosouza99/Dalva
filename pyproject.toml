@@ -65,3 +65,14 @@ artifacts = [
 # Register custom build hook
 [tool.hatch.build.hooks.custom]
 path = "hatch_build.py"
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+addopts = "-v --tb=short"
+markers = [
+    "unit: Unit tests that test individual components in isolation",
+    "integration: Integration tests that test multiple components together",
+    "slow: Slow running tests that should be skipped in quick runs",
+    "db: Tests that require database access",
+    "api: Tests for API endpoints",
+]

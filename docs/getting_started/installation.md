@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- **Python**: >= 3.11
+- **Python**: >= 3.10 and <= 3.14
 - **OS**: macOS, Linux, or Windows
 
 ## Install

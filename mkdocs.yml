@@ -56,7 +56,6 @@ nav:
       - Installation: getting_started/installation.md
       - Quick Start: getting_started/quickstart.md
       - Python SDK: getting_started/python_sdk.md
-      - Resuming Runs: getting_started/resuming_runs.md
       - CLI Usage: getting_started/cli_usage.md
       - S3 Storage: getting_started/s3_storage.md
   - API Documentation:

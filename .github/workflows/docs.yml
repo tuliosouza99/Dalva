@@ -26,5 +26,8 @@ jobs:
           restore-keys: |
             mkdocs-material-
       - run: pip install mkdocs mkdocs-material mkdocstrings-python
+      - name: Build frontend
+        run: |
+          cd frontend && npm install && npm run build
       - run: pip install -e .
       - run: mkdocs gh-deploy --force

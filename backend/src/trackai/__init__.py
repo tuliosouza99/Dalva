@@ -30,10 +30,12 @@ def init(
         Run object
 
     Example:
-        >>> import trackai
-        >>> run = trackai.init(project="my-project", config={"lr": 0.001})
-        >>> run.log({"loss": 0.5}, step=0)
-        >>> run.finish()
+        ```python
+        import trackai
+        run = trackai.init(project="my-project", config={"lr": 0.001})
+        run.log({"loss": 0.5}, step=0)
+        run.finish()
+        ```
     """
     return Run(
         project=project,

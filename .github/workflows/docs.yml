@@ -26,6 +26,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Build frontend assets
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:

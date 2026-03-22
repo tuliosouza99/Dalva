@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from trackai.config import load_config
 from trackai.db.connection import init_db
@@ -22,42 +22,29 @@ def _require_s3_config(action: str) -> None:
 
 
 class Run:
-    """Run object for tracking experiments.
-
-    Connection design
-    -----------------
-    Each SDK call (``log``, ``finish``, etc.) acquires a fresh DuckDB write
-    lock, commits, and immediately releases it.  The lock is held for only a
-    few milliseconds per call, so the FastAPI UI can read the database freely
-    between log steps — even while training is in progress.
-    """
+    """Run object for tracking experiments."""
 
     def __init__(
         self,
         project: str,
-        name: Optional[str] = None,
-        group: Optional[str] = None,
-        config: Optional[dict] = None,
-        resume: str = "never",
+        name: str | None = None,
+        config: dict | None = None,
+        resume: str | None = None,
         pull: bool = False,
         push: bool = False,
-        **kwargs,
     ):
         """
         Initialize a run.
 
         Args:
             project: Project name
-            name: Optional run name (auto-generated if not provided)
-            group: Optional group name for organizing runs
+            name: Optional run name (user-defined, for display only)
             config: Optional configuration dictionary
-            resume: Resume mode ("never", "allow", "must")
+            resume: run_id to resume (omit to create a new run)
             pull: If True, download the database from S3 before starting.
             push: If True, upload the database to S3 when the run finishes.
-            **kwargs: Additional arguments (for compatibility)
         """
         self.project_name = project
-        self.group_name = group
         self.config = config or {}
         self._step_counter = 0
         self._push = push
@@ -79,26 +66,22 @@ class Run:
         # Ensure database and tables exist
         init_db()
 
-        # Create run in database — returns plain scalars, no open session kept
+        # Create run in database
         logger = LoggingService()
         db_id, run_id_str, descriptive_name = logger.create_run(
             project_name=project,
             run_name=name,
-            group=group,
-            config=config,
-            resume=resume,
+            config=self.config,
+            resume_run_id=resume,
         )
 
         # Store identifiers
-        self._db_id = db_id  # Internal database ID (for logging operations)
-        self.run_id = run_id_str  # User-facing run identifier (e.g., "FAS-1")
-        self.name = descriptive_name  # Optional descriptive name
+        self._db_id = db_id
+        self.run_id = run_id_str
+        self.name = descriptive_name
 
-    def log(self, metrics: dict[str, Any], step: Optional[int] = None):
+    def log(self, metrics: dict[str, Any], step: int | None = None):
         """Log metrics to the run.
-
-        Opens a connection, writes the batch, commits, closes.
-        The DuckDB write lock is held for milliseconds.
 
         Args:
             metrics: Dictionary of metric name -> value
@@ -115,21 +98,6 @@ class Run:
             timestamp=datetime.utcnow(),
         )
 
-    def log_system(self, metrics: dict[str, Any]):
-        """Log system metrics (GPU, etc.) without a step number.
-
-        These metrics use timestamps for the x-axis instead of steps.
-
-        Args:
-            metrics: Dictionary of system metrics
-        """
-        LoggingService().log_metrics(
-            run_id=self._db_id,
-            metrics=metrics,
-            step=None,
-            timestamp=datetime.utcnow(),
-        )
-
     def finish(self):
         """Finish the run and mark it as completed."""
         LoggingService().finish_run(self._db_id)
@@ -141,18 +109,6 @@ class Run:
             print(f"Pushing database to S3 ← {db_path} ...")
             sync_to_s3(source=db_path)
             print("✓ Push complete")
-
-    def __enter__(self):
-        """Context manager entry."""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit — automatically finish or fail the run."""
-        if exc_type is None:
-            self.finish()
-        else:
-            LoggingService().fail_run(self._db_id)
-        return False
 
     def __repr__(self):
         """String representation."""

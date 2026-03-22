@@ -25,7 +25,6 @@ from trackai.db.schema import Config, Metric, Project, Run
 
 def _generate_abbreviation(project_name: str) -> str:
     """Generate a 3-letter uppercase abbreviation from project name."""
-    import re
 
     # Remove special characters and split
     clean = re.sub(r"[^a-zA-Z0-9\s-]", "", project_name)
@@ -80,21 +79,16 @@ class LoggingService:
         self,
         project_name: str,
         run_name: Optional[str] = None,
-        group: Optional[str] = None,
         config: Optional[dict] = None,
-        resume: str = "never",
+        resume_run_id: Optional[str] = None,
     ) -> tuple[int, str, Optional[str]]:
-        """Create (or resume) a run and return ``(run_db_id, run_id_str, descriptive_name)``.
-
-        Returning plain scalars avoids holding a detached ORM object across
-        multiple calls that each open their own session.
+        """Create or resume a run.
 
         Args:
             project_name: Name of the project
-            run_name: Optional descriptive name OR run_id for resume
-            group: Optional group name
+            run_name: Optional run name (user-defined, for display only)
             config: Optional configuration dict
-            resume: Resume mode ("never", "allow", "must")
+            resume_run_id: run_id to resume (omit to create a new run)
 
         Returns:
             Tuple of (internal_db_id, run_id_string, descriptive_name)
@@ -110,69 +104,45 @@ class LoggingService:
 
             project_db_id = project.id
 
-            # Check if resuming an existing run
-            # If run_name is provided and resume is allowed, check if it matches an existing run_id
-            if resume != "never" and run_name:
+            # Resume existing run if resume_run_id is provided
+            if resume_run_id:
                 existing = (
                     db.query(Run)
-                    .filter(Run.project_id == project_db_id, Run.run_id == run_name)
+                    .filter(
+                        Run.project_id == project_db_id, Run.run_id == resume_run_id
+                    )
                     .first()
                 )
-
                 if existing:
                     existing.state = "running"
                     existing.updated_at = datetime.utcnow()
                     db.flush()
                     return existing.id, existing.run_id, existing.name
-                elif resume == "must":
-                    raise ValueError(
-                        f"Run '{run_name}' does not exist in project '{project_name}'. "
-                        "Cannot resume non-existent run."
-                    )
+                raise ValueError(
+                    f"Run '{resume_run_id}' not found in project '{project_name}'"
+                )
 
-            # Create new run
-            # Auto-generate run_id
+            # Create new run with auto-generated run_id
             abbrev = _generate_abbreviation(project_name)
             run_count = db.query(Run).filter(Run.project_id == project_db_id).count()
-            auto_run_id = f"{abbrev}-{run_count + 1}"
+            run_id_str = f"{abbrev}-{run_count + 1}"
 
-            # Check for collision (in case of manually created runs)
-            max_attempts = 100
-            for attempt in range(max_attempts):
-                existing_check = (
-                    db.query(Run)
-                    .filter(Run.project_id == project_db_id, Run.run_id == auto_run_id)
-                    .first()
-                )
-                if not existing_check:
-                    break
-                auto_run_id = f"{abbrev}-{run_count + 1 + attempt}"
-
-            # Create the run
-            # run_id is auto-generated, name is user-provided (or None)
-            # For resume mode, if run_name looks like a run_id, don't use it as name
-            run_id_pattern = re.compile(r"^[A-Z0-9]{3}-\d+$")
-            descriptive_name = (
-                None if (run_name and run_id_pattern.match(run_name)) else run_name
-            )
-
+            # Simple creation - run_id is guaranteed unique by construction
             run = Run(
                 project_id=project_db_id,
-                run_id=auto_run_id,
-                name=descriptive_name,
-                group_name=group,
+                run_id=run_id_str,
+                name=run_name,
                 state="running",
             )
             db.add(run)
             db.flush()
             run_db_id = run.id
-            run_id_str = run.run_id
 
-        # Store config in a separate session (after the run row is committed)
+        # Store config in a separate session
         if config:
             self._log_config(run_db_id, config)
 
-        return run_db_id, run_id_str, descriptive_name
+        return run_db_id, run_id_str, run_name
 
     def _log_config(self, run_id: int, config: dict, prefix: str = "") -> None:
         """Recursively persist configuration key-value pairs."""

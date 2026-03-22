@@ -6,12 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import distinct
 from sqlalchemy.orm import Session
 
-from trackai.api.models import (
-    MetricCompareRequest,
-    MetricSummaryRequest,
-    MetricValue,
-    MetricValuesResponse,
-)
+from trackai.api.models import MetricValue, MetricValuesResponse
 from trackai.db.connection import get_db
 from trackai.db.schema import Metric, Run
 
@@ -22,20 +17,11 @@ router = APIRouter()
 def list_metrics(run_id: int, db: Session = Depends(get_db)):
     """
     List all metric names for a run.
-
-    Args:
-        run_id: Run database ID
-        db: Database session
-
-    Returns:
-        List of unique metric names
     """
-    # Check if run exists
     run = db.query(Run).filter(Run.id == run_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    # Get distinct metric names
     metrics = (
         db.query(distinct(Metric.attribute_path))
         .filter(Metric.run_id == run_id)
@@ -46,9 +32,7 @@ def list_metrics(run_id: int, db: Session = Depends(get_db)):
     return [m[0] for m in metrics]
 
 
-@router.get(
-    "/runs/{run_id}/metric/{metric_path:path}", response_model=MetricValuesResponse
-)
+@router.get("/runs/{run_id}/metric/{metric_path:path}", response_model=MetricValuesResponse)
 def get_metric_values(
     run_id: int,
     metric_path: str,
@@ -60,43 +44,24 @@ def get_metric_values(
 ):
     """
     Get time-series values for a specific metric.
-
-    Args:
-        run_id: Run database ID
-        metric_path: Metric attribute path (e.g., "train/loss")
-        limit: Maximum number of values to return
-        offset: Number of values to skip
-        step_min: Minimum step number (inclusive)
-        step_max: Maximum step number (inclusive)
-        db: Database session
-
-    Returns:
-        Metric values with pagination info
     """
-    # Check if run exists
     run = db.query(Run).filter(Run.id == run_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    # Build query
     query = db.query(Metric).filter(
         Metric.run_id == run_id,
         Metric.attribute_path == metric_path,
     )
 
-    # Apply step filters
     if step_min is not None:
         query = query.filter(Metric.step >= step_min)
     if step_max is not None:
         query = query.filter(Metric.step <= step_max)
 
-    # Get total count
     total = query.count()
-
-    # Get values with pagination
     metrics = query.order_by(Metric.step).limit(limit).offset(offset).all()
 
-    # Extract values based on type
     data = []
     for m in metrics:
         value = None
@@ -109,117 +74,11 @@ def get_metric_values(
         elif m.bool_value is not None:
             value = m.bool_value
 
-        # Skip metrics with no value (e.g., artifacts)
         if value is None:
             continue
 
-        data.append(
-            MetricValue(
-                step=m.step,
-                timestamp=m.timestamp,
-                value=value,
-            )
-        )
+        data.append(MetricValue(step=m.step, timestamp=m.timestamp, value=value))
 
     has_more = (offset + limit) < total
 
     return MetricValuesResponse(data=data, has_more=has_more)
-
-
-@router.post("/compare")
-def compare_metrics(request: MetricCompareRequest, db: Session = Depends(get_db)):
-    """
-    Compare metrics across multiple runs.
-
-    Args:
-        request: Comparison request with run IDs and metric paths
-        db: Database session
-
-    Returns:
-        Nested dict: {run_id: {metric_path: [{step, value}]}}
-    """
-    result = {}
-
-    for run_id in request.run_ids:
-        # Check if run exists
-        run = db.query(Run).filter(Run.id == run_id).first()
-        if not run:
-            continue
-
-        result[run_id] = {}
-
-        for metric_path in request.metric_paths:
-            # Get all values for this metric
-            metrics = (
-                db.query(Metric)
-                .filter(
-                    Metric.run_id == run_id,
-                    Metric.attribute_path == metric_path,
-                )
-                .order_by(Metric.step)
-                .all()
-            )
-
-            # Extract values
-            values = []
-            for m in metrics:
-                value = None
-                if m.float_value is not None:
-                    value = m.float_value
-                elif m.int_value is not None:
-                    value = m.int_value
-                elif m.string_value is not None:
-                    value = m.string_value
-                elif m.bool_value is not None:
-                    value = m.bool_value
-
-                # Skip metrics with no value (e.g., artifacts)
-                if value is None:
-                    continue
-
-                values.append({"step": m.step, "value": value})
-
-            result[run_id][metric_path] = values
-
-    return result
-
-
-@router.post("/summary")
-def get_summary_metrics(
-    request: MetricSummaryRequest,
-    db: Session = Depends(get_db),
-):
-    """
-    Get summary metric values (single float values with step=None) for multiple runs.
-
-    Args:
-        request: Summary request with run IDs and metric paths
-        db: Database session
-
-    Returns:
-        Dict: {run_id: {metric_path: float_value}}
-    """
-    result = {}
-
-    for run_id in request.run_ids:
-        result[run_id] = {}
-
-        for metric_path in request.metric_paths:
-            # Get single-value metric (step=None)
-            metric = (
-                db.query(Metric)
-                .filter(
-                    Metric.run_id == run_id,
-                    Metric.attribute_path == metric_path,
-                    Metric.step.is_(None),
-                    Metric.float_value.isnot(None),
-                )
-                .first()
-            )
-
-            if metric and metric.float_value is not None:
-                result[run_id][metric_path] = metric.float_value
-            else:
-                result[run_id][metric_path] = None
-
-    return result

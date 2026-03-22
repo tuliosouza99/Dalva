@@ -105,16 +105,6 @@ class MetricValuesResponse(BaseModel):
     has_more: bool
 
 
-class MetricCompareRequest(BaseModel):
-    run_ids: list[int]
-    metric_paths: list[str]
-
-
-class MetricSummaryRequest(BaseModel):
-    run_ids: list[int]
-    metric_paths: list[str]
-
-
 # Config models
 class ConfigCreate(BaseModel):
     run_id: int

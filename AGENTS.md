@@ -1,10 +1,10 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Agents when working with code in this repository.
 
 ## Project Overview
 
-TrackAI is a lightweight experiment tracker for deep learning, built as an alternative to tools like Weights & Biases. It consists of a FastAPI backend with a React/TypeScript frontend for visualizing experiments.
+TrackAI is a lightweight experiment tracker for deep learning. It consists of a FastAPI backend with a React/TypeScript frontend for visualizing experiments.
 
 ## Development Commands
 
@@ -87,8 +87,6 @@ cd backend && uv run uvicorn trackai.api.main:app --reload
 cd backend && uv run python examples/simple_experiment.py
 ```
 
-**Important**: Before running custom Python scripts, access the uv skill for better understanding how to run and manage them.
-
 ### Frontend (React/TypeScript/Vite)
 
 ```bash
@@ -123,7 +121,7 @@ cd frontend && npm run lint
 - **S3 Support**: Local-first architecture - all reads/writes use `~/.trackai/trackai.duckdb`; use `pull=True`/`push=True` flags on `trackai.init()` for per-run S3 sync, or `trackai db pull/push` from the CLI
 
 **Key Components**:
-- `src/trackai/__init__.py` - Public API (`init()`, `log()`, `log_system()`, `finish()`)
+- `src/trackai/__init__.py` - Public API (`init()`)
 - `src/trackai/run.py` - Run class that manages experiment lifecycle
 - `src/trackai/services/logger.py` - LoggingService for database operations
 - `src/trackai/api/main.py` - FastAPI app entry point
@@ -131,13 +129,20 @@ cd frontend && npm run lint
 - `src/trackai/db/schema.py` - SQLAlchemy table definitions
 - `src/trackai/db/connection.py` - Database connection and initialization
 
-**Python Logging API**:
-TrackAI provides a simple Python API for logging experiments:
-- `trackai.init()` - Initialize a run (supports resume modes: "never", "allow", "must")
-- `trackai.log()` - Log training metrics with step numbers
-- `trackai.log_system()` - Log system metrics without steps (uses timestamps)
-- `trackai.finish()` - Mark run as completed
-- Supports context manager pattern (`with trackai.init() as run:`)
+**Python API**:
+```python
+import trackai
+
+# Create a new run
+run = trackai.init(project="my-project", name="my-run", config={"lr": 0.01})
+run.log({"loss": 0.5}, step=0)
+run.finish()
+
+# Resume an existing run
+run = trackai.init(project="my-project", resume="RUN-1")
+run.log({"loss": 0.3}, step=100)
+run.finish()
+```
 
 ### Frontend Architecture
 
@@ -153,12 +158,11 @@ TrackAI provides a simple Python API for logging experiments:
 
 **Directory Structure**:
 - `src/api/client.ts` - Axios API client and React Query hooks
-- `src/pages/` - Page components (ProjectsPage, RunsPage, RunDetailPage, CompareRunsPage, DashboardPage)
+- `src/pages/` - Page components (ProjectsPage, RunsPage, RunDetailPage, CompareRunsPage)
 - `src/components/` - Reusable components
   - `Layout.tsx` - Main app layout with navigation
   - `RunsTable/` - Virtualized table for runs list
   - `Charts/` - Metric visualization components
-  - `Dashboard/` - Dashboard widgets
 
 **Routing**:
 - `/projects` - List all projects
@@ -177,7 +181,6 @@ TrackAI provides a simple Python API for logging experiments:
 **Projects**:
 - `GET /api/projects` - List all projects
 - `GET /api/projects/{project_id}` - Get project with summary stats
-- `POST /api/projects` - Create new project
 - `DELETE /api/projects/{project_id}` - Delete project
 
 **Runs**:
@@ -185,14 +188,12 @@ TrackAI provides a simple Python API for logging experiments:
 - `GET /api/runs/{run_id}` - Get run details
 - `GET /api/runs/{run_id}/summary` - Get run summary with metrics
 - `GET /api/runs/{run_id}/config` - Get run configuration
-- `POST /api/runs` - Create new run
 - `PATCH /api/runs/{run_id}/state` - Update run state
 - `DELETE /api/runs/{run_id}` - Delete run
 
 **Metrics**:
 - `GET /api/metrics/runs/{run_id}` - List all metric names for a run
 - `GET /api/metrics/runs/{run_id}/metric/{metric_path}` - Get metric values
-- `POST /api/metrics/compare` - Compare metrics across multiple runs
 
 ## Database Management
 
@@ -310,137 +311,3 @@ The CLI automatically finds available ports for both servers:
 - **CLI Management**: Unified `trackai` CLI command for server management, database operations, and configuration
 - **Frontend Performance**: Virtualized tables and React Query caching for handling large datasets
 - **Resume Support**: Runs can be resumed using `resume="allow"` or `resume="must"` modes
-
-<!-- rtk-instructions v2 -->
-# RTK (Rust Token Killer) - Token-Optimized Commands
-
-## Golden Rule
-
-**Always prefix commands with `rtk`**. If RTK has a dedicated filter, it uses it. If not, it passes through unchanged. This means RTK is always safe to use.
-
-**Important**: Even in command chains with `&&`, use `rtk`:
-```bash
-# ❌ Wrong
-git add . && git commit -m "msg" && git push
-
-# ✅ Correct
-rtk git add . && rtk git commit -m "msg" && rtk git push
-```
-
-## RTK Commands by Workflow
-
-### Build & Compile (80-90% savings)
-```bash
-rtk cargo build         # Cargo build output
-rtk cargo check         # Cargo check output
-rtk cargo clippy        # Clippy warnings grouped by file (80%)
-rtk tsc                 # TypeScript errors grouped by file/code (83%)
-rtk lint                # ESLint/Biome violations grouped (84%)
-rtk prettier --check    # Files needing format only (70%)
-rtk next build          # Next.js build with route metrics (87%)
-```
-
-### Test (90-99% savings)
-```bash
-rtk cargo test          # Cargo test failures only (90%)
-rtk vitest run          # Vitest failures only (99.5%)
-rtk playwright test     # Playwright failures only (94%)
-rtk test <cmd>          # Generic test wrapper - failures only
-```
-
-### Git (59-80% savings)
-```bash
-rtk git status          # Compact status
-rtk git log             # Compact log (works with all git flags)
-rtk git diff            # Compact diff (80%)
-rtk git show            # Compact show (80%)
-rtk git add             # Ultra-compact confirmations (59%)
-rtk git commit          # Ultra-compact confirmations (59%)
-rtk git push            # Ultra-compact confirmations
-rtk git pull            # Ultra-compact confirmations
-rtk git branch          # Compact branch list
-rtk git fetch           # Compact fetch
-rtk git stash           # Compact stash
-rtk git worktree        # Compact worktree
-```
-
-Note: Git passthrough works for ALL subcommands, even those not explicitly listed.
-
-### GitHub (26-87% savings)
-```bash
-rtk gh pr view <num>    # Compact PR view (87%)
-rtk gh pr checks        # Compact PR checks (79%)
-rtk gh run list         # Compact workflow runs (82%)
-rtk gh issue list       # Compact issue list (80%)
-rtk gh api              # Compact API responses (26%)
-```
-
-### JavaScript/TypeScript Tooling (70-90% savings)
-```bash
-rtk pnpm list           # Compact dependency tree (70%)
-rtk pnpm outdated       # Compact outdated packages (80%)
-rtk pnpm install        # Compact install output (90%)
-rtk npm run <script>    # Compact npm script output
-rtk npx <cmd>           # Compact npx command output
-rtk prisma              # Prisma without ASCII art (88%)
-```
-
-### Files & Search (60-75% savings)
-```bash
-rtk ls <path>           # Tree format, compact (65%)
-rtk read <file>         # Code reading with filtering (60%)
-rtk grep <pattern>      # Search grouped by file (75%)
-rtk find <pattern>      # Find grouped by directory (70%)
-```
-
-### Analysis & Debug (70-90% savings)
-```bash
-rtk err <cmd>           # Filter errors only from any command
-rtk log <file>          # Deduplicated logs with counts
-rtk json <file>         # JSON structure without values
-rtk deps                # Dependency overview
-rtk env                 # Environment variables compact
-rtk summary <cmd>       # Smart summary of command output
-rtk diff                # Ultra-compact diffs
-```
-
-### Infrastructure (85% savings)
-```bash
-rtk docker ps           # Compact container list
-rtk docker images       # Compact image list
-rtk docker logs <c>     # Deduplicated logs
-rtk kubectl get         # Compact resource list
-rtk kubectl logs        # Deduplicated pod logs
-```
-
-### Network (65-70% savings)
-```bash
-rtk curl <url>          # Compact HTTP responses (70%)
-rtk wget <url>          # Compact download output (65%)
-```
-
-### Meta Commands
-```bash
-rtk gain                # View token savings statistics
-rtk gain --history      # View command history with savings
-rtk discover            # Analyze Claude Code sessions for missed RTK usage
-rtk proxy <cmd>         # Run command without filtering (for debugging)
-rtk init                # Add RTK instructions to CLAUDE.md
-rtk init --global       # Add RTK to ~/.claude/CLAUDE.md
-```
-
-## Token Savings Overview
-
-| Category | Commands | Typical Savings |
-|----------|----------|-----------------|
-| Tests | vitest, playwright, cargo test | 90-99% |
-| Build | next, tsc, lint, prettier | 70-87% |
-| Git | status, log, diff, add, commit | 59-80% |
-| GitHub | gh pr, gh run, gh issue | 26-87% |
-| Package Managers | pnpm, npm, npx | 70-90% |
-| Files | ls, read, grep, find | 60-75% |
-| Infrastructure | docker, kubectl | 85% |
-| Network | curl, wget | 65-70% |
-
-Overall average: **60-90% token reduction** on common development operations.
-<!-- /rtk-instructions -->

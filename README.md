@@ -88,41 +88,13 @@ for epoch in range(100):
     train_loss = train_model()
     val_acc = validate_model()
 
-    trackai.log({
+    run.log({
         "train/loss": train_loss,
         "val/accuracy": val_acc
     }, step=epoch)
 
 # Finish the run
-trackai.finish()
-```
-
-### Using Context Manager (Recommended)
-
-```python
-import trackai
-
-with trackai.init(project="my-project", config={"lr": 0.001}) as run:
-    for step in range(100):
-        trackai.log({"loss": 0.5, "accuracy": 0.8}, step=step)
-    # Run automatically finished when context exits
-```
-
-### Logging System Metrics
-
-```python
-import trackai
-
-run = trackai.init(project="my-project")
-
-# Log GPU/system metrics (timestamp-based, not step-based)
-trackai.log_system({
-    "gpu_utilization": 0.95,
-    "memory_used_gb": 8.2,
-    "temperature": 75
-})
-
-trackai.finish()
+run.finish()
 ```
 
 ### Resuming Runs
@@ -130,87 +102,15 @@ trackai.finish()
 ```python
 import trackai
 
-# Resume existing run or create new one
+# Resume an existing run
 run = trackai.init(
-    project="long-training",
-    name="week-long-experiment",
-    resume="allow"  # or "must" to require existing run
+    project="image-classification",
+    resume="resnet50-experiment"  # Pass run_id or run name to resume
 )
 
-trackai.log({"loss": 0.3}, step=1000)
-trackai.finish()
-```
-
-## REST API
-
-TrackAI provides a comprehensive REST API for integrating with other tools.
-
-### Projects
-
-- `GET /api/projects` - List all projects
-- `GET /api/projects/{project_id}` - Get project details
-- `POST /api/projects` - Create new project
-- `DELETE /api/projects/{project_id}` - Delete project
-
-### Runs
-
-- `GET /api/runs` - List runs (with filters, pagination, sorting)
-- `GET /api/runs/{run_id}` - Get run details
-- `GET /api/runs/{run_id}/summary` - Get run summary with metrics
-- `POST /api/runs` - Create new run
-- `PATCH /api/runs/{run_id}/state` - Update run state
-- `DELETE /api/runs/{run_id}` - Delete run
-
-### Metrics
-
-- `GET /api/metrics/runs/{run_id}` - List all metric names
-- `GET /api/metrics/runs/{run_id}/metric/{metric_path}` - Get metric values
-- `POST /api/metrics/compare` - Compare metrics across runs
-
-## Database
-
-### Location
-
-TrackAI stores all data in a centralized SQLite database:
-```
-~/.trackai/trackai.db
-```
-
-This allows you to access experiments from any project directory.
-
-### Custom Database Location
-
-Override the default location using an environment variable:
-
-```bash
-export TRACKAI_DB_PATH=/path/to/custom/database.db
-```
-
-Or in Python:
-```python
-import os
-os.environ['TRACKAI_DB_PATH'] = './project_specific.db'
-import trackai
-```
-
-### Database Management
-
-**Check statistics:**
-```bash
-sqlite3 ~/.trackai/trackai.db "SELECT
-  (SELECT COUNT(*) FROM projects) as projects,
-  (SELECT COUNT(*) FROM runs) as runs,
-  (SELECT COUNT(*) FROM metrics) as metrics;"
-```
-
-**Backup:**
-```bash
-cp ~/.trackai/trackai.db ~/backups/trackai-$(date +%Y%m%d).db
-```
-
-**Reset (warning: deletes all data):**
-```bash
-rm ~/.trackai/trackai.db
+# Continue logging
+run.log({"loss": 0.1}, step=100)
+run.finish()
 ```
 
 ## Web Interface
@@ -222,7 +122,6 @@ The TrackAI web interface provides:
 - **Run Details** - Detailed view of individual runs with all metrics
 - **Metric Charts** - Interactive visualizations with zoom, pan, and hover
 - **Run Comparison** - Side-by-side comparison of multiple experiments
-- **Custom Dashboards** - Create custom layouts with metric widgets
 
 ## Development
 
@@ -231,7 +130,7 @@ The TrackAI web interface provides:
 **Backend:**
 - FastAPI - Web framework
 - SQLAlchemy - ORM
-- SQLite - Database
+- DuckDB - Database
 - Pandas + PyArrow - Data processing
 - Pydantic - Data validation
 
@@ -286,9 +185,6 @@ Check the `backend/examples/` directory for complete examples:
 ```bash
 # Simple logging example
 uv run python backend/examples/simple_experiment.py
-
-# Context manager example
-uv run python backend/examples/context_manager.py
 
 # Resume run example
 uv run python backend/examples/resume_run.py

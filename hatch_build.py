@@ -32,7 +32,10 @@ class FrontendBuildHook(BuildHookInterface):
 
         # Check if static files are already bundled in package
         # This happens when building wheel from sdist (source distribution)
-        if package_static_dest.exists() and (package_static_dest / "index.html").exists():
+        if (
+            package_static_dest.exists()
+            and (package_static_dest / "index.html").exists()
+        ):
             print("TrackAI: Static files already bundled in package")
             return
 
@@ -48,10 +51,8 @@ class FrontendBuildHook(BuildHookInterface):
 
         error_msg = (
             "TrackAI: Pre-built frontend assets not found!\n\n"
-            "To fix this, build the frontend once:\n"
+            "To fix this, build the frontend:\n"
             "    cd frontend && npm install && npm run build\n\n"
-            "Then commit the static/ folder to git:\n"
-            "    git add static/ && git commit -m 'Add pre-built frontend'\n\n"
         )
 
         if not has_frontend:
@@ -59,8 +60,6 @@ class FrontendBuildHook(BuildHookInterface):
                 "TrackAI: Frontend source and pre-built assets not found!\n\n"
                 "This repository appears incomplete. Please clone from the official source\n"
                 "or ensure the 'frontend/' directory exists.\n\n"
-                "If you're building from a source distribution (.tar.gz), please report\n"
-                "this issue - the static files should have been included.\n"
             )
 
         raise RuntimeError(error_msg)

@@ -16,4 +16,8 @@ REST API endpoints for logging and retrieving metrics.
 
 `POST /api/metrics/compare` - Compare metrics across multiple runs
 
+### Get Metric Summary
+
+`POST /api/metrics/summary` - Get summary metrics for runs
+
 See the [REST API Guide](../../getting_started/rest_api.md) for complete examples.

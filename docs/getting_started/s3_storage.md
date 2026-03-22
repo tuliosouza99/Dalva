@@ -58,10 +58,11 @@ import trackai
 
 # pull=True downloads from S3 before starting (picks up runs from other machines)
 # push=True uploads to S3 after finishing
-with trackai.init(project="training", pull=True, push=True) as run:
-    for epoch in range(100):
-        trackai.log({"loss": 0.5}, step=epoch)
-# Database uploaded to S3 on context exit (because push=True)
+run = trackai.init(project="training", pull=True, push=True)
+for epoch in range(100):
+    run.log({"loss": 0.5}, step=epoch)
+run.finish()
+# Database uploaded to S3 after finish() (because push=True)
 ```
 
 ### 5. Sync Manually (CLI)
@@ -85,19 +86,20 @@ The SDK always writes to `~/.trackai/trackai.duckdb`. S3 sync is opt-in per run:
 
 ```python
 # No S3 interaction (default)
-with trackai.init(project="p") as run:
-    ...
+run = trackai.init(project="p")
+run.finish()
 
 # Pull before, push after
-with trackai.init(project="p", pull=True, push=True) as run:
-    ...
+run = trackai.init(project="p", pull=True, push=True)
+run.finish()
 
 # Pull before only (read shared data, keep local)
-with trackai.init(project="p", pull=True) as run:
-    ...
+run = trackai.init(project="p", pull=True)
+run.finish()
 
 # Push after only (write shared data, no pull)
-with trackai.init(project="p", push=True) as run:
+run = trackai.init(project="p", push=True)
+run.finish()
     ...
 ```
 
@@ -183,14 +185,16 @@ trackai config show
 import trackai
 
 # Minimal — no S3 interaction
-with trackai.init(project="training", config={"lr": 0.001}) as run:
-    for epoch in range(100):
-        trackai.log({"loss": 0.5}, step=epoch)
+run = trackai.init(project="training", config={"lr": 0.001})
+for epoch in range(100):
+    run.log({"loss": 0.5}, step=epoch)
+run.finish()
 
 # With explicit S3 sync
-with trackai.init(project="training", config={"lr": 0.001}, pull=True, push=True) as run:
-    for epoch in range(100):
-        trackai.log({"loss": 0.5}, step=epoch)
+run = trackai.init(project="training", config={"lr": 0.001}, pull=True, push=True)
+for epoch in range(100):
+    run.log({"loss": 0.5}, step=epoch)
+run.finish()
 ```
 
 ### Viewing Experiments
@@ -359,4 +363,3 @@ trackai config s3 --bucket my-bucket --key machine-b.duckdb --region us-east-1
 
 - [CLI Usage](cli_usage.md) - Full CLI reference including `pull` and `push`
 - [Python SDK](python_sdk.md) - Using SDK with S3
-- [Context Manager](context_manager.md) - Guaranteed S3 push with context manager

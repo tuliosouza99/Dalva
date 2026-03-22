@@ -1,8 +1,8 @@
-# trackai.log()
+# Run.log()
 
 Log training metrics with step numbers.
 
-::: trackai.log
+::: trackai.run.Run.log
     options:
       show_root_heading: true
       show_source: true

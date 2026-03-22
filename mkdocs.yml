@@ -57,4 +57,23 @@ nav:
     - Quick Start: getting_started/quickstart.md
     - Python SDK: getting_started/python_sdk.md
     - Resuming Runs: getting_started/resuming_runs.md
+    - CLI Usage: getting_started/cli_usage.md
+    - S3 Storage: getting_started/s3_storage.md
+  - API Documentation:
+    - Python SDK:
+      - init: api_documentation/python_sdk/init.md
+      - log: api_documentation/python_sdk/log.md
+      - finish: api_documentation/python_sdk/finish.md
+      - Run Class: api_documentation/python_sdk/run_class.md
+    - Models:
+      - Config Models: api_documentation/models/config_models.md
+      - Metric Models: api_documentation/models/metric_models.md
+      - Project Models: api_documentation/models/project_models.md
+      - Run Models: api_documentation/models/run_models.md
+    - Database:
+      - Connection: api_documentation/database/connection.md
+      - Schema: api_documentation/database/schema.md
+    - Services: api_documentation/services/logger.md
+    - Config: api_documentation/config.md
+    - S3 Sync: api_documentation/s3/sync.md
   - GitHub: https://github.com/tuliosouza99/TrackAI

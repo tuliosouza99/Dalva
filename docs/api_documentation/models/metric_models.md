@@ -7,4 +7,3 @@ Pydantic models for metric data.
 ::: trackai.api.models.MetricResponse
 ::: trackai.api.models.MetricValue
 ::: trackai.api.models.MetricValuesResponse
-::: trackai.api.models.MetricCompareRequest

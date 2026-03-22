@@ -1,8 +1,8 @@
-# trackai.finish()
+# Run.finish()
 
-Finish the current run and mark it as completed.
+Mark the run as completed.
 
-::: trackai.finish
+::: trackai.run.Run.finish
     options:
       show_root_heading: true
       show_source: true

@@ -2,7 +2,7 @@
 
 Database connection and initialization functions.
 
-::: trackai.db.connection.get_db
-::: trackai.db.connection.init_db
-::: trackai.db.connection.get_db_url
-::: trackai.db.connection.get_session
+::: dalva.db.connection.get_db
+::: dalva.db.connection.init_db
+::: dalva.db.connection.get_db_url
+::: dalva.db.connection.get_session

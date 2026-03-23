@@ -1,5 +1,5 @@
 """
-Simple example showing how to use TrackAI for experiment tracking.
+Simple example showing how to use Dalva for experiment tracking.
 
 This example demonstrates:
 - Initializing a run with configuration
@@ -7,11 +7,11 @@ This example demonstrates:
 - Finishing a run
 """
 
-import trackai
+import dalva
 import random
 
 # Initialize a new run
-run = trackai.init(
+run = dalva.init(
     project="example-project",
     name="simple-experiment",
     config={

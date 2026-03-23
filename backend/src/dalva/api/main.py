@@ -1,4 +1,4 @@
-"""FastAPI application for TrackAI."""
+"""FastAPI application for Dalva."""
 
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -9,10 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from trackai.api.routes import metrics, projects, runs, s3, views
-from trackai.config import load_config
-from trackai.db.connection import init_db
-from trackai.utils.paths import get_static_dir
+from dalva.api.routes import metrics, projects, runs, s3, views
+from dalva.config import load_config
+from dalva.db.connection import init_db
+from dalva.utils.paths import get_static_dir
 
 # Get static directory (works in both dev and installed modes)
 try:
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     if config.database.s3_bucket:
         db_path = Path(config.database.db_path).expanduser()
         print(f"S3 configured — dashboard reads from: {db_path}")
-        print("Use 'trackai db pull' to fetch the latest data from S3.")
+        print("Use 'dalva db pull' to fetch the latest data from S3.")
 
     # Initialize database
     init_db()
@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="TrackAI",
+    title="Dalva",
     description="Lightweight experiment tracker for deep learning",
     version="0.1.0",
     lifespan=lifespan,
@@ -95,4 +95,4 @@ else:
 
 
 if __name__ == "__main__":
-    uvicorn.run("trackai.api.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("dalva.api.main:app", host="0.0.0.0", port=8000, reload=True)

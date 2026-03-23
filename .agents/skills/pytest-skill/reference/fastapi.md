@@ -18,7 +18,7 @@ With it, you can use [pytest](https://docs.pytest.org/) directly with **FastAPI*
 ```python
 from fastapi.testclient import TestClient
 
-from src.trackai.api.main import app
+from src.dalva.api.main import app
 
 client = TestClient(app)
 

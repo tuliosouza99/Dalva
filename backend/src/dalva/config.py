@@ -1,4 +1,4 @@
-"""Configuration management for TrackAI."""
+"""Configuration management for Dalva."""
 
 import json
 import os
@@ -14,70 +14,70 @@ class DatabaseConfig(BaseModel):
 
     The database always lives at ``db_path`` on the local filesystem.
     ``s3_bucket`` / ``s3_key`` / ``s3_region`` are optional — when set they
-    enable ``trackai db pull`` / ``trackai db push`` and the ``pull``/``push``
-    flags on ``trackai.init()``.
+    enable ``dalva db pull`` / ``dalva db push`` and the ``pull``/``push``
+    flags on ``dalva.init()``.
     """
 
-    db_path: str = str(Path.home() / ".trackai" / "trackai.duckdb")
+    db_path: str = str(Path.home() / ".dalva" / "dalva.duckdb")
     s3_bucket: Optional[str] = None
-    s3_key: str = "trackai.duckdb"
+    s3_key: str = "dalva.duckdb"
     s3_region: str = "us-east-1"
 
 
-class TrackAIConfig(BaseModel):
-    """TrackAI configuration."""
+class DalvaConfig(BaseModel):
+    """Dalva configuration."""
 
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
 
 
 # Configuration file location
-CONFIG_DIR = Path.home() / ".trackai"
+CONFIG_DIR = Path.home() / ".dalva"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 ENV_FILE = CONFIG_DIR / ".env"
 
 
-def load_config() -> TrackAIConfig:
+def load_config() -> DalvaConfig:
     """
     Load configuration from file and environment variables.
 
     Priority: Environment variables > Config file > Defaults
 
     Returns:
-        TrackAIConfig: The loaded configuration
+        DalvaConfig: The loaded configuration
     """
     # Load .env file if it exists
     if ENV_FILE.exists():
         load_dotenv(ENV_FILE)
 
-    config = TrackAIConfig()
+    config = DalvaConfig()
 
     # Load from config file if exists
     if CONFIG_FILE.exists():
         try:
             with open(CONFIG_FILE) as f:
                 data = json.load(f)
-                config = TrackAIConfig(**data)
+                config = DalvaConfig(**data)
         except (json.JSONDecodeError, ValueError) as e:
             print(f"Warning: Failed to load config file: {e}")
             print("Using default configuration")
 
     # Override with environment variables
-    if os.getenv("TRACKAI_DB_PATH"):
-        config.database.db_path = os.getenv("TRACKAI_DB_PATH")  # type: ignore
+    if os.getenv("DALVA_DB_PATH"):
+        config.database.db_path = os.getenv("DALVA_DB_PATH")  # type: ignore
 
-    if os.getenv("TRACKAI_S3_BUCKET"):
-        config.database.s3_bucket = os.getenv("TRACKAI_S3_BUCKET")
+    if os.getenv("DALVA_S3_BUCKET"):
+        config.database.s3_bucket = os.getenv("DALVA_S3_BUCKET")
 
-    if os.getenv("TRACKAI_S3_KEY"):
-        config.database.s3_key = os.getenv("TRACKAI_S3_KEY")  # type: ignore
+    if os.getenv("DALVA_S3_KEY"):
+        config.database.s3_key = os.getenv("DALVA_S3_KEY")  # type: ignore
 
-    if os.getenv("TRACKAI_S3_REGION"):
-        config.database.s3_region = os.getenv("TRACKAI_S3_REGION")  # type: ignore
+    if os.getenv("DALVA_S3_REGION"):
+        config.database.s3_region = os.getenv("DALVA_S3_REGION")  # type: ignore
 
     return config
 
 
-def save_config(config: TrackAIConfig) -> None:
+def save_config(config: DalvaConfig) -> None:
     """
     Save configuration to file.
 
@@ -100,13 +100,13 @@ def get_database_config() -> DatabaseConfig:
 
 
 def update_s3_config(
-    bucket: str, key: str = "trackai.duckdb", region: str = "us-east-1"
+    bucket: str, key: str = "dalva.duckdb", region: str = "us-east-1"
 ) -> None:
     """
     Save S3 credentials to config.
 
-    Once set, ``trackai db pull`` / ``trackai db push`` and the ``pull``/
-    ``push`` flags on ``trackai.init()`` become available.
+    Once set, ``dalva db pull`` / ``dalva db push`` and the ``pull``/
+    ``push`` flags on ``dalva.init()`` become available.
 
     Args:
         bucket: S3 bucket name

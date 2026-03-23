@@ -7,13 +7,13 @@ export default function S3ConfigPage() {
   const updateConfigMutation = useUpdateS3Config();
 
   const [bucket, setBucket] = useState('');
-  const [key, setKey] = useState('trackai.duckdb');
+  const [key, setKey] = useState('dalva.duckdb');
   const [region, setRegion] = useState('us-east-1');
 
   useEffect(() => {
     if (config) {
       setBucket(config.bucket || '');
-      setKey(config.key || 'trackai.duckdb');
+      setKey(config.key || 'dalva.duckdb');
       setRegion(config.region || 'us-east-1');
     }
   }, [config]);
@@ -100,7 +100,7 @@ export default function S3ConfigPage() {
                 value={bucket}
                 onChange={(e) => setBucket(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="my-trackai-bucket"
+                placeholder="my-dalva-bucket"
                 required
               />
               <p className="mt-1 text-xs text-gray-500">
@@ -118,7 +118,7 @@ export default function S3ConfigPage() {
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="trackai.duckdb"
+                placeholder="dalva.duckdb"
               />
               <p className="mt-1 text-xs text-gray-500">
                 The path/filename for the database file in S3

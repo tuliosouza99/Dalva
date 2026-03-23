@@ -2,7 +2,7 @@
 
 Configuration loading and management functions.
 
-::: trackai.config.load_config
-::: trackai.config.save_config
-::: trackai.config.get_database_config
-::: trackai.config.update_s3_config
+::: dalva.config.load_config
+::: dalva.config.save_config
+::: dalva.config.get_database_config
+::: dalva.config.update_s3_config

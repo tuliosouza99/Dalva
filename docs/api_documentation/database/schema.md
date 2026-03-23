@@ -2,10 +2,10 @@
 
 Database table definitions.
 
-::: trackai.db.schema.Project
-::: trackai.db.schema.Run
-::: trackai.db.schema.Metric
-::: trackai.db.schema.Config
-::: trackai.db.schema.File
-::: trackai.db.schema.CustomView
-::: trackai.db.schema.Dashboard
+::: dalva.db.schema.Project
+::: dalva.db.schema.Run
+::: dalva.db.schema.Metric
+::: dalva.db.schema.Config
+::: dalva.db.schema.File
+::: dalva.db.schema.CustomView
+::: dalva.db.schema.Dashboard

@@ -1,8 +1,8 @@
-site_name: "TrackAI Documentation"
+site_name: "Dalva Documentation"
 site_description: "Lightweight experiment tracker for deep learning"
-site_url: "https://github.com/tuliosouza99/TrackAI"
-repo_url: "https://github.com/tuliosouza99/TrackAI"
-repo_name: "tuliosouza99/TrackAI"
+site_url: "https://github.com/tuliosouza99/Dalva"
+repo_url: "https://github.com/tuliosouza99/Dalva"
+repo_name: "tuliosouza99/Dalva"
 
 theme:
   name: "material"
@@ -75,7 +75,7 @@ nav:
       - Services: api_documentation/services/logger.md
       - Config: api_documentation/config.md
       - S3 Sync: api_documentation/s3/sync.md
-  - GitHub: https://github.com/tuliosouza99/TrackAI
+  - GitHub: https://github.com/tuliosouza99/Dalva
 
 markdown_extensions:
   - pymdownx.highlight:

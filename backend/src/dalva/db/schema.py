@@ -1,4 +1,4 @@
-"""Database schema for TrackAI experiment tracker."""
+"""Database schema for Dalva experiment tracker."""
 
 from datetime import datetime
 

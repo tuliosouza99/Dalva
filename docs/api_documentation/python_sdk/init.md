@@ -1,8 +1,8 @@
-# trackai.init()
+# dalva.init()
 
 Initialize a new experiment run.
 
-::: trackai.init
+::: dalva.init
     options:
       show_root_heading: true
       show_source: true

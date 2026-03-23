@@ -2,5 +2,5 @@
 
 Configuration data models.
 
-::: trackai.config.DatabaseConfig
-::: trackai.config.TrackAIConfig
+::: dalva.config.DatabaseConfig
+::: dalva.config.DalvaConfig

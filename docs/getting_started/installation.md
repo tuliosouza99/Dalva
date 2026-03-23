@@ -8,25 +8,25 @@
 ## Install
 
 ```bash
-git clone https://github.com/tuliosouza99/TrackAI.git
-cd TrackAI/backend
+git clone https://github.com/tuliosouza99/Dalva.git
+cd Dalva/backend
 uv sync
 ```
 
 Verify:
 
 ```bash
-trackai --version
+dalva --version
 ```
 
 ## Start the Server
 
 ```bash
-trackai server start
+dalva server start
 ```
 
 The server runs on http://localhost:8000
 
 ## Database
 
-Data is stored at: `~/.trackai/trackai.duckdb`
+Data is stored at: `~/.dalva/dalva.duckdb`

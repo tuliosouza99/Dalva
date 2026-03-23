@@ -7,8 +7,8 @@ from pathlib import Path
 
 import click
 
-from trackai.cli.utils import find_available_port
-from trackai.utils.paths import get_frontend_dir, is_development_mode
+from dalva.cli.utils import find_available_port
+from dalva.utils.paths import get_frontend_dir, is_development_mode
 
 
 @click.group()
@@ -29,13 +29,13 @@ def server():
     "--reload/--no-reload", default=True, help="Enable auto-reload (default: enabled)"
 )
 def start(port, host, reload):
-    """Start TrackAI server in production mode (builds frontend first)."""
+    """Start Dalva server in production mode (builds frontend first)."""
     # Find port if not specified
     if port is None:
         port = find_available_port(8000)
         click.echo(f"Found available port: {port}")
 
-    click.echo(click.style("Starting TrackAI...", fg="blue", bold=True))
+    click.echo(click.style("Starting Dalva...", fg="blue", bold=True))
 
     # Check if in development mode
     if not is_development_mode():
@@ -75,7 +75,7 @@ def start(port, host, reload):
 
     cmd = [
         "uvicorn",
-        "trackai.api.main:app",
+        "dalva.api.main:app",
         "--host",
         host,
         "--port",
@@ -85,7 +85,7 @@ def start(port, host, reload):
     if reload:
         cmd.append("--reload")
 
-    click.echo(click.style("\nTrackAI is running!", fg="blue", bold=True))
+    click.echo(click.style("\nDalva is running!", fg="blue", bold=True))
     click.echo(
         f"Access the app at: {click.style(f'http://localhost:{port}', fg='yellow')}"
     )
@@ -112,7 +112,7 @@ def start(port, host, reload):
     help="Frontend port (default: auto-detect from 5173)",
 )
 def dev(backend_port, frontend_port):
-    """Start TrackAI in development mode (hot reload for both frontend and backend)."""
+    """Start Dalva in development mode (hot reload for both frontend and backend)."""
     # Find ports if not specified
     if backend_port is None:
         backend_port = find_available_port(8000)
@@ -127,9 +127,9 @@ def dev(backend_port, frontend_port):
         click.echo(
             click.style(
                 "ERROR: Development mode requires source repository.\n"
-                "The 'trackai server dev' command is only available when running "
+                "The 'dalva server dev' command is only available when running "
                 "from the source code, not from an installed package.\n"
-                "Use 'trackai server start' instead.",
+                "Use 'dalva server start' instead.",
                 fg="red",
             ),
             err=True,
@@ -137,7 +137,7 @@ def dev(backend_port, frontend_port):
         sys.exit(1)
 
     click.echo(
-        click.style("\nStarting TrackAI in development mode...", fg="blue", bold=True)
+        click.style("\nStarting Dalva in development mode...", fg="blue", bold=True)
     )
 
     # Get paths - these will only work in dev mode
@@ -147,7 +147,7 @@ def dev(backend_port, frontend_port):
     # Start backend process
     backend_cmd = [
         "uvicorn",
-        "trackai.api.main:app",
+        "dalva.api.main:app",
         "--reload",
         "--host",
         "0.0.0.0",
@@ -178,7 +178,7 @@ def dev(backend_port, frontend_port):
     )
 
     click.echo(
-        click.style("\nTrackAI is running in development mode!", fg="blue", bold=True)
+        click.style("\nDalva is running in development mode!", fg="blue", bold=True)
     )
     click.echo(
         f"Backend:  {click.style(f'http://localhost:{backend_port}', fg='yellow')}"

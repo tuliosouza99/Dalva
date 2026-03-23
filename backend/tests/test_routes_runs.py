@@ -51,7 +51,7 @@ class TestListRuns:
         """Test filtering runs by group name."""
         # Update run with group
         sample_run["group_name"] = "experiment-a"
-        from trackai.db.schema import Run
+        from dalva.db.schema import Run
 
         run = db_session.query(Run).get(sample_run["id"])
         run.group_name = "experiment-a"
@@ -86,7 +86,7 @@ class TestListRuns:
 
     def test_list_runs_pagination(self, api_client, db_session, sample_project):
         """Test pagination of runs list."""
-        from trackai.db.schema import Run
+        from dalva.db.schema import Run
 
         # Create 5 runs
         for i in range(5):
@@ -113,7 +113,7 @@ class TestListRuns:
 
     def test_list_runs_sorting(self, api_client, db_session, sample_project):
         """Test sorting of runs list."""
-        from trackai.db.schema import Run
+        from dalva.db.schema import Run
 
         # Create runs with different names
         names = ["aaa-run", "zzz-run", "mmm-run"]

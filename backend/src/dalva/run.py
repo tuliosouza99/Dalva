@@ -4,10 +4,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from trackai.config import load_config
-from trackai.db.connection import init_db
-from trackai.s3.sync import sync_from_s3, sync_to_s3
-from trackai.services.logger import LoggingService
+from dalva.config import load_config
+from dalva.db.connection import init_db
+from dalva.s3.sync import sync_from_s3, sync_to_s3
+from dalva.services.logger import LoggingService
 
 
 def _require_s3_config(action: str) -> None:
@@ -16,7 +16,7 @@ def _require_s3_config(action: str) -> None:
     if not config.database.s3_bucket:
         raise ValueError(
             f"{action} requires S3 to be configured. "
-            "Run 'trackai config s3 --bucket <name>' first and make sure your "
+            "Run 'dalva config s3 --bucket <name>' first and make sure your "
             "AWS credentials are set (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY)."
         )
 

@@ -2,7 +2,7 @@
 
 Run object for tracking experiments with context manager support.
 
-::: trackai.Run
+::: dalva.Run
     options:
       show_root_heading: true
       show_source: true

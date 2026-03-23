@@ -21,7 +21,7 @@ class TestAPIConformance:
         response = api_client.get("/openapi.json")
         assert response.status_code == 200
         schema = response.json()
-        assert schema["info"]["title"] == "TrackAI Test"
+        assert schema["info"]["title"] == "Dalva Test"
         assert "paths" in schema
 
 

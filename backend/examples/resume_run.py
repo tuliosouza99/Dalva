@@ -4,11 +4,11 @@ Example demonstrating run resumption.
 Shows how to resume an existing run to continue logging metrics.
 """
 
-import trackai
+import dalva
 
 # First, create a run
 print("=== Creating initial run ===")
-run1 = trackai.init(
+run1 = dalva.init(
     project="example-project",
     name="resumable-run",
     config={"initial_lr": 0.01},
@@ -21,7 +21,7 @@ run1.finish()
 
 # Now resume the same run using its run_id
 print(f"\n=== Resuming run {run1.run_id} ===")
-run2 = trackai.init(
+run2 = dalva.init(
     project="example-project",
     resume=run1.run_id,  # Pass the run_id to resume
 )

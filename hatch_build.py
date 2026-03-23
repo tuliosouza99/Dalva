@@ -28,7 +28,7 @@ class FrontendBuildHook(BuildHookInterface):
         # Get paths
         repo_root = Path(__file__).parent
         static_source = repo_root / "static"
-        package_static_dest = repo_root / "backend" / "src" / "trackai" / "static"
+        package_static_dest = repo_root / "backend" / "src" / "dalva" / "static"
 
         # Check if static files are already bundled in package
         # This happens when building wheel from sdist (source distribution)
@@ -36,12 +36,12 @@ class FrontendBuildHook(BuildHookInterface):
             package_static_dest.exists()
             and (package_static_dest / "index.html").exists()
         ):
-            print("TrackAI: Static files already bundled in package")
+            print("Dalva: Static files already bundled in package")
             return
 
         # Check if pre-built static files exist in the repo
         if static_source.exists() and (static_source / "index.html").exists():
-            print("TrackAI: Copying pre-built frontend assets...")
+            print("Dalva: Copying pre-built frontend assets...")
             self._copy_static_files(static_source, package_static_dest)
             return
 
@@ -50,14 +50,14 @@ class FrontendBuildHook(BuildHookInterface):
         has_frontend = frontend_dir.exists()
 
         error_msg = (
-            "TrackAI: Pre-built frontend assets not found!\n\n"
+            "Dalva: Pre-built frontend assets not found!\n\n"
             "To fix this, build the frontend:\n"
             "    cd frontend && npm install && npm run build\n\n"
         )
 
         if not has_frontend:
             error_msg = (
-                "TrackAI: Frontend source and pre-built assets not found!\n\n"
+                "Dalva: Frontend source and pre-built assets not found!\n\n"
                 "This repository appears incomplete. Please clone from the official source\n"
                 "or ensure the 'frontend/' directory exists.\n\n"
             )
@@ -75,4 +75,4 @@ class FrontendBuildHook(BuildHookInterface):
 
         # Count files
         file_count = sum(1 for _ in dest.rglob("*") if _.is_file())
-        print(f"TrackAI: Bundled {file_count} static files")
+        print(f"Dalva: Bundled {file_count} static files")

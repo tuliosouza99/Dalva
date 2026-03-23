@@ -1,6 +1,6 @@
-# TrackAI Examples
+# Dalva Examples
 
-This directory contains example scripts demonstrating how to use TrackAI for experiment tracking.
+This directory contains example scripts demonstrating how to use Dalva for experiment tracking.
 
 ## Running Examples
 
@@ -22,15 +22,15 @@ Basic usage showing:
 - Finishing a run manually
 
 ```python
-import trackai
+import dalva
 
-run = trackai.init(
+run = dalva.init(
     project="my-project",
     config={"lr": 0.001}
 )
 
-trackai.log({"loss": 0.5, "accuracy": 0.8}, step=0)
-trackai.finish()
+dalva.log({"loss": 0.5, "accuracy": 0.8}, step=0)
+dalva.finish()
 ```
 
 ### 2. context_manager.py
@@ -40,10 +40,10 @@ Recommended pattern using context manager:
 - Cleaner code
 
 ```python
-import trackai
+import dalva
 
-with trackai.init(project="my-project") as run:
-    trackai.log({"loss": 0.5}, step=0)
+with dalva.init(project="my-project") as run:
+    dalva.log({"loss": 0.5}, step=0)
     # Run automatically finished here
 ```
 
@@ -54,26 +54,26 @@ Resume an existing run:
 - Supports "allow" and "must" modes
 
 ```python
-import trackai
+import dalva
 
 # First run
-run = trackai.init(project="my-project", name="my-run")
-trackai.log({"loss": 1.0}, step=0)
-trackai.finish()
+run = dalva.init(project="my-project", name="my-run")
+dalva.log({"loss": 1.0}, step=0)
+dalva.finish()
 
 # Resume later
-run = trackai.init(
+run = dalva.init(
     project="my-project",
     name="my-run",
     resume="allow"  # or "must"
 )
-trackai.log({"loss": 0.5}, step=1)
-trackai.finish()
+dalva.log({"loss": 0.5}, step=1)
+dalva.finish()
 ```
 
 ## API Reference
 
-### trackai.init()
+### dalva.init()
 Initialize a new run or resume an existing one.
 
 **Parameters:**
@@ -85,20 +85,20 @@ Initialize a new run or resume an existing one.
 
 **Returns:** Run object
 
-### trackai.log()
+### dalva.log()
 Log metrics to the current run.
 
 **Parameters:**
 - `metrics` (dict): Dictionary of metric name -> value
 - `step` (int, optional): Step number (auto-incremented if not provided)
 
-### trackai.log_system()
+### dalva.log_system()
 Log system metrics (GPU, memory, etc.) without a step number.
 
 **Parameters:**
 - `metrics` (dict): Dictionary of system metrics
 
-### trackai.finish()
+### dalva.finish()
 Finish the current run and mark it as completed.
 
 ## Viewing Results

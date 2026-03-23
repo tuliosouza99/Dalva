@@ -7,14 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from trackai.api.models import (
+from dalva.api.models import (
     RunCreate,
     RunResponse,
     RunsListResponse,
     RunSummary,
 )
-from trackai.db.connection import get_db
-from trackai.db.schema import Config, Metric, Run
+from dalva.db.connection import get_db
+from dalva.db.schema import Config, Metric, Run
 
 router = APIRouter()
 

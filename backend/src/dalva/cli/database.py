@@ -8,9 +8,9 @@ from pathlib import Path
 import click
 from sqlalchemy import create_engine, text
 
-from trackai.config import load_config
-from trackai.db.connection import get_db_url
-from trackai.s3.sync import sync_from_s3, sync_to_s3
+from dalva.config import load_config
+from dalva.db.connection import get_db_url
+from dalva.s3.sync import sync_from_s3, sync_to_s3
 
 
 def _require_s3(config) -> None:
@@ -18,7 +18,7 @@ def _require_s3(config) -> None:
     if not config.database.s3_bucket:
         click.echo(
             click.style(
-                "S3 not configured. Run 'trackai config s3 --bucket <name>' first.",
+                "S3 not configured. Run 'dalva config s3 --bucket <name>' first.",
                 fg="red",
             ),
             err=True,
@@ -28,7 +28,7 @@ def _require_s3(config) -> None:
 
 def _require_s3_credentials() -> None:
     """Exit with a clear error message if AWS credentials are missing."""
-    from trackai.s3.sync import validate_s3_credentials
+    from dalva.s3.sync import validate_s3_credentials
 
     if not validate_s3_credentials():
         click.echo(
@@ -37,7 +37,7 @@ def _require_s3_credentials() -> None:
         )
         click.echo(
             "Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_DEFAULT_REGION "
-            "(or store them in ~/.trackai/.env).",
+            "(or store them in ~/.dalva/.env).",
             err=True,
         )
         sys.exit(1)
@@ -109,7 +109,7 @@ def backup(output):
     # Generate backup path if not provided
     if output is None:
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        output = str(source_path.parent / f"trackai-backup-{timestamp}.duckdb")
+        output = str(source_path.parent / f"dalva-backup-{timestamp}.duckdb")
 
     output_path = Path(output).expanduser()
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -136,7 +136,7 @@ def reset():
 
 @db.command()
 def pull():
-    """Download the database from S3 to ~/.trackai/trackai.duckdb."""
+    """Download the database from S3 to ~/.dalva/dalva.duckdb."""
     config = load_config()
     _require_s3(config)
     _require_s3_credentials()
@@ -154,7 +154,7 @@ def pull():
 
 @db.command()
 def push():
-    """Upload ~/.trackai/trackai.duckdb to S3."""
+    """Upload ~/.dalva/dalva.duckdb to S3."""
     config = load_config()
     _require_s3(config)
     _require_s3_credentials()

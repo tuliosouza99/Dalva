@@ -2,18 +2,18 @@
 
 ## Overview
 
-TrackAI's Python API lets you log experiments:
+Dalva's Python API lets you log experiments:
 
-- `trackai.init()` - Initialize a new run or resume an existing one
+- `dalva.init()` - Initialize a new run or resume an existing one
 - `run.log()` - Log metrics with steps
 - `run.finish()` - Complete the run
 
 ## Initialize a Run
 
 ```python
-import trackai
+import dalva
 
-run = trackai.init(
+run = dalva.init(
     project="my-project",
     name="experiment-1",
     config={"lr": 0.001, "batch_size": 32}
@@ -65,10 +65,10 @@ The `Run` object returned by `init()` has these properties:
 Pass the `run_id` to `resume` to continue a previous run:
 
 ```python
-import trackai
+import dalva
 
 # Resume an existing run
-run = trackai.init(
+run = dalva.init(
     project="my-project",
     resume="ABC-1"  # The run_id to resume
 )
@@ -81,7 +81,7 @@ Example continuing a run:
 
 ```python
 # First run
-run1 = trackai.init(project="training", name="my-experiment")
+run1 = dalva.init(project="training", name="my-experiment")
 run1.log({"loss": 1.0}, step=0)
 run1.log({"loss": 0.8}, step=1)
 run1.finish()
@@ -89,7 +89,7 @@ run1.finish()
 print(f"Run ID: {run1.run_id}")  # e.g., "ABC-1"
 
 # Later, resume the same run
-run2 = trackai.init(
+run2 = dalva.init(
     project="training",
     resume="ABC-1"
 )
@@ -103,9 +103,9 @@ run2.finish()
 Use as a context manager for automatic cleanup:
 
 ```python
-import trackai
+import dalva
 
-with trackai.init(project="training") as run:
+with dalva.init(project="training") as run:
     run.log({"loss": 0.5}, step=0)
     run.log({"loss": 0.3}, step=1)
 # Automatically finishes on exit
@@ -116,10 +116,10 @@ with trackai.init(project="training") as run:
 Sync with S3 per-run using `pull` and `push`:
 
 ```python
-import trackai
+import dalva
 
 # Pull before, push after
-run = trackai.init(project="training", pull=True, push=True)
+run = dalva.init(project="training", pull=True, push=True)
 for epoch in range(100):
     run.log({"loss": 0.5}, step=epoch)
 run.finish()
@@ -128,9 +128,9 @@ run.finish()
 ## Example
 
 ```python
-import trackai
+import dalva
 
-run = trackai.init(
+run = dalva.init(
     project="image-classification",
     name="resnet50-exp",
     config={"model": "resnet50", "lr": 0.001}

@@ -114,7 +114,7 @@ export default function ProjectsPage() {
         <div className="card text-center py-12">
           <p className="text-gray-500 text-lg">No projects found</p>
           <p className="text-gray-400 text-sm mt-2">
-            Start tracking experiments by using the trackai Python API
+            Start tracking experiments by using the dalva Python API
           </p>
         </div>
       )}

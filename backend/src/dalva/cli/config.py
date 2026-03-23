@@ -6,8 +6,8 @@ import sys
 
 import click
 
-from trackai.config import CONFIG_FILE, load_config, update_s3_config
-from trackai.s3.sync import validate_s3_credentials
+from dalva.config import CONFIG_FILE, load_config, update_s3_config
+from dalva.s3.sync import validate_s3_credentials
 
 
 @click.group()
@@ -19,7 +19,7 @@ def config():
 @config.command()
 @click.option("--bucket", required=True, help="S3 bucket name")
 @click.option(
-    "--key", default="trackai.duckdb", help="S3 object key (default: trackai.duckdb)"
+    "--key", default="dalva.duckdb", help="S3 object key (default: dalva.duckdb)"
 )
 @click.option("--region", default="us-east-1", help="AWS region (default: us-east-1)")
 def s3(bucket, key, region):
@@ -54,9 +54,9 @@ def s3(bucket, key, region):
         click.style("\n✓ S3 storage configured successfully!", fg="green", bold=True)
     )
     click.echo("\nNext steps:")
-    click.echo("  1. Run 'trackai db migrate' if you have existing SQLite data")
-    click.echo("  2. Run 'trackai db push' to upload your local database to S3")
-    click.echo("  3. Run 'trackai server start' to start the server")
+    click.echo("  1. Run 'dalva db migrate' if you have existing SQLite data")
+    click.echo("  2. Run 'dalva db push' to upload your local database to S3")
+    click.echo("  3. Run 'dalva server start' to start the server")
 
 
 @config.command()
@@ -64,7 +64,7 @@ def show():
     """Show current configuration."""
     config = load_config()
 
-    click.echo(click.style("TrackAI Configuration", fg="blue", bold=True))
+    click.echo(click.style("Dalva Configuration", fg="blue", bold=True))
     click.echo(f"\nConfig file: {CONFIG_FILE}")
 
     if CONFIG_FILE.exists():
@@ -77,10 +77,10 @@ def show():
 
     # Show environment variable overrides
     env_vars = [
-        "TRACKAI_DB_PATH",
-        "TRACKAI_S3_BUCKET",
-        "TRACKAI_S3_KEY",
-        "TRACKAI_S3_REGION",
+        "DALVA_DB_PATH",
+        "DALVA_S3_BUCKET",
+        "DALVA_S3_KEY",
+        "DALVA_S3_REGION",
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
         "AWS_DEFAULT_REGION",

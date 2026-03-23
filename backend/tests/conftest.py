@@ -1,4 +1,4 @@
-"""Pytest configuration and shared fixtures for TrackAI backend tests."""
+"""Pytest configuration and shared fixtures for Dalva backend tests."""
 
 import os
 from datetime import datetime, timezone
@@ -13,24 +13,24 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
-from trackai.api.routes import metrics, projects, runs
-from trackai.db.schema import Metric, Run
+from dalva.api.routes import metrics, projects, runs
+from dalva.db.schema import Metric, Run
 
-# Set test environment before importing trackai modules
-os.environ["TRACKAI_DB_PATH"] = ""
+# Set test environment before importing dalva modules
+os.environ["DALVA_DB_PATH"] = ""
 
 
 @pytest.fixture(scope="function")
 def temp_db_path(tmp_path) -> str:
     """Create a temporary database path for each test."""
-    db_file = tmp_path / "test_trackai.duckdb"
+    db_file = tmp_path / "test_dalva.duckdb"
     return str(db_file)
 
 
 @pytest.fixture(scope="function")
 def temp_config_dir(tmp_path, monkeypatch) -> Path:
     """Create a temporary config directory and patch config paths."""
-    config_dir = tmp_path / ".trackai"
+    config_dir = tmp_path / ".dalva"
     config_dir.mkdir(parents=True, exist_ok=True)
 
     # Patch environment and config paths
@@ -43,7 +43,7 @@ def temp_config_dir(tmp_path, monkeypatch) -> Path:
 def db_engine(temp_db_path) -> Engine:
     """Create a fresh SQLAlchemy engine for testing."""
     # Set the test database path
-    os.environ["TRACKAI_DB_PATH"] = temp_db_path
+    os.environ["DALVA_DB_PATH"] = temp_db_path
 
     # Create engine with NullPool (same as production)
     engine = create_engine(
@@ -225,10 +225,10 @@ def db_session(db_engine) -> Generator[Session, None, None]:
 def api_client(db_engine, monkeypatch) -> TestClient:
     """Create a test client with mocked dependencies."""
     # Set test database path
-    os.environ["TRACKAI_DB_PATH"] = db_engine.url.database
+    os.environ["DALVA_DB_PATH"] = db_engine.url.database
 
     # Create a minimal FastAPI app for testing
-    app = FastAPI(title="TrackAI Test")
+    app = FastAPI(title="Dalva Test")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -245,9 +245,9 @@ def api_client(db_engine, monkeypatch) -> TestClient:
     def get_test_engine():
         return db_engine
 
-    monkeypatch.setattr("trackai.api.routes.projects.get_db", get_test_engine)
-    monkeypatch.setattr("trackai.api.routes.runs.get_db", get_test_engine)
-    monkeypatch.setattr("trackai.api.routes.metrics.get_db", get_test_engine)
+    monkeypatch.setattr("dalva.api.routes.projects.get_db", get_test_engine)
+    monkeypatch.setattr("dalva.api.routes.runs.get_db", get_test_engine)
+    monkeypatch.setattr("dalva.api.routes.metrics.get_db", get_test_engine)
 
     @app.get("/api/health")
     async def health():
@@ -260,7 +260,7 @@ def api_client(db_engine, monkeypatch) -> TestClient:
 @pytest.fixture(scope="function")
 def sample_project(db_session) -> dict:
     """Create a sample project in the database."""
-    from trackai.db.schema import Project
+    from dalva.db.schema import Project
 
     project = Project(
         name="test-project",

@@ -1,16 +1,16 @@
-# TrackAI
+# Dalva
 
 > A lightweight, self-hosted experiment tracker for deep learning
 
-TrackAI provides a simple Python API for logging experiments and a web interface for visualizing results.
+Dalva provides a simple Python API for logging experiments and a web interface for visualizing results.
 
 ## Quick Start
 
 ```python
-import trackai
+import dalva
 
 # Initialize a run
-run = trackai.init(
+run = dalva.init(
     project="my-project",
     name="experiment-1",
     config={"lr": 0.001}
@@ -34,14 +34,14 @@ run.finish()
 ## Installation
 
 ```bash
-git clone https://github.com/tuliosouza99/TrackAI.git
-cd TrackAI/backend && uv sync
+git clone https://github.com/tuliosouza99/Dalva.git
+cd Dalva/backend && uv sync
 ```
 
 ## Start the Server
 
 ```bash
-trackai server start
+dalva server start
 ```
 
 Open http://localhost:8000 to access the web interface.

@@ -5,8 +5,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from trackai.config import load_config, update_s3_config
-from trackai.s3.sync import sync_from_s3, sync_to_s3, validate_s3_credentials
+from dalva.config import load_config, update_s3_config
+from dalva.s3.sync import sync_from_s3, sync_to_s3, validate_s3_credentials
 
 router = APIRouter(prefix="/s3", tags=["s3"])
 
@@ -15,7 +15,7 @@ class S3Config(BaseModel):
     """S3 configuration."""
 
     bucket: Optional[str] = None
-    key: str = "trackai.duckdb"
+    key: str = "dalva.duckdb"
     region: str = "us-east-1"
 
 
@@ -23,7 +23,7 @@ class S3ConfigUpdate(BaseModel):
     """S3 configuration update request."""
 
     bucket: str
-    key: str = "trackai.duckdb"
+    key: str = "dalva.duckdb"
     region: str = "us-east-1"
 
 

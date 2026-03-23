@@ -2,7 +2,7 @@
 
 Log training metrics with step numbers.
 
-::: trackai.run.Run.log
+::: dalva.run.Run.log
     options:
       show_root_heading: true
       show_source: true

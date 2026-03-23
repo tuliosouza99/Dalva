@@ -3,9 +3,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from trackai.api.models import ProjectCreate, ProjectResponse, ProjectSummary
-from trackai.db.connection import get_db
-from trackai.db.schema import Metric, Project, Run
+from dalva.api.models import ProjectCreate, ProjectResponse, ProjectSummary
+from dalva.db.connection import get_db
+from dalva.db.schema import Metric, Project, Run
 
 router = APIRouter()
 

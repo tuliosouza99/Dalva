@@ -1,8 +1,8 @@
 """
-TrackAI - Lightweight experiment tracker for deep learning.
+Dalva - Lightweight experiment tracker for deep learning.
 """
 
-from trackai.run import Run
+from dalva.run import Run
 
 __version__ = "0.1.0"
 
@@ -31,8 +31,8 @@ def init(
 
     Example:
         ```python
-        import trackai
-        run = trackai.init(project="my-project", config={"lr": 0.001})
+        import dalva
+        run = dalva.init(project="my-project", config={"lr": 0.001})
         run.log({"loss": 0.5}, step=0)
         run.finish()
         ```

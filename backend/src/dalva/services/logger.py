@@ -19,8 +19,8 @@ import time
 from datetime import datetime
 from typing import Any, Optional
 
-from trackai.db.connection import session_scope
-from trackai.db.schema import Config, Metric, Project, Run
+from dalva.db.connection import session_scope
+from dalva.db.schema import Config, Metric, Project, Run
 
 
 def _generate_abbreviation(project_name: str) -> str:

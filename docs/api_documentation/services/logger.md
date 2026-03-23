@@ -2,4 +2,4 @@
 
 Internal logging service for database operations.
 
-::: trackai.services.logger.LoggingService
+::: dalva.services.logger.LoggingService

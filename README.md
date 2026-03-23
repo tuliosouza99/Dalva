@@ -1,8 +1,8 @@
-# TrackAI
+# Dalva
 
 > A lightweight, self-hosted experiment tracker for deep learning
 
-TrackAI is a minimal alternative to tools like Weights & Biases. It provides a simple Python API for logging experiments and a clean web interface for visualizing and comparing results.
+Dalva provides a simple Python API for logging experiments and a clean web interface for visualizing and comparing results.
 
 ## Features
 
@@ -37,7 +37,7 @@ npm install
 
 ```bash
 # Start the server (serves both backend and frontend)
-trackai server start
+dalva server start
 ```
 
 The server will automatically find an available port and display the URL.
@@ -46,7 +46,7 @@ The server will automatically find an available port and display the URL.
 
 ```bash
 # Start backend and frontend separately with hot reload
-trackai server dev
+dalva server dev
 ```
 
 **Option 3: Manual Setup (advanced)**
@@ -54,7 +54,7 @@ trackai server dev
 **Terminal 1 - Start the Backend:**
 ```bash
 cd backend
-uv run uvicorn trackai.api.main:app --reload
+uv run uvicorn dalva.api.main:app --reload
 ```
 
 **Terminal 2 - Start the Frontend:**
@@ -70,10 +70,10 @@ Access the web UI at `http://localhost:5173`
 ### Basic Example
 
 ```python
-import trackai
+import dalva
 
 # Initialize a run
-run = trackai.init(
+run = dalva.init(
     project="image-classification",
     name="resnet50-experiment",
     config={
@@ -100,10 +100,10 @@ run.finish()
 ### Resuming Runs
 
 ```python
-import trackai
+import dalva
 
 # Resume an existing run
-run = trackai.init(
+run = dalva.init(
     project="image-classification",
     resume="resnet50-experiment"  # Pass run_id or run name to resume
 )
@@ -115,7 +115,7 @@ run.finish()
 
 ## Web Interface
 
-The TrackAI web interface provides:
+The Dalva web interface provides:
 
 - **Projects Dashboard** - Overview of all projects with run statistics
 - **Runs Table** - Filterable, sortable table of all experiments
@@ -159,9 +159,9 @@ npm test
 ### Project Structure
 
 ```
-TrackAI/
+Dalva/
 ├── backend/
-│   ├── src/trackai/
+│   ├── src/dalva/
 │   │   ├── __init__.py       # Public Python API
 │   │   ├── run.py            # Run class
 │   │   ├── api/              # FastAPI routes

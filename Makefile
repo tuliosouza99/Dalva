@@ -1,7 +1,7 @@
 .PHONY: docs-serve docs-build docs-deploy help
 
 help:
-	@echo "TrackAI Documentation Commands"
+	@echo "Dalva Documentation Commands"
 	@echo "==============================="
 	@echo "make docs-serve    - Serve documentation locally with live reload"
 	@echo "make docs-build    - Build static documentation site"

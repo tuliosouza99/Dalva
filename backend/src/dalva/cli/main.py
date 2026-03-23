@@ -1,16 +1,16 @@
-"""Main CLI entry point for TrackAI."""
+"""Main CLI entry point for Dalva."""
 
 import click
 
-from trackai.cli.config import config
-from trackai.cli.database import db
-from trackai.cli.server import server
+from dalva.cli.config import config
+from dalva.cli.database import db
+from dalva.cli.server import server
 
 
 @click.group()
 @click.version_option(version="0.1.0")
 def cli():
-    """TrackAI - Lightweight experiment tracker for deep learning."""
+    """Dalva - Lightweight experiment tracker for deep learning."""
     pass
 
 # Register commands and command groups

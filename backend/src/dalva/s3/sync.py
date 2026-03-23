@@ -1,11 +1,11 @@
-"""S3 sync operations for TrackAI database."""
+"""S3 sync operations for Dalva database."""
 
 from pathlib import Path
 
 import boto3
 from botocore.exceptions import ClientError
 
-from trackai.config import load_config
+from dalva.config import load_config
 
 
 def sync_to_s3(source: Path | None = None) -> None:
@@ -24,7 +24,7 @@ def sync_to_s3(source: Path | None = None) -> None:
 
     if not config.database.s3_bucket:
         raise ValueError(
-            "S3 bucket not configured. Run 'trackai config s3 --bucket <name>' first."
+            "S3 bucket not configured. Run 'dalva config s3 --bucket <name>' first."
         )
 
     if source is None:
@@ -87,7 +87,7 @@ def sync_from_s3(destination: Path | None = None) -> None:
 
     if not config.database.s3_bucket:
         raise ValueError(
-            "S3 bucket not configured. Run 'trackai config s3 --bucket <name>' first."
+            "S3 bucket not configured. Run 'dalva config s3 --bucket <name>' first."
         )
 
     s3_client = boto3.client("s3")

@@ -2,8 +2,8 @@
 
 Pydantic models for metric data.
 
-::: trackai.api.models.MetricBase
-::: trackai.api.models.MetricCreate
-::: trackai.api.models.MetricResponse
-::: trackai.api.models.MetricValue
-::: trackai.api.models.MetricValuesResponse
+::: dalva.api.models.MetricBase
+::: dalva.api.models.MetricCreate
+::: dalva.api.models.MetricResponse
+::: dalva.api.models.MetricValue
+::: dalva.api.models.MetricValuesResponse

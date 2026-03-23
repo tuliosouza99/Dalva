@@ -4,47 +4,47 @@ This file provides guidance to Agents when working with code in this repository.
 
 ## Project Overview
 
-TrackAI is a lightweight experiment tracker for deep learning. It consists of a FastAPI backend with a React/TypeScript frontend for visualizing experiments.
+Dalva is a lightweight experiment tracker for deep learning. It consists of a FastAPI backend with a React/TypeScript frontend for visualizing experiments.
 
 ## Development Commands
 
 ### CLI Installation
 
-TrackAI provides a CLI tool for managing the server and database:
+Dalva provides a CLI tool for managing the server and database:
 
 ```bash
 # Install dependencies (includes CLI)
 cd backend && uv sync
 
-# The `trackai` command is now available
-trackai --help
+# The `dalva` command is now available
+dalva --help
 ```
 
 ### First-Time Setup
 
-No setup wizard required. The database (`~/.trackai/trackai.duckdb`) is created automatically the first time you start the server or log an experiment.
+No setup wizard required. The database (`~/.dalva/dalva.duckdb`) is created automatically the first time you start the server or log an experiment.
 
 **Optional: configure S3 push/pull**:
 
 ```bash
-trackai config s3 --bucket my-bucket --key trackai.duckdb --region us-east-1
+dalva config s3 --bucket my-bucket --key dalva.duckdb --region us-east-1
 ```
 
-This saves S3 coordinates to `~/.trackai/config.json`. Requires AWS credentials in the environment (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`).
+This saves S3 coordinates to `~/.dalva/config.json`. Requires AWS credentials in the environment (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`).
 
 ### Quick Start (Production Mode)
 
-TrackAI serves both backend and frontend from a single port in production:
+Dalva serves both backend and frontend from a single port in production:
 
 ```bash
 # Start everything (automatically finds available port starting from 8000)
-trackai server start
+dalva server start
 
 # Or specify a port
-trackai server start --port 8080
+dalva server start --port 8080
 
 # Disable auto-reload
-trackai server start --no-reload
+dalva server start --no-reload
 ```
 
 This command:
@@ -58,10 +58,10 @@ For active frontend development with hot reload:
 
 ```bash
 # Run backend and frontend separately
-trackai server dev
+dalva server dev
 
 # Or specify custom ports
-trackai server dev --backend-port 8001 --frontend-port 5174
+dalva server dev --backend-port 8001 --frontend-port 5174
 ```
 
 This command:
@@ -70,7 +70,7 @@ This command:
 - Frontend automatically proxies `/api` requests to the backend
 - Displays URLs for both servers
 
-**Note**: The old `start.sh` and `dev.sh` scripts are deprecated. Use the `trackai` CLI instead.
+**Note**: The old `start.sh` and `dev.sh` scripts are deprecated. Use the `dalva` CLI instead.
 
 ### Backend (Python/FastAPI)
 
@@ -81,7 +81,7 @@ The backend uses **uv** for Python dependency management. Always use uv commands
 cd backend && uv sync
 
 # Run the server
-cd backend && uv run uvicorn trackai.api.main:app --reload
+cd backend && uv run uvicorn dalva.api.main:app --reload
 
 # Run example scripts
 cd backend && uv run python examples/simple_experiment.py
@@ -113,33 +113,33 @@ cd frontend && npm run lint
 **Framework**: FastAPI with SQLAlchemy ORM
 
 **Database**:
-- DuckDB database stored at `~/.trackai/trackai.duckdb` (centralized location)
+- DuckDB database stored at `~/.dalva/dalva.duckdb` (centralized location)
 - Supports both local and S3 storage modes
-- Can be overridden via `TRACKAI_DB_PATH` environment variable
+- Can be overridden via `DALVA_DB_PATH` environment variable
 - Tables: `projects`, `runs`, `metrics`, `configs`, `files`, `custom_views`, `dashboards`
 - Metrics use EAV (Entity-Attribute-Value) model for flexibility
-- **S3 Support**: Local-first architecture - all reads/writes use `~/.trackai/trackai.duckdb`; use `pull=True`/`push=True` flags on `trackai.init()` for per-run S3 sync, or `trackai db pull/push` from the CLI
+- **S3 Support**: Local-first architecture - all reads/writes use `~/.dalva/dalva.duckdb`; use `pull=True`/`push=True` flags on `dalva.init()` for per-run S3 sync, or `dalva db pull/push` from the CLI
 
 **Key Components**:
-- `src/trackai/__init__.py` - Public API (`init()`)
-- `src/trackai/run.py` - Run class that manages experiment lifecycle
-- `src/trackai/services/logger.py` - LoggingService for database operations
-- `src/trackai/api/main.py` - FastAPI app entry point
-- `src/trackai/api/routes/` - API route handlers (projects, runs, metrics)
-- `src/trackai/db/schema.py` - SQLAlchemy table definitions
-- `src/trackai/db/connection.py` - Database connection and initialization
+- `src/dalva/__init__.py` - Public API (`init()`)
+- `src/dalva/run.py` - Run class that manages experiment lifecycle
+- `src/dalva/services/logger.py` - LoggingService for database operations
+- `src/dalva/api/main.py` - FastAPI app entry point
+- `src/dalva/api/routes/` - API route handlers (projects, runs, metrics)
+- `src/dalva/db/schema.py` - SQLAlchemy table definitions
+- `src/dalva/db/connection.py` - Database connection and initialization
 
 **Python API**:
 ```python
-import trackai
+import dalva
 
 # Create a new run
-run = trackai.init(project="my-project", name="my-run", config={"lr": 0.01})
+run = dalva.init(project="my-project", name="my-run", config={"lr": 0.01})
 run.log({"loss": 0.5}, step=0)
 run.finish()
 
 # Resume an existing run
-run = trackai.init(project="my-project", resume="RUN-1")
+run = dalva.init(project="my-project", resume="RUN-1")
 run.log({"loss": 0.3}, step=100)
 run.finish()
 ```
@@ -199,39 +199,39 @@ run.finish()
 
 **Check statistics**:
 ```bash
-trackai db info
+dalva db info
 ```
 
 **Backup**:
 ```bash
-trackai db backup --output ~/backups/trackai-backup.duckdb
+dalva db backup --output ~/backups/dalva-backup.duckdb
 ```
 
 **Reset (deletes all data)**:
 ```bash
-trackai db reset
+dalva db reset
 ```
 
-**S3 sync** (requires `trackai config s3` + AWS credentials):
+**S3 sync** (requires `dalva config s3` + AWS credentials):
 ```bash
-trackai db pull   # Download S3 → ~/.trackai/trackai.duckdb
-trackai db push   # Upload ~/.trackai/trackai.duckdb → S3
+dalva db pull   # Download S3 → ~/.dalva/dalva.duckdb
+dalva db push   # Upload ~/.dalva/dalva.duckdb → S3
 ```
 
 **S3 Configuration**:
 
-TrackAI uses a **local-first architecture** — the database always lives at `~/.trackai/trackai.duckdb`. S3 sync is opt-in:
+Dalva uses a **local-first architecture** — the database always lives at `~/.dalva/dalva.duckdb`. S3 sync is opt-in:
 
 1. **Experiment Logging (Python SDK)**:
-   - Always writes to `~/.trackai/trackai.duckdb` — zero S3 latency during training
-   - Pass `pull=True` to `trackai.init()` to download from S3 before the run
-   - Pass `push=True` to `trackai.init()` to upload to S3 after the run finishes
+   - Always writes to `~/.dalva/dalva.duckdb` — zero S3 latency during training
+   - Pass `pull=True` to `dalva.init()` to download from S3 before the run
+   - Pass `push=True` to `dalva.init()` to upload to S3 after the run finishes
    - Both default to `False` — no S3 interaction unless explicitly requested
 
 2. **Visualization Server (FastAPI)**:
-   - Always reads from `~/.trackai/trackai.duckdb`
+   - Always reads from `~/.dalva/dalva.duckdb`
    - Mid-run metrics visible in real time (same file the SDK writes to)
-   - Use `trackai db pull` to fetch runs logged on other machines
+   - Use `dalva db pull` to fetch runs logged on other machines
 
 **Setup**:
 ```bash
@@ -241,20 +241,20 @@ export AWS_SECRET_ACCESS_KEY="your-secret-key"
 export AWS_DEFAULT_REGION="us-east-1"
 
 # Configure S3 coordinates
-trackai config s3 --bucket my-trackai-experiments --key trackai.duckdb --region us-east-1
+dalva config s3 --bucket my-dalva-experiments --key dalva.duckdb --region us-east-1
 
 # Start the dashboard
-trackai server dev
+dalva server dev
 
 # Log experiments (add pull=True/push=True to sync with S3)
-python train.py  # Uses trackai.init() and trackai.finish()
+python train.py  # Uses dalva.init() and dalva.finish()
 ```
 
 **Manual sync**:
 ```bash
-trackai db pull   # Download S3 → ~/.trackai/trackai.duckdb
-trackai db push   # Upload ~/.trackai/trackai.duckdb → S3
-trackai config show  # View current configuration
+dalva db pull   # Download S3 → ~/.dalva/dalva.duckdb
+dalva db push   # Upload ~/.dalva/dalva.duckdb → S3
+dalva config show  # View current configuration
 ```
 
 **Benefits**:
@@ -270,7 +270,7 @@ trackai config show  # View current configuration
 Run everything from a single command:
 
 ```bash
-trackai server start
+dalva server start
 ```
 
 The backend serves the built frontend from the `/static` directory. The CLI automatically finds an available port starting from 8000 and displays the URL.
@@ -280,7 +280,7 @@ The backend serves the built frontend from the `/static` directory. The CLI auto
 For active development with frontend hot reload:
 
 ```bash
-trackai server dev
+dalva server dev
 ```
 
 The CLI automatically finds available ports for both servers:
@@ -306,8 +306,8 @@ The CLI automatically finds available ports for both servers:
 
 - **Database Engine**: Uses DuckDB instead of SQLite for better analytics performance and S3 support
 - **Metrics Storage**: Uses EAV model to support arbitrary metric structures without schema changes
-- **Database Location**: Centralized at `~/.trackai/trackai.duckdb` to access experiments from any project
-- **S3 Storage**: Local-first architecture - all reads/writes use `~/.trackai/trackai.duckdb`; `pull=True`/`push=True` flags on `trackai.init()` for per-run S3 sync; `trackai db pull/push` for manual CLI sync; no `storage_type` flag needed
-- **CLI Management**: Unified `trackai` CLI command for server management, database operations, and configuration
+- **Database Location**: Centralized at `~/.dalva/dalva.duckdb` to access experiments from any project
+- **S3 Storage**: Local-first architecture - all reads/writes use `~/.dalva/dalva.duckdb`; `pull=True`/`push=True` flags on `dalva.init()` for per-run S3 sync; `dalva db pull/push` for manual CLI sync; no `storage_type` flag needed
+- **CLI Management**: Unified `dalva` CLI command for server management, database operations, and configuration
 - **Frontend Performance**: Virtualized tables and React Query caching for handling large datasets
 - **Resume Support**: Runs can be resumed using `resume="allow"` or `resume="must"` modes

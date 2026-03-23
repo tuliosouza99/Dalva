@@ -1,19 +1,19 @@
 # Quick Start
 
-Get up and running with TrackAI in 5 minutes.
+Get up and running with Dalva in 5 minutes.
 
-## 1. Install TrackAI
+## 1. Install Dalva
 
 ```bash
-git clone https://github.com/tuliosouza99/TrackAI.git
-cd TrackAI/backend
+git clone https://github.com/tuliosouza99/Dalva.git
+cd Dalva/backend
 uv sync
 ```
 
 ## 2. Start the Server
 
 ```bash
-trackai server start
+dalva server start
 ```
 
 The server will automatically find an available port and display the URL.
@@ -23,10 +23,10 @@ The server will automatically find an available port and display the URL.
 Create a new file `my_experiment.py`:
 
 ```python
-import trackai
+import dalva
 
 # Initialize a run
-run = trackai.init(
+run = dalva.init(
     project="quickstart",
     name="first-experiment",
     config={

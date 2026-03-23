@@ -1,6 +1,6 @@
 """Tests for projects API routes."""
 
-from trackai.db.schema import Project, Run
+from dalva.db.schema import Project, Run
 
 
 class TestListProjects:

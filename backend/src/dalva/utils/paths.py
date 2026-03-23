@@ -16,10 +16,10 @@ def is_development_mode() -> bool:
         True if running from source repository, False if installed package
     """
     try:
-        package_dir = Path(__file__).parent.parent  # trackai/utils -> trackai
+        package_dir = Path(__file__).parent.parent  # dalva/utils -> dalva
         repo_root = (
             package_dir.parent.parent.parent
-        )  # trackai -> src -> backend -> root
+        )  # dalva -> src -> backend -> root
 
         return (repo_root / "pyproject.toml").exists() and (
             repo_root / "frontend"
@@ -57,7 +57,7 @@ def get_static_dir() -> Path:
         try:
             from importlib.resources import files
 
-            static_dir_traversable = files("trackai") / "static"
+            static_dir_traversable = files("dalva") / "static"
 
             # Convert to Path - handle both Python 3.9+ and 3.11+ behaviors
             # In Python 3.9-3.10, files() returns a Traversable

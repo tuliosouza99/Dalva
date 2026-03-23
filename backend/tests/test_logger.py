@@ -1,10 +1,10 @@
 """Tests for LoggingService."""
 
 import pytest
-from trackai.db import connection
-from trackai.db.connection import session_scope
-from trackai.db.schema import Metric, Project
-from trackai.services.logger import LoggingService
+from dalva.db import connection
+from dalva.db.connection import session_scope
+from dalva.db.schema import Metric, Project
+from dalva.services.logger import LoggingService
 
 
 class TestGenerateAbbreviation:
@@ -32,7 +32,7 @@ class TestGenerateAbbreviation:
     )
     def test_abbreviation(self, input, expected):
         """Test abbreviation generation for various project name formats."""
-        from trackai.services.logger import _generate_abbreviation
+        from dalva.services.logger import _generate_abbreviation
 
         assert _generate_abbreviation(input) == expected
 

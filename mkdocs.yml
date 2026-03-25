@@ -3,11 +3,10 @@ site_description: "Lightweight experiment tracker for deep learning"
 site_url: "https://github.com/tuliosouza99/Dalva"
 repo_url: "https://github.com/tuliosouza99/Dalva"
 repo_name: "tuliosouza99/Dalva"
-edit_uri: edit/main/docs
+edit_uri: "blob/main/docs/"
 
 theme:
   name: "material"
-  custom_dir: docs/.overrides
   favicon: assets/favicon.png
   logo: assets/logo.svg
   features:

@@ -54,9 +54,8 @@ def s3(bucket, key, region):
         click.style("\n✓ S3 storage configured successfully!", fg="green", bold=True)
     )
     click.echo("\nNext steps:")
-    click.echo("  1. Run 'dalva db migrate' if you have existing SQLite data")
-    click.echo("  2. Run 'dalva db push' to upload your local database to S3")
-    click.echo("  3. Run 'dalva server start' to start the server")
+    click.echo("  1. Run 'dalva db push' to upload your local database to S3")
+    click.echo("  2. Run 'dalva server start' to start the server")
 
 
 @config.command()

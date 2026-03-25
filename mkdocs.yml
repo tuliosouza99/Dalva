@@ -17,6 +17,7 @@ theme:
     - announce.dismiss
     - content.code.copy
     - content.code.annotate
+    - content.actions.view
   palette:
     - media: "(prefers-color-scheme)"
       toggle:

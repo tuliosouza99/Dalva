@@ -50,9 +50,9 @@ The API will be available at `http://localhost:8000`
 
 ### Location
 
-The SQLite database is stored at:
+The DuckDB database is stored at:
 ```
-~/.dalva/dalva.db
+~/.dalva/dalva.duckdb
 ```
 
 This centralized location allows you to access experiments from any project directory.
@@ -78,20 +78,17 @@ import dalva
 
 **Check statistics:**
 ```bash
-sqlite3 ~/.dalva/dalva.db "SELECT
-  (SELECT COUNT(*) FROM projects) as projects,
-  (SELECT COUNT(*) FROM runs) as runs,
-  (SELECT COUNT(*) FROM metrics) as metrics;"
+dalva db info
 ```
 
 **Backup:**
 ```bash
-cp ~/.dalva/dalva.db ~/backups/dalva-backup.db
+dalva db backup --output ~/backups/dalva-backup.duckdb
 ```
 
 **Reset (warning: deletes all data):**
 ```bash
-rm ~/.dalva/dalva.db
+dalva db reset
 ```
 
 ## Python Logging API
@@ -151,6 +148,14 @@ dalva.finish()
 
 See the `examples/` directory for complete examples:
 - `simple_experiment.py` - Basic logging
+- `context_manager.py` - Using with statement
+- `resume_run.py` - Resuming runs
+
+Run examples:
+```bash
+uv run python examples/simple_experiment.py
+```
+ng
 - `context_manager.py` - Using with statement
 - `resume_run.py` - Resuming runs
 

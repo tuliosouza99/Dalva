@@ -138,7 +138,7 @@ export const api = {
     return data;
   },
 
-  getSummaryMetrics: async (runIds: number[], metricPaths: string[]): Promise<Record<number, Record<string, number | null>>> => {
+  getSummaryMetrics: async (runIds: number[], metricPaths: string[]): Promise<Record<string, Record<string, number | null>>> => {
     const { data } = await apiClient.post('/metrics/summary', {
       run_ids: runIds,
       metric_paths: metricPaths

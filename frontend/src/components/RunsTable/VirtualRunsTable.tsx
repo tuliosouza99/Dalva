@@ -8,7 +8,7 @@ interface Column {
   key: string;
   label: string;
   width: string;
-  render: (run: Run, metricValues?: Record<number, Record<string, number | null>>) => React.ReactNode;
+  render: (run: Run, metricValues?: Record<string, Record<string, number | null>>) => React.ReactNode;
 }
 
 interface VirtualRunsTableProps {
@@ -44,7 +44,7 @@ export default function VirtualRunsTable({
 }: VirtualRunsTableProps) {
   const navigate = useNavigate();
   const parentRef = useRef<HTMLDivElement>(null);
-  const [metricValues, setMetricValues] = useState<Record<number, Record<string, number | null>>>({});
+  const [metricValues, setMetricValues] = useState<Record<string, Record<string, number | null>>>({});
 
   // Fetch metric values when runs or metricColumns change
   useEffect(() => {
@@ -66,8 +66,8 @@ export default function VirtualRunsTable({
       const metricPath = sortBy.replace('metric:', '');
 
       return [...runs].sort((a, b) => {
-        const aValue = metricValues[a.id]?.[metricPath];
-        const bValue = metricValues[b.id]?.[metricPath];
+        const aValue = metricValues[String(a.id)]?.[metricPath];
+        const bValue = metricValues[String(b.id)]?.[metricPath];
 
         // Handle null/undefined values - put them at the end
         if (aValue === null || aValue === undefined) return 1;
@@ -108,7 +108,7 @@ export default function VirtualRunsTable({
     label: metricPath.split('/').pop() || metricPath, // Use last part of path as label
     width: '120px',
     render: (run, metricVals) => {
-      const value = metricVals?.[run.id]?.[metricPath];
+      const value = metricVals?.[String(run.id)]?.[metricPath];
       if (value === null || value === undefined) {
         return <span className="text-sm text-gray-400 dark:text-gray-500">-</span>;
       }

@@ -118,16 +118,6 @@ dalva.log_system({"gpu_util": 0.95, "memory_gb": 8.2})
 dalva.finish()
 ```
 
-### Using Context Manager (Recommended)
-
-```python
-import dalva
-
-with dalva.init(project="my-project", config={"lr": 0.001}) as run:
-    dalva.log({"loss": 0.5}, step=0)
-    # Run automatically finished when context exits
-```
-
 ### Resume Existing Run
 
 ```python

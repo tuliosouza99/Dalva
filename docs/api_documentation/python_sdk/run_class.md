@@ -1,6 +1,6 @@
 # Run Class
 
-Run object for tracking experiments with context manager support.
+Run object for tracking experiments.
 
 ::: dalva.Run
     options:
@@ -10,7 +10,4 @@ Run object for tracking experiments with context manager support.
       members:
         - __init__
         - log
-        - log_system
         - finish
-        - __enter__
-        - __exit__

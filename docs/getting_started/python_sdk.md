@@ -97,19 +97,6 @@ run2.log({"loss": 0.4}, step=3)
 run2.finish()
 ```
 
-## Context Manager
-
-Use as a context manager for automatic cleanup:
-
-```python
-import dalva
-
-with dalva.init(project="training") as run:
-    run.log({"loss": 0.5}, step=0)
-    run.log({"loss": 0.3}, step=1)
-# Automatically finishes on exit
-```
-
 ## Example
 
 ```python

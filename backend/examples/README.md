@@ -33,21 +33,7 @@ dalva.log({"loss": 0.5, "accuracy": 0.8}, step=0)
 dalva.finish()
 ```
 
-### 2. context_manager.py
-Recommended pattern using context manager:
-- Automatic cleanup when context exits
-- Handles exceptions gracefully
-- Cleaner code
-
-```python
-import dalva
-
-with dalva.init(project="my-project") as run:
-    dalva.log({"loss": 0.5}, step=0)
-    # Run automatically finished here
-```
-
-### 3. resume_run.py
+### 2. resume_run.py
 Resume an existing run:
 - Continue logging to the same run
 - Useful for interrupted training
@@ -126,8 +112,7 @@ http://localhost:8000/docs
 
 ## Tips
 
-1. **Use context managers** for automatic cleanup
-2. **Log configuration** at the start of each run
-3. **Use meaningful project and run names** for organization
-4. **Group related runs** using the `group` parameter
-5. **Log system metrics** periodically to track resource usage
+1. **Log configuration** at the start of each run
+2. **Use meaningful project and run names** for organization
+3. **Group related runs** using the `group` parameter
+4. **Log system metrics** periodically to track resource usage

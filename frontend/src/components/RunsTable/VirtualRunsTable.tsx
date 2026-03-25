@@ -110,10 +110,10 @@ export default function VirtualRunsTable({
     render: (run, metricVals) => {
       const value = metricVals?.[run.id]?.[metricPath];
       if (value === null || value === undefined) {
-        return <span className="text-sm text-gray-400">-</span>;
+        return <span className="text-sm text-gray-400 dark:text-gray-500">-</span>;
       }
       return (
-        <span className="text-sm text-gray-900 font-mono">
+        <span className="text-sm text-gray-900 dark:text-gray-100 font-mono">
           {typeof value === 'number' ? value.toFixed(4) : value}
         </span>
       );
@@ -160,7 +160,7 @@ export default function VirtualRunsTable({
       label: 'Name',
       width: '250px',
       render: (run) => (
-        <span className="text-sm text-gray-900 truncate block" title={run.name}>
+        <span className="text-sm text-gray-900 dark:text-gray-100 truncate block" title={run.name}>
           {run.name}
         </span>
       ),
@@ -170,19 +170,19 @@ export default function VirtualRunsTable({
       label: 'Tags',
       width: '200px',
       render: (run) => (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-nowrap gap-1 overflow-x-auto">
           {run.tags ? (
             run.tags.split(',').map((tag, idx) => (
               <span
                 key={idx}
-                className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700"
+                className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-gray-100 dark:bg-gray-700 dark:text-gray-300 whitespace-nowrap"
                 title={tag}
               >
                 {tag}
               </span>
             ))
           ) : (
-            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
           )}
         </div>
       ),
@@ -196,10 +196,10 @@ export default function VirtualRunsTable({
         <span
           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
             run.state === 'running'
-              ? 'bg-green-100 text-green-800'
+              ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
               : run.state === 'completed'
-              ? 'bg-blue-100 text-blue-800'
-              : 'bg-red-100 text-red-800'
+              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
+              : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
           }`}
         >
           {run.state}
@@ -211,7 +211,7 @@ export default function VirtualRunsTable({
       label: 'Created',
       width: '180px',
       render: (run) => (
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-gray-600 dark:text-gray-400">
           {new Date(run.created_at).toLocaleString()}
         </span>
       ),
@@ -239,7 +239,7 @@ export default function VirtualRunsTable({
           label: 'Name',
           width: '250px',
           render: (run) => (
-            <span className="text-sm text-gray-900 truncate block" title={run.name}>
+            <span className="text-sm text-gray-900 dark:text-gray-100 truncate block" title={run.name}>
               {run.name}
             </span>
           ),
@@ -249,19 +249,19 @@ export default function VirtualRunsTable({
           label: 'Tags',
           width: '200px',
           render: (run) => (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-nowrap gap-1 overflow-x-auto">
               {run.tags ? (
                 run.tags.split(',').map((tag, idx) => (
                   <span
                     key={idx}
-                    className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700"
+                    className="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-gray-100 dark:bg-gray-700 dark:text-gray-300 whitespace-nowrap"
                     title={tag}
                   >
                     {tag}
                   </span>
                 ))
               ) : (
-                <span className="text-sm text-gray-400">-</span>
+                <span className="text-sm text-gray-400 dark:text-gray-500">-</span>
               )}
             </div>
           ),
@@ -275,10 +275,10 @@ export default function VirtualRunsTable({
             <span
               className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                 run.state === 'running'
-                  ? 'bg-green-100 text-green-800'
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
                   : run.state === 'completed'
-                  ? 'bg-blue-100 text-blue-800'
-                  : 'bg-red-100 text-red-800'
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
+                  : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
               }`}
             >
               {run.state}
@@ -290,7 +290,7 @@ export default function VirtualRunsTable({
           label: 'Created',
           width: '180px',
           render: (run) => (
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
               {new Date(run.created_at).toLocaleString()}
             </span>
           ),
@@ -337,10 +337,10 @@ export default function VirtualRunsTable({
 
   if (isLoading && sortedRuns.length === 0) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-8">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8">
         <div className="animate-pulse space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-12 bg-gray-200 rounded"></div>
+            <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded"></div>
           ))}
         </div>
       </div>
@@ -349,9 +349,9 @@ export default function VirtualRunsTable({
 
   if (sortedRuns.length === 0) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-        <p className="text-gray-500 text-lg">No runs found</p>
-        <p className="text-gray-400 text-sm mt-2">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
+        <p className="text-gray-500 dark:text-gray-400 text-lg">No runs found</p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
           Try adjusting your filters or start a new experiment
         </p>
       </div>
@@ -359,14 +359,14 @@ export default function VirtualRunsTable({
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Table Header */}
-      <div className="bg-gray-50 border-b border-gray-200 flex items-center" style={{ minWidth: '900px' }}>
+      <div className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center" style={{ minWidth: '900px' }}>
         {columns.map((column) => (
           <div
             key={column.key}
-            className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1 ${
-              onSort && column.key !== 'select' ? 'cursor-pointer hover:bg-gray-100' : ''
+            className={`px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1 ${
+              onSort && column.key !== 'select' ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800' : ''
             }`}
             style={{ width: column.width, minWidth: column.width }}
             onClick={() => column.key !== 'select' && handleHeaderClick(column.key)}
@@ -414,7 +414,7 @@ export default function VirtualRunsTable({
                 key={virtualRow.index}
                 className={`absolute top-0 left-0 w-full flex items-center ${
                   !isLoaderRow
-                    ? 'hover:bg-gray-50 border-b border-gray-200'
+                    ? 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700'
                     : ''
                 }`}
                 style={{
@@ -446,7 +446,7 @@ export default function VirtualRunsTable({
       </div>
 
       {/* Footer with count */}
-      <div className="bg-gray-50 border-t border-gray-200 px-6 py-3 text-sm text-gray-600">
+      <div className="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-6 py-3 text-sm text-gray-600 dark:text-gray-400">
         Showing {sortedRuns.length} {sortedRuns.length === 1 ? 'run' : 'runs'}
         {hasMore && ' (scroll for more)'}
       </div>

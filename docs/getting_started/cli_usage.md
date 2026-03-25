@@ -38,21 +38,5 @@ Use this when working on frontend React components with hot reload enabled.
 dalva db info      # Show statistics
 dalva db backup    # Create backup
 dalva db reset     # Delete all data (requires confirmation)
-```
-
-## S3 Commands
-
-Requires `dalva config s3 --bucket <bucket> --key <key> --region <region>` and AWS credentials in your environment.
-
-```bash
-dalva db pull      # Download S3 → ~/.dalva/dalva.duckdb
-dalva db push      # Upload ~/.dalva/dalva.duckdb → S3
 dalva config show  # View current configuration
-```
-
-## Configuration
-
-```bash
-# Set S3 configuration
-dalva config s3 --bucket my-bucket --key dalva.duckdb --region us-east-1
 ```

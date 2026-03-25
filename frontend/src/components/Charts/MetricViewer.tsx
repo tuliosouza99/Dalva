@@ -3,6 +3,10 @@ import Plot from 'react-plotly.js';
 import { useMetricValues } from '../../api/client';
 import type { MetricValue } from '../../api/client';
 
+function isDarkMode() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+}
+
 interface MetricViewerProps {
   runId: number;
   metricPath: string;
@@ -83,27 +87,35 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
     if (metricAnalysis.type !== 'chart') return {};
 
     const hasSteps = metricAnalysis.hasSteps;
+    const dark = isDarkMode();
     return {
       title: metricPath,
       autosize: true,
       height: 400,
       margin: { t: 50, r: 30, b: 50, l: 60 },
+      font: {
+        color: dark ? '#e5e7eb' : '#374151',
+      },
       xaxis: {
         title: hasSteps ? 'Step' : 'Index',
         showgrid: true,
-        gridcolor: '#e5e7eb',
+        gridcolor: dark ? '#374151' : '#e5e7eb',
         zeroline: false,
+        tickcolor: dark ? '#e5e7eb' : '#374151',
+        linecolor: dark ? '#e5e7eb' : '#374151',
       },
       yaxis: {
         title: 'Value',
         showgrid: true,
-        gridcolor: '#e5e7eb',
+        gridcolor: dark ? '#374151' : '#e5e7eb',
         zeroline: false,
+        tickcolor: dark ? '#e5e7eb' : '#374151',
+        linecolor: dark ? '#e5e7eb' : '#374151',
       },
       showlegend: false,
       hovermode: 'closest',
-      plot_bgcolor: '#ffffff',
-      paper_bgcolor: '#ffffff',
+      plot_bgcolor: dark ? '#1f2937' : '#ffffff',
+      paper_bgcolor: dark ? '#111827' : '#ffffff',
     };
   }, [metricAnalysis, metricPath]);
 
@@ -128,10 +140,10 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
     return (
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 font-mono">{metricPath}</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 font-mono">{metricPath}</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -152,10 +164,10 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
     return (
       <div className="card">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 font-mono">{metricPath}</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 font-mono">{metricPath}</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -173,10 +185,10 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 font-mono">{metricPath}</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 font-mono">{metricPath}</h3>
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 transition-colors"
+          className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -185,25 +197,22 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
       </div>
 
       {metricAnalysis.type === 'empty' && (
-        <div className="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center">
-          <p className="text-gray-500">No data available for this metric</p>
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <p className="text-gray-500 dark:text-gray-400">No data available for this metric</p>
         </div>
       )}
 
       {metricAnalysis.type === 'single' && (
-        <div className="bg-gradient-to-br from-primary-50 to-blue-50 rounded-lg border border-primary-200 p-8">
+        <div className="bg-gradient-to-br from-primary-50 dark:from-primary-900/30 to-blue-50 dark:to-blue-900/30 rounded-lg border border-primary-200 dark:border-primary-800 p-8">
           <div className="text-center">
-            <p className="text-sm text-gray-600 mb-2">Value</p>
-            <p className="text-4xl font-bold text-gray-900">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Value</p>
+            <p className="text-4xl font-bold text-gray-900 dark:text-gray-100">
               {typeof metricAnalysis.value === 'number'
                 ? metricAnalysis.value.toFixed(6)
                 : String(metricAnalysis.value)}
             </p>
-            {metricAnalysis.step !== null && (
-              <p className="text-sm text-gray-500 mt-4">Step: {metricAnalysis.step}</p>
-            )}
             {metricAnalysis.timestamp && (
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                 {new Date(metricAnalysis.timestamp).toLocaleString()}
               </p>
             )}
@@ -212,19 +221,19 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
       )}
 
       {metricAnalysis.type === 'chart' && chartData.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <Plot data={chartData as any} layout={layout as any} config={config as any} style={{ width: '100%' }} />
         </div>
       )}
 
       {metricAnalysis.type === 'list' && (
-        <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {(metricAnalysis.values as MetricValue[]).map((item, idx) => (
-              <div key={idx} className="bg-white rounded p-3 border border-gray-200">
+              <div key={idx} className="bg-white dark:bg-gray-700 rounded p-3 border border-gray-200 dark:border-gray-600">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-gray-900">{String(item.value)}</span>
-                  <div className="text-xs text-gray-500">
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">{String(item.value)}</span>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
                     {item.step !== null && <span>Step: {item.step}</span>}
                     {item.timestamp && (
                       <span className="ml-2">{new Date(item.timestamp).toLocaleString()}</span>

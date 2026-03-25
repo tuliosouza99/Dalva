@@ -3,6 +3,7 @@ site_description: "Lightweight experiment tracker for deep learning"
 site_url: "https://github.com/tuliosouza99/Dalva"
 repo_url: "https://github.com/tuliosouza99/Dalva"
 repo_name: "tuliosouza99/Dalva"
+edit_uri: edit/main/docs
 
 theme:
   name: "material"
@@ -58,7 +59,6 @@ nav:
       - Quick Start: getting_started/quickstart.md
       - Python SDK: getting_started/python_sdk.md
       - CLI Usage: getting_started/cli_usage.md
-      - S3 Storage: getting_started/s3_storage.md
   - API Documentation:
       - Python SDK:
           - init: api_documentation/python_sdk/init.md
@@ -75,8 +75,6 @@ nav:
           - Schema: api_documentation/database/schema.md
       - Services: api_documentation/services/logger.md
       - Config: api_documentation/config.md
-      - S3 Sync: api_documentation/s3/sync.md
-  - GitHub: https://github.com/tuliosouza99/Dalva
 
 markdown_extensions:
   - pymdownx.highlight:
@@ -88,6 +86,3 @@ markdown_extensions:
   - pymdownx.snippets
   - admonition
   - pymdownx.details
-
-extra_javascript:
-  - javascripts/external-links.js

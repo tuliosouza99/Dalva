@@ -5,9 +5,6 @@ import ProjectsPage from './pages/ProjectsPage';
 import RunsPage from './pages/RunsPage';
 import RunDetailPage from './pages/RunDetailPage';
 import CompareRunsPage from './pages/CompareRunsPage';
-import S3ConfigPage from './pages/S3ConfigPage';
-import S3PullPage from './pages/S3PullPage';
-import S3PushPage from './pages/S3PushPage';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -30,9 +27,6 @@ function App() {
             <Route path="projects/:projectId/runs" element={<RunsPage />} />
             <Route path="runs/:runId" element={<RunDetailPage />} />
             <Route path="compare" element={<CompareRunsPage />} />
-            <Route path="s3/config" element={<S3ConfigPage />} />
-            <Route path="s3/pull" element={<S3PullPage />} />
-            <Route path="s3/push" element={<S3PushPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

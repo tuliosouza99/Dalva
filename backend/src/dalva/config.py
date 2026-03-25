@@ -3,7 +3,6 @@
 import json
 import os
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
@@ -13,15 +12,9 @@ class DatabaseConfig(BaseModel):
     """Database configuration.
 
     The database always lives at ``db_path`` on the local filesystem.
-    ``s3_bucket`` / ``s3_key`` / ``s3_region`` are optional — when set they
-    enable ``dalva db pull`` / ``dalva db push`` and the ``pull``/``push``
-    flags on ``dalva.init()``.
     """
 
     db_path: str = str(Path.home() / ".dalva" / "dalva.duckdb")
-    s3_bucket: Optional[str] = None
-    s3_key: str = "dalva.duckdb"
-    s3_region: str = "us-east-1"
 
 
 class DalvaConfig(BaseModel):
@@ -65,15 +58,6 @@ def load_config() -> DalvaConfig:
     if os.getenv("DALVA_DB_PATH"):
         config.database.db_path = os.getenv("DALVA_DB_PATH")  # type: ignore
 
-    if os.getenv("DALVA_S3_BUCKET"):
-        config.database.s3_bucket = os.getenv("DALVA_S3_BUCKET")
-
-    if os.getenv("DALVA_S3_KEY"):
-        config.database.s3_key = os.getenv("DALVA_S3_KEY")  # type: ignore
-
-    if os.getenv("DALVA_S3_REGION"):
-        config.database.s3_region = os.getenv("DALVA_S3_REGION")  # type: ignore
-
     return config
 
 
@@ -97,24 +81,3 @@ def get_database_config() -> DatabaseConfig:
         DatabaseConfig: Database configuration
     """
     return load_config().database
-
-
-def update_s3_config(
-    bucket: str, key: str = "dalva.duckdb", region: str = "us-east-1"
-) -> None:
-    """
-    Save S3 credentials to config.
-
-    Once set, ``dalva db pull`` / ``dalva db push`` and the ``pull``/
-    ``push`` flags on ``dalva.init()`` become available.
-
-    Args:
-        bucket: S3 bucket name
-        key: S3 object key (path where the database file will be stored)
-        region: AWS region
-    """
-    config = load_config()
-    config.database.s3_bucket = bucket
-    config.database.s3_key = key
-    config.database.s3_region = region
-    save_config(config)

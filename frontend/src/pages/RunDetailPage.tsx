@@ -3,6 +3,11 @@ import { useState } from 'react';
 import { useRun, useRunSummary, useRunMetrics, useDeleteRun } from '../api/client';
 import MetricBrowser from '../components/Charts/MetricBrowser';
 import MetricViewer from '../components/Charts/MetricViewer';
+import JsonViewer from '../components/JsonViewer';
+
+function isDarkMode() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+}
 
 export default function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
@@ -73,7 +78,7 @@ export default function RunDetailPage() {
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{run.name}</h1>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{run.name}</h1>
             <p className="text-gray-600 mt-1">
               <span className="font-mono text-primary-600">{run.run_id}</span>
               {run.group_name && (
@@ -129,23 +134,23 @@ export default function RunDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Run Info */}
           <div className="card">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Run Information</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Run Information</h3>
             <dl className="space-y-3">
               <div>
                 <dt className="text-sm text-gray-500">Created</dt>
-                <dd className="text-sm text-gray-900 mt-1">
+                <dd className="text-sm text-gray-900 dark:text-gray-100 mt-1">
                   {new Date(run.created_at).toLocaleString()}
                 </dd>
               </div>
               <div>
                 <dt className="text-sm text-gray-500">Updated</dt>
-                <dd className="text-sm text-gray-900 mt-1">
+                <dd className="text-sm text-gray-900 dark:text-gray-100 mt-1">
                   {new Date(run.updated_at).toLocaleString()}
                 </dd>
               </div>
               <div>
                 <dt className="text-sm text-gray-500">State</dt>
-                <dd className="text-sm text-gray-900 mt-1">{run.state}</dd>
+                <dd className="text-sm text-gray-900 dark:text-gray-100 mt-1">{run.state}</dd>
               </div>
             </dl>
           </div>
@@ -153,7 +158,7 @@ export default function RunDetailPage() {
           {/* Summary Stats */}
           {summary?.metrics && Object.keys(summary.metrics).length > 0 && (
             <div className="card lg:col-span-2">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Summary Metrics</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Summary Metrics</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {Object.entries(summary.metrics)
                   .filter(([_, value]) => {
@@ -181,7 +186,7 @@ export default function RunDetailPage() {
                         <dt className="text-xs text-gray-500 truncate" title={key}>
                           {key}
                         </dt>
-                        <dd className="text-lg font-semibold text-gray-900 mt-1">
+                        <dd className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-1">
                           {displayValue}
                         </dd>
                       </div>
@@ -215,7 +220,7 @@ export default function RunDetailPage() {
             ) : (
               <div className="card text-center py-12">
                 <svg
-                  className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                  className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -227,8 +232,8 @@ export default function RunDetailPage() {
                     d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                   />
                 </svg>
-                <p className="text-gray-500 text-lg">Select a metric to visualize</p>
-                <p className="text-gray-400 text-sm mt-2">
+                <p className="text-gray-500 dark:text-gray-400 text-lg">Select a metric to visualize</p>
+                <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
                   Browse the metric tree on the left and click on a metric to view its data
                 </p>
               </div>
@@ -239,14 +244,29 @@ export default function RunDetailPage() {
 
       {selectedTab === 'config' && (
         <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Configuration</h3>
-          {summary?.config && Object.keys(summary.config).length > 0 ? (
-            <div className="bg-gray-50 rounded p-4 font-mono text-sm overflow-x-auto">
-              <pre>{JSON.stringify(summary.config, null, 2)}</pre>
-            </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">No configuration data available</p>
-          )}
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Configuration</h3>
+          {(() => {
+            // Try to get config from summary.config first, then check for cfg/* in metrics
+            let configData: Record<string, unknown> = summary?.config || {};
+
+            // If config is empty, try to extract from metrics with cfg/* prefix
+            if (Object.keys(configData).length === 0 && summary?.metrics) {
+              configData = {};
+              for (const [key, value] of Object.entries(summary.metrics)) {
+                if (key.startsWith('cfg/')) {
+                  // Remove the cfg/ prefix to get the config key
+                  const configKey = key.slice(4);
+                  configData[configKey] = value;
+                }
+              }
+            }
+
+            return Object.keys(configData).length > 0 ? (
+              <JsonViewer data={configData} dark={isDarkMode()} />
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">No configuration data available</p>
+            );
+          })()}
         </div>
       )}
     </div>

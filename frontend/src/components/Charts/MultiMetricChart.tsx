@@ -3,6 +3,10 @@ import Plot from 'react-plotly.js';
 import { useMetricValues } from '../../api/client';
 import type { MetricValue } from '../../api/client';
 
+function isDarkMode() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+}
+
 interface MetricConfig {
   runId: number;
   metricPath: string;
@@ -80,35 +84,45 @@ export default function MultiMetricChart({
   }, [metricData, metrics, isLoading]);
 
   const layout = useMemo(
-    () => ({
-      title,
-      autosize: true,
-      height,
-      margin: { t: 50, r: 30, b: 50, l: 60 },
-      xaxis: {
-        title: 'Step',
-        showgrid: true,
-        gridcolor: '#e5e7eb',
-        zeroline: false,
-      },
-      yaxis: {
-        title: yAxisTitle,
-        showgrid: true,
-        gridcolor: '#e5e7eb',
-        zeroline: false,
-      },
-      showlegend: true,
-      legend: {
-        orientation: 'v',
-        yanchor: 'top',
-        y: 1,
-        xanchor: 'left',
-        x: 1.02,
-      },
-      hovermode: 'closest',
-      plot_bgcolor: '#ffffff',
-      paper_bgcolor: '#ffffff',
-    }),
+    () => {
+      const dark = isDarkMode();
+      return {
+        title,
+        autosize: true,
+        height,
+        margin: { t: 50, r: 30, b: 50, l: 60 },
+        font: {
+          color: dark ? '#e5e7eb' : '#374151',
+        },
+        xaxis: {
+          title: 'Step',
+          showgrid: true,
+          gridcolor: dark ? '#374151' : '#e5e7eb',
+          zeroline: false,
+          tickcolor: dark ? '#e5e7eb' : '#374151',
+          linecolor: dark ? '#e5e7eb' : '#374151',
+        },
+        yaxis: {
+          title: yAxisTitle,
+          showgrid: true,
+          gridcolor: dark ? '#374151' : '#e5e7eb',
+          zeroline: false,
+          tickcolor: dark ? '#e5e7eb' : '#374151',
+          linecolor: dark ? '#e5e7eb' : '#374151',
+        },
+        showlegend: true,
+        legend: {
+          orientation: 'v',
+          yanchor: 'top',
+          y: 1,
+          xanchor: 'left',
+          x: 1.02,
+        },
+        hovermode: 'closest',
+        plot_bgcolor: dark ? '#1f2937' : '#ffffff',
+        paper_bgcolor: dark ? '#111827' : '#ffffff',
+      };
+    },
     [title, height, yAxisTitle]
   );
 

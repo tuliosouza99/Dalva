@@ -3,6 +3,10 @@ import Plot from 'react-plotly.js';
 import { useMetricValues } from '../../api/client';
 import type { MetricValue } from '../../api/client';
 
+function isDarkMode() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+}
+
 interface MetricChartProps {
   runId: number;
   metricPath: string;
@@ -60,35 +64,45 @@ export default function MetricChart({
   }, [data, metricPath]);
 
   const layout = useMemo(
-    () => ({
-      title: title || metricPath,
-      autosize: true,
-      height,
-      margin: { t: 50, r: 30, b: 50, l: 60 },
-      xaxis: {
-        title: data?.data?.[0]?.step !== null ? 'Step' : 'Index',
-        showgrid: true,
-        gridcolor: '#e5e7eb',
-        zeroline: false,
-      },
-      yaxis: {
-        title: 'Value',
-        showgrid: true,
-        gridcolor: '#e5e7eb',
-        zeroline: false,
-      },
-      showlegend: showLegend,
-      legend: {
-        orientation: 'h',
-        yanchor: 'bottom',
-        y: 1.02,
-        xanchor: 'right',
-        x: 1,
-      },
-      hovermode: 'closest',
-      plot_bgcolor: '#ffffff',
-      paper_bgcolor: '#ffffff',
-    }),
+    () => {
+      const dark = isDarkMode();
+      return {
+        title: title || metricPath,
+        autosize: true,
+        height,
+        margin: { t: 50, r: 30, b: 50, l: 60 },
+        font: {
+          color: dark ? '#e5e7eb' : '#374151',
+        },
+        xaxis: {
+          title: data?.data?.[0]?.step !== null ? 'Step' : 'Index',
+          showgrid: true,
+          gridcolor: dark ? '#374151' : '#e5e7eb',
+          zeroline: false,
+          tickcolor: dark ? '#e5e7eb' : '#374151',
+          linecolor: dark ? '#e5e7eb' : '#374151',
+        },
+        yaxis: {
+          title: 'Value',
+          showgrid: true,
+          gridcolor: dark ? '#374151' : '#e5e7eb',
+          zeroline: false,
+          tickcolor: dark ? '#e5e7eb' : '#374151',
+          linecolor: dark ? '#e5e7eb' : '#374151',
+        },
+        showlegend: showLegend,
+        legend: {
+          orientation: 'h',
+          yanchor: 'bottom',
+          y: 1.02,
+          xanchor: 'right',
+          x: 1,
+        },
+        hovermode: 'closest',
+        plot_bgcolor: dark ? '#1f2937' : '#ffffff',
+        paper_bgcolor: dark ? '#111827' : '#ffffff',
+      };
+    },
     [title, metricPath, height, showLegend, data]
   );
 

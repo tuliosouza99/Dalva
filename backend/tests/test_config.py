@@ -19,23 +19,14 @@ class TestDatabaseConfig:
 
         config = DatabaseConfig()
         assert config.db_path == str(Path.home() / ".dalva" / "dalva.duckdb")
-        assert config.s3_bucket is None
-        assert config.s3_key == "dalva.duckdb"
-        assert config.s3_region == "us-east-1"
 
     def test_custom_values(self):
         """Test that DatabaseConfig accepts custom values."""
 
         config = DatabaseConfig(
             db_path="/custom/path/db.duckdb",
-            s3_bucket="my-bucket",
-            s3_key="custom-key.duckdb",
-            s3_region="us-west-2",
         )
         assert config.db_path == "/custom/path/db.duckdb"
-        assert config.s3_bucket == "my-bucket"
-        assert config.s3_key == "custom-key.duckdb"
-        assert config.s3_region == "us-west-2"
 
 
 class TestDalvaConfig:
@@ -67,7 +58,6 @@ class TestConfigFileOperations:
         config = DalvaConfig(
             database=DatabaseConfig(
                 db_path="/test/db.duckdb",
-                s3_bucket="test-bucket",
             )
         )
         save_config(config)
@@ -79,7 +69,6 @@ class TestConfigFileOperations:
         # Load and verify
         loaded = load_config()
         assert loaded.database.db_path == "/test/db.duckdb"
-        assert loaded.database.s3_bucket == "test-bucket"
 
     def test_load_config_nonexistent_file(self, temp_config_dir, monkeypatch):
         """Test that load_config works when no config file exists."""
@@ -91,7 +80,6 @@ class TestConfigFileOperations:
         # Should return default config without error
         config = load_config()
         assert config.database.db_path is not None
-        assert config.database.s3_bucket is None
 
     def test_load_config_invalid_json(self, temp_config_dir, monkeypatch):
         """Test that load_config handles invalid JSON gracefully."""
@@ -119,33 +107,6 @@ class TestEnvironmentVariables:
 
         config = load_config()
         assert config.database.db_path == "/env/db.duckdb"
-
-    def test_env_var_override_s3_bucket(self, monkeypatch):
-        """Test that DALVA_S3_BUCKET environment variable overrides config."""
-
-        # Set environment variable
-        monkeypatch.setenv("DALVA_S3_BUCKET", "env-bucket")
-
-        config = load_config()
-        assert config.database.s3_bucket == "env-bucket"
-
-    def test_env_var_override_s3_key(self, monkeypatch):
-        """Test that DALVA_S3_KEY environment variable overrides config."""
-
-        # Set environment variable
-        monkeypatch.setenv("DALVA_S3_KEY", "env-key.duckdb")
-
-        config = load_config()
-        assert config.database.s3_key == "env-key.duckdb"
-
-    def test_env_var_override_s3_region(self, monkeypatch):
-        """Test that DALVA_S3_REGION environment variable overrides config."""
-
-        # Set environment variable
-        monkeypatch.setenv("DALVA_S3_REGION", "eu-west-1")
-
-        config = load_config()
-        assert config.database.s3_region == "eu-west-1"
 
 
 class TestGetDatabaseConfig:

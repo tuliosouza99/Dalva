@@ -220,7 +220,7 @@ export default function RunsPage() {
   if (error) {
     return (
       <div className="p-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-700 dark:text-red-400">
           <h3 className="font-semibold mb-1">Error loading runs</h3>
           <p className="text-sm">{error.message}</p>
         </div>
@@ -232,7 +232,7 @@ export default function RunsPage() {
     <div className="p-8">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
           <button
             onClick={() => navigate('/projects')}
             className="hover:text-primary-600 transition-colors"
@@ -240,10 +240,10 @@ export default function RunsPage() {
             Projects
           </button>
           <span>/</span>
-          <span className="text-gray-900">{project?.name}</span>
+          <span className="text-gray-900 dark:text-gray-100">{project?.name}</span>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900">{project?.name}</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{project?.name}</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
           {total} {total === 1 ? 'run' : 'runs'}
         </p>
       </div>
@@ -252,11 +252,11 @@ export default function RunsPage() {
       <div className="mb-4 flex gap-3 items-center flex-wrap">
         {/* Current View Indicator */}
         {currentView && (
-          <div className="px-3 py-1 bg-primary-50 border border-primary-200 rounded-md text-sm text-primary-700 flex items-center gap-2">
+          <div className="px-3 py-1 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-md text-sm text-primary-700 dark:text-primary-400 flex items-center gap-2">
             <span>📋 {currentView.name}</span>
             <button
               onClick={handleClearView}
-              className="text-primary-600 hover:text-primary-800"
+              className="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300"
               title="Clear view and reset all filters"
             >
               ✕
@@ -268,21 +268,21 @@ export default function RunsPage() {
         {customViews && customViews.length > 0 && (
           <div className="relative">
             <details ref={viewsDropdownRef} className="group">
-              <summary className="px-4 py-2 border border-gray-300 rounded-md cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white list-none flex items-center gap-2">
+              <summary className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-800 list-none flex items-center gap-2 text-gray-900 dark:text-gray-100">
                 <span>📋 Views</span>
                 <span className="text-xs">▼</span>
               </summary>
-              <div className="absolute z-10 mt-1 bg-white border border-gray-300 rounded-md shadow-lg min-w-[250px]">
+              <div className="absolute z-10 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg min-w-[250px]">
                 {customViews.map((view) => (
                   <div
                     key={view.id}
-                    className={`flex items-center justify-between px-4 py-2 hover:bg-gray-50 ${
-                      currentView?.id === view.id ? 'bg-primary-50' : ''
+                    className={`flex items-center justify-between px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                      currentView?.id === view.id ? 'bg-primary-50 dark:bg-primary-900/20' : ''
                     }`}
                   >
                     <button
                       onClick={() => handleLoadView(view.id)}
-                      className="flex-1 text-left text-sm"
+                      className="flex-1 text-left text-sm text-gray-900 dark:text-gray-100"
                     >
                       {view.name}
                     </button>
@@ -291,7 +291,7 @@ export default function RunsPage() {
                         e.stopPropagation();
                         handleDeleteView(view.id);
                       }}
-                      className="ml-2 text-red-600 hover:text-red-800"
+                      className="ml-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
                       title="Delete view"
                     >
                       🗑️
@@ -314,7 +314,7 @@ export default function RunsPage() {
         ) : (
           <button
             onClick={() => handleOpenSaveModal(false)}
-            className="px-4 py-2 border border-primary-600 text-primary-600 rounded-md hover:bg-primary-50 transition-colors text-sm"
+            className="px-4 py-2 border border-primary-600 text-primary-600 dark:text-primary-400 rounded-md hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors text-sm"
           >
             💾 Save as New View
           </button>
@@ -327,13 +327,13 @@ export default function RunsPage() {
           <input
             type="text"
             placeholder="Search runs..."
-            className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
             onChange={(e) =>
               setFilters({ ...filters, search: e.target.value || undefined })
             }
           />
           <select
-            className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             onChange={(e) =>
               setFilters({ ...filters, state: e.target.value || undefined })
             }
@@ -348,7 +348,7 @@ export default function RunsPage() {
           {availableTags && availableTags.length > 0 && (
             <div className="relative">
               <details className="group">
-                <summary className="px-4 py-2 border border-gray-300 rounded-md cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white list-none flex items-center gap-2">
+                <summary className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-800 list-none flex items-center gap-2 text-gray-900 dark:text-gray-100">
                   <span>
                     {selectedTags.length === 0
                       ? 'Filter by tags'
@@ -356,19 +356,19 @@ export default function RunsPage() {
                   </span>
                   <span className="text-xs">▼</span>
                 </summary>
-                <div className="absolute z-10 mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto min-w-[200px]">
+                <div className="absolute z-10 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto min-w-[200px]">
                   {availableTags.map((tag) => (
                     <label
                       key={tag}
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                     >
                       <input
                         type="checkbox"
                         checked={selectedTags.includes(tag)}
                         onChange={() => handleTagToggle(tag)}
-                        className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
+                        className="w-4 h-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 focus:ring-primary-500"
                       />
-                      <span className="text-sm">{tag}</span>
+                      <span className="text-sm text-gray-900 dark:text-gray-100">{tag}</span>
                     </label>
                   ))}
                 </div>
@@ -380,7 +380,7 @@ export default function RunsPage() {
           {availableColumns && availableColumns.length > 0 && (
             <div className="relative">
               <details className="group">
-                <summary className="px-4 py-2 border border-gray-300 rounded-md cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white list-none flex items-center gap-2">
+                <summary className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-800 list-none flex items-center gap-2 text-gray-900 dark:text-gray-100">
                   <span>
                     {selectedMetricColumns.length === 0
                       ? 'Add columns'
@@ -388,19 +388,19 @@ export default function RunsPage() {
                   </span>
                   <span className="text-xs">▼</span>
                 </summary>
-                <div className="absolute z-10 mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto min-w-[250px]">
+                <div className="absolute z-10 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto min-w-[250px]">
                   {availableColumns.map((column) => (
                     <label
                       key={column}
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 cursor-pointer"
+                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
                     >
                       <input
                         type="checkbox"
                         checked={selectedMetricColumns.includes(column)}
                         onChange={() => handleMetricColumnToggle(column)}
-                        className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
+                        className="w-4 h-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 focus:ring-primary-500"
                       />
-                      <span className="text-sm font-mono text-xs">{column}</span>
+                      <span className="text-sm font-mono text-xs text-gray-900 dark:text-gray-100">{column}</span>
                     </label>
                   ))}
                 </div>
@@ -411,7 +411,7 @@ export default function RunsPage() {
 
         {selectedRunIds.length > 0 && (
           <div className="flex gap-2 items-center">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
               {selectedRunIds.length} selected
             </span>
             <button
@@ -424,13 +424,13 @@ export default function RunsPage() {
             <button
               onClick={handleDeleteSelectedRuns}
               disabled={deleteRunMutation.isPending}
-              className="px-3 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors disabled:opacity-50"
+              className="px-3 py-2 text-sm text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
             >
               {deleteRunMutation.isPending ? 'Deleting…' : '🗑️ Delete Selected'}
             </button>
             <button
               onClick={() => setSelectedRunIds([])}
-              className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
             >
               Clear
             </button>
@@ -440,9 +440,9 @@ export default function RunsPage() {
 
       {/* Save View Modal */}
       {showSaveViewModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
               {currentView ? `Update View "${currentView.name}"` : 'Save New Custom View'}
             </h3>
             <input
@@ -450,14 +450,14 @@ export default function RunsPage() {
               placeholder="View name..."
               value={newViewName}
               onChange={(e) => setNewViewName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSaveView();
                 if (e.key === 'Escape') handleCloseModal();
               }}
             />
-            <div className="text-sm text-gray-600 mb-4">
+            <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               <p>{currentView ? 'This will update the view with:' : 'This will save:'}</p>
               <ul className="list-disc list-inside mt-2">
                 <li>Current filters (state, search, tags: {selectedTags.length})</li>
@@ -468,7 +468,7 @@ export default function RunsPage() {
             <div className="flex gap-2 justify-end">
               <button
                 onClick={handleCloseModal}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200"
               >
                 Cancel
               </button>

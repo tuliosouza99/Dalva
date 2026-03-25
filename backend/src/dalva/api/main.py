@@ -1,7 +1,6 @@
 """FastAPI application for Dalva."""
 
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -9,8 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from dalva.api.routes import metrics, projects, runs, s3, views
-from dalva.config import load_config
+from dalva.api.routes import metrics, projects, runs, views
 from dalva.db.connection import init_db
 from dalva.utils.paths import get_static_dir
 
@@ -25,13 +23,6 @@ except FileNotFoundError as e:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handle application startup and shutdown."""
-    config = load_config()
-
-    if config.database.s3_bucket:
-        db_path = Path(config.database.db_path).expanduser()
-        print(f"S3 configured — dashboard reads from: {db_path}")
-        print("Use 'dalva db pull' to fetch the latest data from S3.")
-
     # Initialize database
     init_db()
 
@@ -68,7 +59,6 @@ app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
 app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
 app.include_router(views.router, prefix="/api/views", tags=["views"])
-app.include_router(s3.router, prefix="/api", tags=["s3"])
 
 
 # Serve frontend static files if available

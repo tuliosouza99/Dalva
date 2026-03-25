@@ -218,3 +218,7 @@ backend/src/dalva/static/
 
 # VsCode
 .vscode/
+
+# Playwright
+.playwright/
+.playwright-cli/

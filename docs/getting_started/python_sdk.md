@@ -25,7 +25,6 @@ run = dalva.init(
 - `name` (optional) - Human-readable run name
 - `config` (optional) - Configuration dictionary
 - `resume` (optional) - Run ID to resume an existing run
-- `pull` / `push` (optional) - S3 sync flags
 
 ## Log Metrics
 
@@ -109,20 +108,6 @@ with dalva.init(project="training") as run:
     run.log({"loss": 0.5}, step=0)
     run.log({"loss": 0.3}, step=1)
 # Automatically finishes on exit
-```
-
-## S3 Sync
-
-Sync with S3 per-run using `pull` and `push`:
-
-```python
-import dalva
-
-# Pull before, push after
-run = dalva.init(project="training", pull=True, push=True)
-for epoch in range(100):
-    run.log({"loss": 0.5}, step=epoch)
-run.finish()
 ```
 
 ## Example

@@ -12,8 +12,6 @@ def init(
     name: str | None = None,
     config: dict | None = None,
     resume: str | None = None,
-    pull: bool = False,
-    push: bool = False,
 ) -> Run:
     """
     Initialize a new run.
@@ -23,8 +21,6 @@ def init(
         name: Optional run name (user-defined, for display purposes only)
         config: Optional configuration dictionary
         resume: run_id to resume (omit to create a new run)
-        pull: If True, download the database from S3 before starting the run.
-        push: If True, upload the database to S3 after the run finishes.
 
     Returns:
         Run object
@@ -42,6 +38,4 @@ def init(
         name=name,
         config=config,
         resume=resume,
-        pull=pull,
-        push=push,
     )

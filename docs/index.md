@@ -34,7 +34,7 @@ run.finish()
 ## Installation
 
 ```bash
-git clone https://github.com/tuliosouza99/Dalva.git
+git clone [https://github.com/tuliosouza99/Dalva.git](https://github.com/tuliosouza99/Dalva.git)
 cd Dalva/backend && uv sync
 ```
 
@@ -44,4 +44,4 @@ cd Dalva/backend && uv sync
 dalva server start
 ```
 
-Open http://localhost:8000 to access the web interface.
+Open [http://localhost:8000](http://localhost:8000) to access the web interface.

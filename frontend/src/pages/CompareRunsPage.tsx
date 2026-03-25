@@ -3,6 +3,10 @@ import { useState, useMemo } from 'react';
 import { useRun, useRunSummary, useRunMetrics, useMetricValues } from '../api/client';
 import { MultiMetricChart } from '../components/Charts';
 
+function isDarkMode() {
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+}
+
 export default function CompareRunsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -117,8 +121,8 @@ export default function CompareRunsPage() {
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Compare Runs</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Compare Runs</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
               Comparing {runIds.length} {runIds.length === 1 ? 'run' : 'runs'}
             </p>
           </div>
@@ -133,16 +137,16 @@ export default function CompareRunsPage() {
         {runsData.map(({ runId, run, metricNames }) => (
           <div key={runId} className="card">
             <div className="flex items-start justify-between mb-2">
-              <h3 className="text-lg font-semibold text-gray-900 truncate">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
                 {run.data?.name}
               </h3>
               <span
                 className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                   run.data?.state === 'running'
-                    ? 'bg-green-100 text-green-800'
+                    ? 'bg-green-100 dark:bg-green-900/30 dark:text-green-400 text-green-800'
                     : run.data?.state === 'completed'
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-red-100 text-red-800'
+                    ? 'bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 text-blue-800'
+                    : 'bg-red-100 dark:bg-red-900/30 dark:text-red-400 text-red-800'
                 }`}
               >
                 {run.data?.state}
@@ -150,9 +154,9 @@ export default function CompareRunsPage() {
             </div>
             <p className="text-sm font-mono text-primary-600 mb-2">{run.data?.run_id}</p>
             {run.data?.group_name && (
-              <p className="text-sm text-gray-600">Group: {run.data.group_name}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Group: {run.data.group_name}</p>
             )}
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
               {metricNames.data?.length || 0} metrics
             </p>
           </div>
@@ -163,7 +167,7 @@ export default function CompareRunsPage() {
       {allMetricNames.length === 0 ? (
         <div className="card text-center py-12">
           <svg
-            className="w-16 h-16 text-gray-300 mx-auto mb-4"
+            className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -175,18 +179,18 @@ export default function CompareRunsPage() {
               d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
             />
           </svg>
-          <p className="text-gray-500 text-lg">No metrics found</p>
+          <p className="text-gray-500 dark:text-gray-400 text-lg">No metrics found</p>
         </div>
       ) : (
         <div className="space-y-4">
           {/* Header with Expand/Collapse All */}
           <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {allMetricNames.length} metric{allMetricNames.length !== 1 ? 's' : ''} available
             </p>
             <button
               onClick={allExpanded ? collapseAll : expandAll}
-              className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+              className="px-4 py-2 text-sm bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-md hover:bg-gray-200 transition-colors"
             >
               {allExpanded ? 'Collapse All' : 'Expand All'}
             </button>
@@ -198,15 +202,15 @@ export default function CompareRunsPage() {
               const isExpanded = expandedMetrics.has(metricPath);
               
               return (
-                <div key={metricPath} className="border border-gray-200 rounded-lg overflow-hidden">
+                <div key={metricPath} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                   {/* Collapsed Header */}
                   <button
                     onClick={() => toggleMetric(metricPath)}
-                    className="w-full px-6 py-4 bg-white hover:bg-gray-50 transition-colors flex items-center justify-between"
+                    className="w-full px-6 py-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3">
                       <svg
-                        className={`w-5 h-5 text-gray-500 transition-transform ${
+                        className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${
                           isExpanded ? 'rotate-90' : ''
                         }`}
                         fill="none"
@@ -215,16 +219,16 @@ export default function CompareRunsPage() {
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
-                      <span className="text-sm font-mono text-gray-900">{metricPath}</span>
+                      <span className="text-sm font-mono text-gray-900 dark:text-gray-100">{metricPath}</span>
                     </div>
                     {isExpanded && (
-                      <span className="text-xs text-gray-500">Click to collapse</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Click to collapse</span>
                     )}
                   </button>
 
                   {/* Expanded Content - Only render when expanded */}
                   {isExpanded && (
-                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                    <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
                       <MetricComparisonViewer
                         metricPath={metricPath}
                         runIds={runIds}
@@ -289,7 +293,7 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
       <div className="flex items-center justify-center py-8">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          <p className="mt-2 text-sm text-gray-600">Loading metric data...</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Loading metric data...</p>
         </div>
       </div>
     );
@@ -305,8 +309,8 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
 
   if (metricAnalysis.type === 'empty') {
     return (
-      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 text-center">
-        <p className="text-gray-600 text-sm">No data available for this metric</p>
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-center">
+        <p className="text-gray-600 dark:text-gray-400 text-sm">No data available for this metric</p>
       </div>
     );
   }
@@ -332,14 +336,14 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
     }
 
     return (
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <table className="min-w-full">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
               {runNames.map((name, idx) => (
                 <th
                   key={idx}
-                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
                   {name}
                 </th>
@@ -354,16 +358,16 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
                 // Apply color coding for numeric values
                 if (minValue !== null && maxValue !== null && typeof value === 'number' && minValue !== maxValue) {
                   if (value === maxValue) {
-                    bgColor = 'bg-green-100';
+                    bgColor = 'bg-green-100 dark:bg-green-900/30';
                   } else if (value === minValue) {
-                    bgColor = 'bg-red-100';
+                    bgColor = 'bg-red-100 dark:bg-red-900/30';
                   }
                 }
                 
                 return (
                   <td
                     key={idx}
-                    className={`px-4 py-4 text-sm font-semibold ${bgColor}`}
+                    className={`px-4 py-4 text-sm font-semibold text-gray-900 dark:text-gray-100 ${bgColor}`}
                   >
                     {value === null || value === undefined
                       ? '-'
@@ -382,15 +386,15 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
 
   if (metricAnalysis.type === 'list') {
     return (
-      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 text-center">
-        <p className="text-gray-600 text-sm">This metric contains non-numeric values and cannot be charted</p>
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-center">
+        <p className="text-gray-600 dark:text-gray-400 text-sm">This metric contains non-numeric values and cannot be charted</p>
       </div>
     );
   }
 
   // metricAnalysis.type === 'chart'
   return (
-    <div className="bg-white rounded-lg">
+    <div className="bg-white dark:bg-gray-800 rounded-lg">
       <MultiMetricChart
         metrics={runIds.map((runId, idx) => ({
           runId,

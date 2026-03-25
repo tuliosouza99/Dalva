@@ -1,61 +1,17 @@
 """Configuration management commands."""
 
-import os
 import json
-import sys
+import os
 
 import click
 
-from dalva.config import CONFIG_FILE, load_config, update_s3_config
-from dalva.s3.sync import validate_s3_credentials
+from dalva.config import CONFIG_FILE, load_config
 
 
 @click.group()
 def config():
     """Configuration management commands."""
     pass
-
-
-@config.command()
-@click.option("--bucket", required=True, help="S3 bucket name")
-@click.option(
-    "--key", default="dalva.duckdb", help="S3 object key (default: dalva.duckdb)"
-)
-@click.option("--region", default="us-east-1", help="AWS region (default: us-east-1)")
-def s3(bucket, key, region):
-    """Configure S3 storage settings."""
-    click.echo(click.style("Configuring S3 storage...", fg="blue", bold=True))
-    click.echo(f"\nBucket: {bucket}")
-    click.echo(f"Key: {key}")
-    click.echo(f"Region: {region}\n")
-
-    # Validate AWS credentials
-    click.echo("Validating AWS credentials...")
-    if not validate_s3_credentials():
-        click.echo(
-            click.style(
-                "✗ AWS credentials not found or invalid",
-                fg="red",
-            ),
-            err=True,
-        )
-        click.echo("\nPlease set the following environment variables:")
-        click.echo("  - AWS_ACCESS_KEY_ID")
-        click.echo("  - AWS_SECRET_ACCESS_KEY")
-        click.echo("  - AWS_DEFAULT_REGION (optional)")
-        sys.exit(1)
-
-    click.echo(click.style("✓ AWS credentials validated", fg="green"))
-
-    # Update configuration
-    update_s3_config(bucket, key, region)
-
-    click.echo(
-        click.style("\n✓ S3 storage configured successfully!", fg="green", bold=True)
-    )
-    click.echo("\nNext steps:")
-    click.echo("  1. Run 'dalva db push' to upload your local database to S3")
-    click.echo("  2. Run 'dalva server start' to start the server")
 
 
 @config.command()
@@ -75,24 +31,11 @@ def show():
     click.echo(json.dumps(config.model_dump(), indent=2))
 
     # Show environment variable overrides
-    env_vars = [
-        "DALVA_DB_PATH",
-        "DALVA_S3_BUCKET",
-        "DALVA_S3_KEY",
-        "DALVA_S3_REGION",
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY",
-        "AWS_DEFAULT_REGION",
-    ]
+    env_vars = ["DALVA_DB_PATH"]
 
     active_env_vars = {var: os.getenv(var) for var in env_vars if os.getenv(var)}
 
     if active_env_vars:
         click.echo(click.style("\nActive Environment Variables:", fg="blue"))
         for var, value in active_env_vars.items():
-            # Mask sensitive values
-            if "KEY" in var or "SECRET" in var:
-                masked_value = value[:4] + "*" * (len(value) - 8) + value[-4:]
-                click.echo(f"  {var}: {masked_value}")
-            else:
-                click.echo(f"  {var}: {value}")
+            click.echo(f"  {var}: {value}")

@@ -1,9 +1,10 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useRun, useRunSummary, useRunMetrics, useDeleteRun } from '../api/client';
 import MetricBrowser from '../components/Charts/MetricBrowser';
-import MetricViewer from '../components/Charts/MetricViewer';
 import JsonViewer from '../components/JsonViewer';
+
+const MetricViewer = lazy(() => import('../components/Charts/MetricViewer'));
 
 function isDarkMode() {
   return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
@@ -212,11 +213,13 @@ export default function RunDetailPage() {
           {/* Metric Viewer */}
           <div className="lg:col-span-1">
             {selectedMetric ? (
-              <MetricViewer
-                runId={parseInt(runId || '0')}
-                metricPath={selectedMetric}
-                onClose={() => setSelectedMetric(null)}
-              />
+              <Suspense fallback={<div className="card py-12 text-center">Loading chart...</div>}>
+                <MetricViewer
+                  runId={parseInt(runId || '0')}
+                  metricPath={selectedMetric}
+                  onClose={() => setSelectedMetric(null)}
+                />
+              </Suspense>
             ) : (
               <div className="card text-center py-12">
                 <svg

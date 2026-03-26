@@ -1,7 +1,8 @@
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { useRun, useRunSummary, useRunMetrics, useMetricValues } from '../api/client';
-import { MultiMetricChart } from '../components/Charts';
+
+const MultiMetricChart = lazy(() => import('../components/Charts/MultiMetricChart'));
 
 function isDarkMode() {
   return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
@@ -395,15 +396,17 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
   // metricAnalysis.type === 'chart'
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg">
-      <MultiMetricChart
-        metrics={runIds.map((runId, idx) => ({
-          runId,
-          metricPath,
-          name: runNames[idx],
-        }))}
-        title=""
-        height={400}
-      />
+      <Suspense fallback={<div className="p-4 text-center">Loading chart...</div>}>
+        <MultiMetricChart
+          metrics={runIds.map((runId, idx) => ({
+            runId,
+            metricPath,
+            name: runNames[idx],
+          }))}
+          title=""
+          height={400}
+        />
+      </Suspense>
     </div>
   );
 }

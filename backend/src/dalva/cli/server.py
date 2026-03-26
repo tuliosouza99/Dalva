@@ -37,38 +37,8 @@ def start(port, host, reload):
 
     click.echo(click.style("Starting Dalva...", fg="blue", bold=True))
 
-    # Check if in development mode
-    if not is_development_mode():
-        click.echo(
-            click.style("\nRunning in production mode (installed package)", fg="blue")
-        )
-        click.echo(
-            click.style(
-                "Frontend is pre-built and bundled in the package\n", fg="green"
-            )
-        )
-        # No need to build, static files are already in package
-        backend_dir = Path(__file__).parent.parent.parent.parent
-    else:
-        click.echo(
-            click.style("\nRunning in development mode (source repository)", fg="blue")
-        )
-        # Build frontend in dev mode
-        frontend_dir = get_frontend_dir()
-        backend_dir = Path(__file__).parent.parent.parent.parent
-
-        click.echo(click.style("Building frontend...", fg="green"))
-        result = subprocess.run(
-            ["npm", "run", "build"],
-            cwd=frontend_dir,
-            capture_output=False,
-        )
-
-        if result.returncode != 0:
-            click.echo(click.style("Frontend build failed!", fg="red"), err=True)
-            sys.exit(1)
-
-        click.echo(click.style("Frontend built successfully!\n", fg="green"))
+    # No need to build, static files are already in package
+    backend_dir = Path(__file__).parent.parent.parent.parent
 
     # Start backend
     click.echo(click.style(f"Starting backend server on port {port}...", fg="green"))

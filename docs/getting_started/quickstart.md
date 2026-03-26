@@ -58,4 +58,4 @@ python my_experiment.py
 
 ## 4. View Results
 
-Open your browser to http://localhost:8000 to see your experiment.
+Open your browser to [http://localhost:8000](http://localhost:8000) to see your experiment.

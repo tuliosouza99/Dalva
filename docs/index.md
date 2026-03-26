@@ -34,7 +34,7 @@ run.finish()
 ## Installation
 
 ```bash
-git clone [https://github.com/tuliosouza99/Dalva.git](https://github.com/tuliosouza99/Dalva.git)
+git clone https://github.com/tuliosouza99/Dalva.git
 cd Dalva/backend && uv sync
 ```
 

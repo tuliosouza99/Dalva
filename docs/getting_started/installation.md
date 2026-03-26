@@ -25,7 +25,7 @@ dalva --version
 dalva server start
 ```
 
-The server runs on http://localhost:8000
+The server runs on [http://localhost:8000](http://localhost:8000)
 
 ## Database
 

@@ -1,3 +1,5 @@
+<img src="assets/logo.svg" alt="Dalva Logo" width="64" height="64" align="left" style="margin-right: 12px;" />
+
 # Dalva
 
 > A lightweight, self-hosted experiment tracker for deep learning

@@ -7,7 +7,7 @@ edit_uri: "blob/main/docs/"
 
 theme:
   name: "material"
-  favicon: assets/favicon.png
+  favicon: assets/logo.svg
   logo: assets/logo.svg
   features:
     - navigation.tabs
@@ -60,19 +60,8 @@ nav:
       - CLI Usage: getting_started/cli_usage.md
   - Architecture: architecture.md
   - API Documentation:
-      - Python SDK:
-          - init: api_documentation/python_sdk/init.md
-          - Run Class: api_documentation/python_sdk/run_class.md
-      - Models:
-          - Config Models: api_documentation/models/config_models.md
-          - Metric Models: api_documentation/models/metric_models.md
-          - Project Models: api_documentation/models/project_models.md
-          - Run Models: api_documentation/models/run_models.md
-      - Database:
-          - Connection: api_documentation/database/connection.md
-          - Schema: api_documentation/database/schema.md
-      - Services: api_documentation/services/logger.md
-      - Config: api_documentation/config.md
+      - Init Run: api_documentation/init.md
+      - Run Class: api_documentation/run_class.md
 
 markdown_extensions:
   - pymdownx.highlight:

@@ -55,6 +55,20 @@ class Run:
         Args:
             metrics: Dictionary of metric name -> value
             step: Optional step number for series values
+
+        Example:
+            ```python
+            run = Run(project="my-project", config={"lr": 0.001})
+
+            # Log single metrics
+            run.log({"accuracy": 0.85})
+
+            # Log metrics with step numbers for series
+            for step in range(100):
+                run.log({"loss": 0.5, "accuracy": 0.5}, step=step)
+
+            run.finish()
+            ```
         """
 
         LoggingService().log_metrics(
@@ -65,7 +79,15 @@ class Run:
         )
 
     def finish(self):
-        """Finish the run and mark it as completed."""
+        """Finish the run and mark it as completed.
+
+        Example:
+            ```python
+            run = Run(project="my-project")
+            run.log({"loss": 0.5}, step=0)
+            run.finish()
+            ```
+        """
         LoggingService().finish_run(self._db_id)
 
     def __repr__(self):

@@ -183,7 +183,7 @@ The `Run` object has these properties:
 - `project` - Project name
 - `state` - Run state (running, finished, etc.)
 
-See the [Run Class API documentation](../api_documentation/python_sdk/run_class.md) for the full reference.
+See the [Run Class API documentation](../api_documentation/run_class.md) for the full reference.
 
 ### Understanding run_id
 

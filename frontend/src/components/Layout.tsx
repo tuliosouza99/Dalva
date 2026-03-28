@@ -9,8 +9,8 @@ export default function Layout() {
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
+              <img src="/logo.svg" alt="Dalva Logo" className="w-8 h-8" />
               <h1 className="text-2xl font-bold text-primary-500">Dalva</h1>
-              <span className="text-sm text-gray-500 dark:text-gray-400">Lightweight Experiment Tracker</span>
             </div>
             <ThemeToggle />
           </div>

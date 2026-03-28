@@ -98,11 +98,13 @@ class MetricValue(BaseModel):
     step: Optional[int] = None
     timestamp: Optional[datetime] = None
     value: float | int | str | bool
+    attribute_type: Optional[str] = None
 
 
 class MetricValuesResponse(BaseModel):
     data: list[MetricValue]
     has_more: bool
+    attribute_type: Optional[str] = None
 
 
 # Config models

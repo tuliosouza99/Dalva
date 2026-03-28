@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import distinct, func
+from sqlalchemy import distinct
 from sqlalchemy.orm import Session
 
 from dalva.api.models import MetricValue, MetricValuesResponse
@@ -133,7 +133,9 @@ def list_metrics(run_id: int, db: Session = Depends(get_db)):
     return [m[0] for m in metrics]
 
 
-@router.get("/runs/{run_id}/metric/{metric_path:path}", response_model=MetricValuesResponse)
+@router.get(
+    "/runs/{run_id}/metric/{metric_path:path}", response_model=MetricValuesResponse
+)
 def get_metric_values(
     run_id: int,
     metric_path: str,
@@ -164,22 +166,36 @@ def get_metric_values(
     metrics = query.order_by(Metric.step).limit(limit).offset(offset).all()
 
     data = []
+    attribute_type = None
     for m in metrics:
         value = None
         if m.float_value is not None:
             value = m.float_value
+            attribute_type = m.attribute_type
         elif m.int_value is not None:
             value = m.int_value
+            attribute_type = m.attribute_type
         elif m.string_value is not None:
             value = m.string_value
+            attribute_type = m.attribute_type
         elif m.bool_value is not None:
             value = m.bool_value
+            attribute_type = m.attribute_type
 
         if value is None:
             continue
 
-        data.append(MetricValue(step=m.step, timestamp=m.timestamp, value=value))
+        data.append(
+            MetricValue(
+                step=m.step,
+                timestamp=m.timestamp,
+                value=value,
+                attribute_type=m.attribute_type,
+            )
+        )
 
     has_more = (offset + limit) < total
 
-    return MetricValuesResponse(data=data, has_more=has_more)
+    return MetricValuesResponse(
+        data=data, has_more=has_more, attribute_type=attribute_type
+    )

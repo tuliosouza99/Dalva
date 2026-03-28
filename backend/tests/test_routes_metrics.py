@@ -47,7 +47,9 @@ class TestGetMetricValues:
         assert first_value["step"] == 0
         assert first_value["value"] == 0.5
 
-    def test_get_metric_values_with_pagination(self, api_client, sample_run, sample_metrics):
+    def test_get_metric_values_with_pagination(
+        self, api_client, sample_run, sample_metrics
+    ):
         """Test getting metric values with pagination."""
         response = api_client.get(
             f"/api/metrics/runs/{sample_run['id']}/metric/loss?limit=1"
@@ -57,7 +59,9 @@ class TestGetMetricValues:
         assert len(data["data"]) == 1
         assert data["has_more"] is True
 
-    def test_get_metric_values_with_step_filter(self, api_client, sample_run, sample_metrics):
+    def test_get_metric_values_with_step_filter(
+        self, api_client, sample_run, sample_metrics
+    ):
         """Test getting metric values with step range filter."""
         response = api_client.get(
             f"/api/metrics/runs/{sample_run['id']}/metric/loss?step_min=1&step_max=1"

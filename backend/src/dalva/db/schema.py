@@ -36,9 +36,6 @@ class Project(Base):
     custom_views = relationship(
         "CustomView", back_populates="project", cascade="all, delete-orphan"
     )
-    dashboards = relationship(
-        "Dashboard", back_populates="project", cascade="all, delete-orphan"
-    )
 
 
 class Run(Base):
@@ -159,21 +156,3 @@ class CustomView(Base):
 
     # Relationship
     project = relationship("Project", back_populates="custom_views")
-
-
-class Dashboard(Base):
-    """Dashboard configurations with widgets and layouts."""
-
-    __tablename__ = "dashboards"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(
-        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
-    )
-    name = Column(String, nullable=False)
-    widgets = Column(Text)  # JSON array of widget configs
-    layout = Column(Text)  # JSON grid layout
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    # Relationship
-    project = relationship("Project", back_populates="dashboards")

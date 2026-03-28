@@ -1,11 +1,9 @@
 import { useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import { useMetricValues } from '../../api/client';
+import { useDarkMode } from '../../hooks/useDarkMode';
+import { buildChartLayout } from '../../utils/chartTheme';
 import type { MetricValue } from '../../api/client';
-
-function isDarkMode() {
-  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-}
 
 interface MetricChartProps {
   runId: number;
@@ -23,38 +21,34 @@ export default function MetricChart({
   showLegend = true,
 }: MetricChartProps) {
   const { data, isLoading, error } = useMetricValues(runId, metricPath);
+  const isDark = useDarkMode();
 
   const chartData = useMemo(() => {
     if (!data?.data) return [];
 
     const values = data.data;
 
-    // Separate numeric and non-numeric values
     const numericValues = values.filter(
       (v: MetricValue) => typeof v.value === 'number'
     );
 
     if (numericValues.length === 0) return [];
 
-    // Check if we have step information
     const hasSteps = numericValues.some((v: MetricValue) => v.step !== null);
 
     return [
       {
         type: 'scatter',
-        mode: 'lines+markers',
+        mode: 'lines',
         name: metricPath,
         x: hasSteps
           ? numericValues.map((v: MetricValue) => v.step)
           : numericValues.map((_, i: number) => i),
         y: numericValues.map((v: MetricValue) => v.value as number),
-        marker: {
-          size: 4,
-          color: '#1976d2',
-        },
         line: {
           color: '#1976d2',
           width: 2,
+          shape: 'spline',
         },
         hovertemplate: hasSteps
           ? '<b>Step:</b> %{x}<br><b>Value:</b> %{y:.6f}<extra></extra>'
@@ -64,46 +58,17 @@ export default function MetricChart({
   }, [data, metricPath]);
 
   const layout = useMemo(
-    () => {
-      const dark = isDarkMode();
-      return {
+    () =>
+      buildChartLayout(isDark, {
         title: title || metricPath,
-        autosize: true,
         height,
-        margin: { t: 50, r: 30, b: 50, l: 60 },
-        font: {
-          color: dark ? '#e5e7eb' : '#374151',
-        },
-        xaxis: {
-          title: data?.data?.[0]?.step !== null ? 'Step' : 'Index',
-          showgrid: true,
-          gridcolor: dark ? '#374151' : '#e5e7eb',
-          zeroline: false,
-          tickcolor: dark ? '#e5e7eb' : '#374151',
-          linecolor: dark ? '#e5e7eb' : '#374151',
-        },
-        yaxis: {
-          title: 'Value',
-          showgrid: true,
-          gridcolor: dark ? '#374151' : '#e5e7eb',
-          zeroline: false,
-          tickcolor: dark ? '#e5e7eb' : '#374151',
-          linecolor: dark ? '#e5e7eb' : '#374151',
-        },
-        showlegend: showLegend,
-        legend: {
-          orientation: 'h',
-          yanchor: 'bottom',
-          y: 1.02,
-          xanchor: 'right',
-          x: 1,
-        },
-        hovermode: 'closest',
-        plot_bgcolor: dark ? '#1f2937' : '#ffffff',
-        paper_bgcolor: dark ? '#111827' : '#ffffff',
-      };
-    },
-    [title, metricPath, height, showLegend, data]
+        xAxisTitle: data?.data?.[0]?.step !== null ? 'Step' : 'Index',
+        showLegend,
+        legendOrientation: 'h',
+        legendY: 1.02,
+        legendX: 1,
+      }),
+    [isDark, title, metricPath, height, showLegend, data]
   );
 
   const config = useMemo(

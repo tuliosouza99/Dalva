@@ -54,15 +54,14 @@ plugins:
 nav:
   - Overview: index.md
   - Getting Started:
-      - Installation: getting_started/installation.md
       - Quick Start: getting_started/quickstart.md
       - Python SDK: getting_started/python_sdk.md
+      - Metrics & Value Types: getting_started/metrics_and_types.md
       - CLI Usage: getting_started/cli_usage.md
+  - Architecture: architecture.md
   - API Documentation:
       - Python SDK:
           - init: api_documentation/python_sdk/init.md
-          - log: api_documentation/python_sdk/log.md
-          - finish: api_documentation/python_sdk/finish.md
           - Run Class: api_documentation/python_sdk/run_class.md
       - Models:
           - Config Models: api_documentation/models/config_models.md
@@ -80,7 +79,11 @@ markdown_extensions:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - admonition

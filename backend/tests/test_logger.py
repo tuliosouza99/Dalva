@@ -152,8 +152,7 @@ class TestLoggingServiceMetrics:
     """Tests for LoggingService metric logging."""
 
     def test_log_metrics_float(self, sample_run):
-        """Test logging float metrics."""
-
+        """Test logging float metrics with step=0 (series type)."""
         service = LoggingService()
         service.log_metrics(
             run_id=sample_run["id"],
@@ -170,10 +169,10 @@ class TestLoggingServiceMetrics:
 
             loss_metric = next(m for m in metrics if m.attribute_path == "loss")
             assert loss_metric.float_value == 0.5
-            assert loss_metric.attribute_type == "float"
+            assert loss_metric.attribute_type == "float_series"
 
     def test_log_metrics_int(self, sample_run):
-        """Test logging integer metrics."""
+        """Test logging integer metrics with step=0 (series type)."""
         service = LoggingService()
         service.log_metrics(
             run_id=sample_run["id"],
@@ -187,10 +186,10 @@ class TestLoggingServiceMetrics:
             )
             epoch_metric = next(m for m in metrics if m.attribute_path == "epoch")
             assert epoch_metric.int_value == 42
-            assert epoch_metric.attribute_type == "int"
+            assert epoch_metric.attribute_type == "int_series"
 
     def test_log_metrics_bool(self, sample_run):
-        """Test logging boolean metrics."""
+        """Test logging boolean metrics with step=0 (series type)."""
         service = LoggingService()
         service.log_metrics(
             run_id=sample_run["id"],
@@ -204,10 +203,10 @@ class TestLoggingServiceMetrics:
             )
             es_metric = next(m for m in metrics if m.attribute_path == "early_stopping")
             assert es_metric.bool_value is True
-            assert es_metric.attribute_type == "bool"
+            assert es_metric.attribute_type == "bool_series"
 
     def test_log_metrics_string(self, sample_run):
-        """Test logging string metrics."""
+        """Test logging string metrics with step=0 (series type)."""
         service = LoggingService()
         service.log_metrics(
             run_id=sample_run["id"],
@@ -221,7 +220,7 @@ class TestLoggingServiceMetrics:
             )
             status_metric = next(m for m in metrics if m.attribute_path == "status")
             assert status_metric.string_value == "training"
-            assert status_metric.attribute_type == "string"
+            assert status_metric.attribute_type == "string_series"
 
     def test_log_metrics_multiple_steps(self, sample_run):
         """Test logging metrics at multiple steps."""
@@ -242,6 +241,23 @@ class TestLoggingServiceMetrics:
 
             steps = {m.step for m in metrics}
             assert steps == {0, 1, 2}
+
+    def test_log_metrics_summary_no_step(self, sample_run):
+        """Test logging summary metrics without step (scalar type)."""
+        service = LoggingService()
+        service.log_metrics(
+            run_id=sample_run["id"],
+            metrics={"final_loss": 0.1, "final_accuracy": 0.99},
+        )
+
+        with session_scope() as session:
+            metrics = (
+                session.query(Metric).filter(Metric.run_id == sample_run["id"]).all()
+            )
+            loss_metric = next(m for m in metrics if m.attribute_path == "final_loss")
+            assert loss_metric.float_value == pytest.approx(0.1)
+            assert loss_metric.attribute_type == "float"
+            assert loss_metric.step is None
 
 
 class TestLoggingServiceConfigFlattening:

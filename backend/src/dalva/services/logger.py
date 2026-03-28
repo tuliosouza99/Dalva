@@ -175,69 +175,63 @@ class LoggingService:
     ) -> None:
         """Write a batch of metrics and bump the run's ``updated_at``.
 
-        The entire batch — plus the run update — is committed in one session
-        so the lock is held for the minimum possible time.
+        Type rules:
+        - step=None -> scalar types (float, int, string, bool)
+        - step=int -> series types (float_series, int_series, string_series, bool_series)
+        - A given (run_id, attribute_path) must always use the same attribute_type.
+          Attempting to log with a different type raises ValueError.
         """
         if timestamp is None:
             timestamp = datetime.utcnow()
 
+        is_series = step is not None
+
         with session_scope() as db:
             for metric_path, value in metrics.items():
+                # Determine attribute_type based on step and value type
                 if isinstance(value, bool):
-                    db.add(
-                        Metric(
-                            run_id=run_id,
-                            attribute_path=metric_path,
-                            attribute_type="bool",
-                            step=step,
-                            timestamp=timestamp,
-                            bool_value=value,
-                        )
-                    )
+                    attr_type = "bool_series" if is_series else "bool"
+                    value_key = "bool_value"
                 elif isinstance(value, int):
-                    db.add(
-                        Metric(
-                            run_id=run_id,
-                            attribute_path=metric_path,
-                            attribute_type="int",
-                            step=step,
-                            timestamp=timestamp,
-                            int_value=value,
-                        )
-                    )
+                    attr_type = "int_series" if is_series else "int"
+                    value_key = "int_value"
                 elif isinstance(value, float):
-                    db.add(
-                        Metric(
-                            run_id=run_id,
-                            attribute_path=metric_path,
-                            attribute_type="float",
-                            step=step,
-                            timestamp=timestamp,
-                            float_value=value,
-                        )
-                    )
+                    attr_type = "float_series" if is_series else "float"
+                    value_key = "float_value"
                 elif isinstance(value, str):
-                    db.add(
-                        Metric(
-                            run_id=run_id,
-                            attribute_path=metric_path,
-                            attribute_type="string",
-                            step=step,
-                            timestamp=timestamp,
-                            string_value=value,
-                        )
-                    )
+                    attr_type = "string_series" if is_series else "string"
+                    value_key = "string_value"
                 else:
-                    db.add(
-                        Metric(
-                            run_id=run_id,
-                            attribute_path=metric_path,
-                            attribute_type="string",
-                            step=step,
-                            timestamp=timestamp,
-                            string_value=str(value),
-                        )
+                    attr_type = "string_series" if is_series else "string"
+                    value_key = "string_value"
+                    value = str(value)
+
+                # Validate: check if same run_id+attribute_path exists with different type
+                existing = (
+                    db.query(Metric.attribute_type)
+                    .filter(
+                        Metric.run_id == run_id,
+                        Metric.attribute_path == metric_path,
                     )
+                    .first()
+                )
+                if existing and existing.attribute_type != attr_type:
+                    raise ValueError(
+                        f"Metric '{metric_path}' for run {run_id} was already logged "
+                        f"as '{existing.attribute_type}', cannot overwrite with '{attr_type}'. "
+                        f"Use the same step=None for scalars or step=int for series."
+                    )
+
+                # Build metric dict and insert
+                metric_dict = {
+                    "run_id": run_id,
+                    "attribute_path": metric_path,
+                    "attribute_type": attr_type,
+                    "step": step,
+                    "timestamp": timestamp,
+                    value_key: value,
+                }
+                db.add(Metric(**metric_dict))
 
             # Update run timestamp in the same transaction
             run = db.query(Run).filter(Run.id == run_id).first()

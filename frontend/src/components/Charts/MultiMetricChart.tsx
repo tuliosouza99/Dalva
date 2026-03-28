@@ -1,11 +1,9 @@
 import { useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import { useMetricValues } from '../../api/client';
+import { useDarkMode } from '../../hooks/useDarkMode';
+import { buildChartLayout } from '../../utils/chartTheme';
 import type { MetricValue } from '../../api/client';
-
-function isDarkMode() {
-  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-}
 
 interface MetricConfig {
   runId: number;
@@ -38,7 +36,6 @@ export default function MultiMetricChart({
   height = 400,
   yAxisTitle = 'Value',
 }: MultiMetricChartProps) {
-  // Fetch data for all metrics
   const metricData = metrics.map((metric) =>
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useMetricValues(metric.runId, metric.metricPath)
@@ -46,6 +43,7 @@ export default function MultiMetricChart({
 
   const isLoading = metricData.some((m) => m.isLoading);
   const error = metricData.find((m) => m.error)?.error;
+  const isDark = useDarkMode();
 
   const chartData = useMemo(() => {
     if (isLoading || !metricData.every((m) => m.data)) return [];
@@ -62,19 +60,16 @@ export default function MultiMetricChart({
 
       return {
         type: 'scatter',
-        mode: 'lines+markers',
+        mode: 'lines',
         name: metric.name || metric.metricPath,
         x: hasSteps
           ? numericValues.map((v: MetricValue) => v.step)
           : numericValues.map((_, i: number) => i),
         y: numericValues.map((v: MetricValue) => v.value as number),
-        marker: {
-          size: 4,
-          color: metric.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
-        },
         line: {
           color: metric.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length],
           width: 2,
+          shape: 'spline',
         },
         hovertemplate: hasSteps
           ? '<b>Step:</b> %{x}<br><b>Value:</b> %{y:.6f}<extra></extra>'
@@ -84,46 +79,18 @@ export default function MultiMetricChart({
   }, [metricData, metrics, isLoading]);
 
   const layout = useMemo(
-    () => {
-      const dark = isDarkMode();
-      return {
+    () =>
+      buildChartLayout(isDark, {
         title,
-        autosize: true,
         height,
-        margin: { t: 50, r: 30, b: 50, l: 60 },
-        font: {
-          color: dark ? '#e5e7eb' : '#374151',
-        },
-        xaxis: {
-          title: 'Step',
-          showgrid: true,
-          gridcolor: dark ? '#374151' : '#e5e7eb',
-          zeroline: false,
-          tickcolor: dark ? '#e5e7eb' : '#374151',
-          linecolor: dark ? '#e5e7eb' : '#374151',
-        },
-        yaxis: {
-          title: yAxisTitle,
-          showgrid: true,
-          gridcolor: dark ? '#374151' : '#e5e7eb',
-          zeroline: false,
-          tickcolor: dark ? '#e5e7eb' : '#374151',
-          linecolor: dark ? '#e5e7eb' : '#374151',
-        },
-        showlegend: true,
-        legend: {
-          orientation: 'v',
-          yanchor: 'top',
-          y: 1,
-          xanchor: 'left',
-          x: 1.02,
-        },
-        hovermode: 'closest',
-        plot_bgcolor: dark ? '#1f2937' : '#ffffff',
-        paper_bgcolor: dark ? '#111827' : '#ffffff',
-      };
-    },
-    [title, height, yAxisTitle]
+        xAxisTitle: 'Step',
+        yAxisTitle,
+        showLegend: true,
+        legendOrientation: 'v',
+        legendY: 1,
+        legendX: 1.02,
+      }),
+    [isDark, title, height, yAxisTitle]
   );
 
   const config = useMemo(

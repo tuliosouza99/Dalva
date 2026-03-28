@@ -4,10 +4,6 @@ import { useRun, useRunSummary, useRunMetrics, useMetricValues } from '../api/cl
 
 const MultiMetricChart = lazy(() => import('../components/Charts/MultiMetricChart'));
 
-function isDarkMode() {
-  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-}
-
 export default function CompareRunsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();

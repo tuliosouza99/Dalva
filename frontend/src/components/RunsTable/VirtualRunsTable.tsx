@@ -40,7 +40,6 @@ export default function VirtualRunsTable({
   selectedRunIds = [],
   onSelectionChange,
   metricColumns = [],
-  projectId,
 }: VirtualRunsTableProps) {
   const navigate = useNavigate();
   const parentRef = useRef<HTMLDivElement>(null);

@@ -249,20 +249,7 @@ export default function RunDetailPage() {
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Configuration</h3>
           {(() => {
-            // Try to get config from summary.config first, then check for cfg/* in metrics
-            let configData: Record<string, unknown> = summary?.config || {};
-
-            // If config is empty, try to extract from metrics with cfg/* prefix
-            if (Object.keys(configData).length === 0 && summary?.metrics) {
-              configData = {};
-              for (const [key, value] of Object.entries(summary.metrics)) {
-                if (key.startsWith('cfg/')) {
-                  // Remove the cfg/ prefix to get the config key
-                  const configKey = key.slice(4);
-                  configData[configKey] = value;
-                }
-              }
-            }
+            const configData = summary?.config || {};
 
             return Object.keys(configData).length > 0 ? (
               <JsonViewer data={configData} dark={isDarkMode()} />

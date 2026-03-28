@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+from dalva.api.routes import metrics, projects, runs
+from dalva.db.schema import Metric, Run
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
@@ -13,8 +15,6 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
-from dalva.api.routes import metrics, projects, runs
-from dalva.db.schema import Metric, Run
 
 # Set test environment before importing dalva modules
 os.environ["DALVA_DB_PATH"] = ""
@@ -71,7 +71,6 @@ def _create_tables(engine) -> None:
         conn.execute(text("CREATE SEQUENCE IF NOT EXISTS metrics_id_seq START 1"))
         conn.execute(text("CREATE SEQUENCE IF NOT EXISTS files_id_seq START 1"))
         conn.execute(text("CREATE SEQUENCE IF NOT EXISTS custom_views_id_seq START 1"))
-        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS dashboards_id_seq START 1"))
 
         # Projects table
         conn.execute(
@@ -160,20 +159,6 @@ def _create_tables(engine) -> None:
                 filters VARCHAR,
                 columns VARCHAR,
                 sort_by VARCHAR,
-                created_at TIMESTAMP
-            )
-        """)
-        )
-
-        # Dashboards table
-        conn.execute(
-            text("""
-            CREATE TABLE IF NOT EXISTS dashboards (
-                id INTEGER PRIMARY KEY DEFAULT nextval('dashboards_id_seq'),
-                project_id INTEGER NOT NULL,
-                name VARCHAR NOT NULL,
-                widgets VARCHAR,
-                layout VARCHAR,
                 created_at TIMESTAMP
             )
         """)

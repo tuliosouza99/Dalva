@@ -31,6 +31,7 @@ dev = [
 dev = [
     "pytest>=8.0.0",
     "httpx>=0.27.0",
+    "ruff>=0.15.8",
 ]
 docs = [
     "mkdocs>=1.6.1",

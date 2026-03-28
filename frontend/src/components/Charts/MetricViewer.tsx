@@ -1,11 +1,9 @@
 import { useMemo } from 'react';
 import Plot from 'react-plotly.js';
 import { useMetricValues } from '../../api/client';
+import { useDarkMode } from '../../hooks/useDarkMode';
+import { buildChartLayout } from '../../utils/chartTheme';
 import type { MetricValue } from '../../api/client';
-
-function isDarkMode() {
-  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-}
 
 interface MetricViewerProps {
   runId: number;
@@ -15,6 +13,7 @@ interface MetricViewerProps {
 
 export default function MetricViewer({ runId, metricPath, onClose }: MetricViewerProps) {
   const { data, isLoading, error } = useMetricValues(runId, metricPath);
+  const isDark = useDarkMode();
 
   const metricAnalysis = useMemo(() => {
     if (!data?.data || data.data.length === 0) {
@@ -22,22 +21,13 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
     }
 
     const values = data.data;
-    const numericValues = values.filter(
-      (v: MetricValue) => typeof v.value === 'number'
-    );
+    const attributeType = data.attribute_type;
+    const isSeries = attributeType?.endsWith('_series') ?? false;
 
-    // Single value - show as card
-    if (values.length === 1) {
-      return {
-        type: 'single',
-        value: values[0].value,
-        step: values[0].step,
-        timestamp: values[0].timestamp,
-      };
-    }
-
-    // Multiple numeric values - show as chart
-    if (numericValues.length > 1) {
+    if (isSeries) {
+      const numericValues = values.filter(
+        (v: MetricValue) => typeof v.value === 'number'
+      );
       const hasSteps = numericValues.some((v: MetricValue) => v.step !== null);
       return {
         type: 'chart',
@@ -46,10 +36,11 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
       };
     }
 
-    // Multiple non-numeric or mixed values - show as list
     return {
-      type: 'list',
-      values,
+      type: 'single',
+      value: values[0].value,
+      step: values[0].step,
+      timestamp: values[0].timestamp,
     };
   }, [data]);
 
@@ -62,19 +53,16 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
     return [
       {
         type: 'scatter',
-        mode: 'lines+markers',
+        mode: 'lines',
         name: metricPath,
         x: hasSteps
           ? values.map((v: MetricValue) => v.step)
           : values.map((_, i: number) => i),
         y: values.map((v: MetricValue) => v.value as number),
-        marker: {
-          size: 4,
-          color: '#1976d2',
-        },
         line: {
           color: '#1976d2',
           width: 2,
+          shape: 'spline',
         },
         hovertemplate: hasSteps
           ? '<b>Step:</b> %{x}<br><b>Value:</b> %{y:.6f}<extra></extra>'
@@ -87,37 +75,13 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
     if (metricAnalysis.type !== 'chart') return {};
 
     const hasSteps = metricAnalysis.hasSteps;
-    const dark = isDarkMode();
-    return {
+    return buildChartLayout(isDark, {
       title: metricPath,
-      autosize: true,
       height: 400,
-      margin: { t: 50, r: 30, b: 50, l: 60 },
-      font: {
-        color: dark ? '#e5e7eb' : '#374151',
-      },
-      xaxis: {
-        title: hasSteps ? 'Step' : 'Index',
-        showgrid: true,
-        gridcolor: dark ? '#374151' : '#e5e7eb',
-        zeroline: false,
-        tickcolor: dark ? '#e5e7eb' : '#374151',
-        linecolor: dark ? '#e5e7eb' : '#374151',
-      },
-      yaxis: {
-        title: 'Value',
-        showgrid: true,
-        gridcolor: dark ? '#374151' : '#e5e7eb',
-        zeroline: false,
-        tickcolor: dark ? '#e5e7eb' : '#374151',
-        linecolor: dark ? '#e5e7eb' : '#374151',
-      },
-      showlegend: false,
-      hovermode: 'closest',
-      plot_bgcolor: dark ? '#1f2937' : '#ffffff',
-      paper_bgcolor: dark ? '#111827' : '#ffffff',
-    };
-  }, [metricAnalysis, metricPath]);
+      xAxisTitle: hasSteps ? 'Step' : 'Index',
+      showLegend: false,
+    });
+  }, [isDark, metricAnalysis, metricPath]);
 
   const config = useMemo(
     () => ({
@@ -223,26 +187,6 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
       {metricAnalysis.type === 'chart' && chartData.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <Plot data={chartData as any} layout={layout as any} config={config as any} style={{ width: '100%' }} />
-        </div>
-      )}
-
-      {metricAnalysis.type === 'list' && (
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {(metricAnalysis.values as MetricValue[]).map((item, idx) => (
-              <div key={idx} className="bg-white dark:bg-gray-700 rounded p-3 border border-gray-200 dark:border-gray-600">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">{String(item.value)}</span>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {item.step !== null && <span>Step: {item.step}</span>}
-                    {item.timestamp && (
-                      <span className="ml-2">{new Date(item.timestamp).toLocaleString()}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
     </div>

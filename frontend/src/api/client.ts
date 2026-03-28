@@ -37,11 +37,13 @@ export interface MetricValue {
   step: number | null;
   timestamp: string | null;
   value: number | string | boolean;
+  attribute_type?: string;
 }
 
 export interface MetricValuesResponse {
   data: MetricValue[];
   has_more: boolean;
+  attribute_type?: string;
 }
 
 export interface RunFilters {

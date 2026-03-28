@@ -8,4 +8,3 @@ Database table definitions.
 ::: dalva.db.schema.Config
 ::: dalva.db.schema.File
 ::: dalva.db.schema.CustomView
-::: dalva.db.schema.Dashboard

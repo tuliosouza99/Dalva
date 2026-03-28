@@ -17,9 +17,7 @@ def is_development_mode() -> bool:
     """
     try:
         package_dir = Path(__file__).parent.parent  # dalva/utils -> dalva
-        repo_root = (
-            package_dir.parent.parent.parent
-        )  # dalva -> src -> backend -> root
+        repo_root = package_dir.parent.parent.parent  # dalva -> src -> backend -> root
 
         return (repo_root / "pyproject.toml").exists() and (
             repo_root / "frontend"
@@ -81,8 +79,8 @@ def get_static_dir() -> Path:
             # Verify it exists
             if not static_dir.exists():
                 raise FileNotFoundError(
-                    f"Static directory not found in installed package. "
-                    f"The package may not have been built correctly."
+                    "Static directory not found in installed package. "
+                    "The package may not have been built correctly."
                 )
 
             return static_dir

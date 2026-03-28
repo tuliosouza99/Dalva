@@ -133,23 +133,6 @@ def _create_duckdb_tables(engine) -> None:
         """)
         )
 
-        # Create sequence for dashboards table ID
-        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS dashboards_id_seq START 1"))
-
-        # Dashboards table
-        conn.execute(
-            text("""
-            CREATE TABLE IF NOT EXISTS dashboards (
-                id INTEGER PRIMARY KEY DEFAULT nextval('dashboards_id_seq'),
-                project_id INTEGER NOT NULL,
-                name VARCHAR NOT NULL,
-                widgets VARCHAR,
-                layout VARCHAR,
-                created_at TIMESTAMP
-            )
-        """)
-        )
-
         # Create indexes
         conn.execute(
             text("CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name)")

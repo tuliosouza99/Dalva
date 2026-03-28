@@ -28,7 +28,6 @@ class Run:
         """
         self.project_name = project
         self.config = config or {}
-        self._step_counter = 0
 
         # Ensure database and tables exist
         init_db()
@@ -47,16 +46,16 @@ class Run:
         self.run_id = run_id_str
         self.name = descriptive_name
 
+        # Print run ID for user convenience
+        print(f"Run created: {self.run_id}")
+
     def log(self, metrics: dict[str, Any], step: int | None = None):
         """Log metrics to the run.
 
         Args:
             metrics: Dictionary of metric name -> value
-            step: Optional step number (auto-incremented if not provided)
+            step: Optional step number for series values
         """
-        if step is None:
-            step = self._step_counter
-            self._step_counter += 1
 
         LoggingService().log_metrics(
             run_id=self._db_id,
@@ -71,4 +70,6 @@ class Run:
 
     def __repr__(self):
         """String representation."""
-        return f"Run(project='{self.project_name}', name='{self.name}', id={self.run_id})"
+        return (
+            f"Run(project='{self.project_name}', name='{self.name}', id={self.run_id})"
+        )

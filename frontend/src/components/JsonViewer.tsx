@@ -45,7 +45,6 @@ function JsonNode({ keyName, value, depth = 0, dark }: { keyName: string | null;
   }
 
   if (Array.isArray(value)) {
-    const isLong = value.length > 5;
     return (
       <div style={{ paddingLeft: depth > 0 ? 16 : 0 }}>
         <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
@@ -69,7 +68,6 @@ function JsonNode({ keyName, value, depth = 0, dark }: { keyName: string | null;
 
   if (typeof value === 'object') {
     const entries = Object.entries(value);
-    const isLong = entries.length > 5;
     return (
       <div style={{ paddingLeft: depth > 0 ? 16 : 0 }}>
         <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>{keyName !== null ? `"${keyName}": ` : ''}</span>

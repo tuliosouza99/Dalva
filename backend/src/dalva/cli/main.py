@@ -13,6 +13,7 @@ def cli():
     """Dalva - Lightweight experiment tracker for deep learning."""
     pass
 
+
 # Register commands and command groups
 cli.add_command(server)
 cli.add_command(db)

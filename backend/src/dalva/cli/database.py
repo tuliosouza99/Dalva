@@ -47,7 +47,6 @@ def info():
         "metrics",
         "files",
         "custom_views",
-        "dashboards",
     ]
 
     try:

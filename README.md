@@ -1,8 +1,10 @@
-# Dalva
+# 🌠 Dalva
 
 > A lightweight, self-hosted experiment tracker for deep learning
 
 Dalva provides a simple Python API for logging experiments and a clean web interface for visualizing and comparing results.
+
+For more information on using Dalva, please refer to the [documentation](https://tuliosouza99.github.io/Dalva/).
 
 ## Features
 

@@ -98,6 +98,7 @@ def _create_tables(engine) -> None:
                 state VARCHAR,
                 created_at TIMESTAMP,
                 updated_at TIMESTAMP,
+                last_activity_at TIMESTAMP,
                 UNIQUE(project_id, run_id)
             )
         """)

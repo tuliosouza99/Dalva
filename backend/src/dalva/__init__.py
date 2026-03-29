@@ -12,6 +12,7 @@ def init(
     name: str | None = None,
     config: dict | None = None,
     resume: str | None = None,
+    server_url: str = "http://localhost:8000",
 ) -> Run:
     """
     Initialize a new run.
@@ -21,6 +22,7 @@ def init(
         name: Optional run name (user-defined, for display purposes only)
         config: Optional configuration dictionary
         resume: run_id to resume (omit to create a new run)
+        server_url: Server URL. Defaults to http://localhost:8000
 
     Returns:
         Run object
@@ -38,4 +40,5 @@ def init(
         name=name,
         config=config,
         resume=resume,
+        server_url=server_url,
     )

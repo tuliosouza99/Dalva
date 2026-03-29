@@ -12,6 +12,12 @@ Dalva is a full-stack application with:
 
 ```mermaid
 graph TB
+    subgraph SDK["Python SDK (dalva package)"]
+        Run[Run Class]
+    end
+    
+    Run -->|HTTP POST| API[REST API]
+    
     subgraph Frontend["Frontend (React)"]
         P[Projects Page]
         R[Runs Page]
@@ -20,17 +26,17 @@ graph TB
     end
     
     Frontend --> Q[React Query Cache]
-    Q --> API[HTTP/REST API]
+    Q --> API
     
     subgraph Backend["Backend (FastAPI)"]
         Routes[API Routes]
-        LS[LoggingService]
+        LF[Logger Functions]
     end
     
     API --> Routes
-    Routes --> LS
+    Routes --> LF
     
-    LS --> DB[(DuckDB)]
+    LF --> DB[(DuckDB)]
     
     DB --> Projects[projects]
     DB --> Runs[runs]
@@ -46,10 +52,10 @@ graph TB
 
 DuckDB allows **one writer per file** across OS processes. The old design held sessions open during training, blocking the web server.
 
-**Solution**: Every `LoggingService` method opens a fresh session, writes, commits, and closes immediately:
+**Solution**: Every logger function opens a fresh session, writes, commits, and closes immediately:
 
 ```python
-def log_metrics(self, run_id, metrics, step=None):
+def log_metrics(run_id, metrics, step=None):
     with session_scope() as db:  # Opens session
         for metric_path, value in metrics.items():
             db.add(Metric(...))

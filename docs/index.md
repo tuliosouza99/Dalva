@@ -11,11 +11,12 @@ Dalva provides a simple Python API for logging experiments and a web interface f
 ```python
 import dalva
 
-# Initialize a run
+# Initialize a run (server must be running)
 run = dalva.init(
     project="my-project",
     name="experiment-1",
-    config={"lr": 0.001}
+    config={"lr": 0.001},
+    server_url="http://localhost:8000"
 )
 
 # Log metrics
@@ -47,3 +48,6 @@ dalva server start
 ```
 
 Open [http://localhost:8000](http://localhost:8000) to access the web interface.
+
+!!! important
+    The Dalva server must be running before logging experiments. The Python SDK communicates with the server via HTTP at the specified `server_url`.

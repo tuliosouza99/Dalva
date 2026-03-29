@@ -18,6 +18,9 @@ dalva server start
 
 The server will automatically find an available port and display the URL.
 
+!!! important
+    The Dalva server must be running before you can log experiments. The Python SDK communicates with the server via HTTP.
+
 ## 3. Log Your First Experiment
 
 Create a new file `my_experiment.py`:
@@ -25,7 +28,7 @@ Create a new file `my_experiment.py`:
 ```python
 import dalva
 
-# Initialize a run
+# Initialize a run (server must be running at the specified URL)
 run = dalva.init(
     project="quickstart",
     name="first-experiment",
@@ -33,7 +36,8 @@ run = dalva.init(
         "learning_rate": 0.001,
         "batch_size": 32,
         "optimizer": "adam"
-    }
+    },
+    server_url="http://localhost:8000"
 )
 
 # Log metrics during training

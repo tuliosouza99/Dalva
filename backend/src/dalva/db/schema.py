@@ -1,10 +1,9 @@
 """Database schema for Dalva experiment tracker."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
-    Column,
     DateTime,
     Float,
     ForeignKey,
@@ -15,7 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import mapped_column, relationship
 
 Base = declarative_base()
 
@@ -25,11 +24,15 @@ class Project(Base):
 
     __tablename__ = "projects"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, unique=True, nullable=False, index=True)
-    project_id = Column(String, unique=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name = mapped_column(String, unique=True, nullable=False, index=True)
+    project_id = mapped_column(String, unique=True, nullable=False)
+    created_at = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
     # Relationships
     runs = relationship("Run", back_populates="project", cascade="all, delete-orphan")
@@ -43,17 +46,24 @@ class Run(Base):
 
     __tablename__ = "runs"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id = mapped_column(
         Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
     )
-    run_id = Column(String, nullable=False)
-    name = Column(String)
-    group_name = Column(String, index=True)
-    tags = Column(Text)  # Comma-separated tags
-    state = Column(String, default="running", index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    run_id = mapped_column(String, nullable=False)
+    name = mapped_column(String)
+    group_name = mapped_column(String, index=True)
+    tags = mapped_column(Text)  # Comma-separated tags
+    state = mapped_column(String, default="running", index=True)
+    created_at = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    last_activity_at = mapped_column(
+        DateTime, nullable=True
+    )  # Tracks last log/finish request
 
     # Relationships
     project = relationship("Project", back_populates="runs")
@@ -73,16 +83,18 @@ class Metric(Base):
 
     __tablename__ = "metrics"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    run_id = Column(Integer, ForeignKey("runs.id", ondelete="CASCADE"), nullable=False)
-    attribute_path = Column(String, nullable=False)
-    attribute_type = Column(String, nullable=False)
-    step = Column(Integer)
-    timestamp = Column(DateTime)
-    float_value = Column(Float)
-    int_value = Column(Integer)
-    string_value = Column(Text)
-    bool_value = Column(Boolean)
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id = mapped_column(
+        Integer, ForeignKey("runs.id", ondelete="CASCADE"), nullable=False
+    )
+    attribute_path = mapped_column(String, nullable=False)
+    attribute_type = mapped_column(String, nullable=False)
+    step = mapped_column(Integer)
+    timestamp = mapped_column(DateTime)
+    float_value = mapped_column(Float)
+    int_value = mapped_column(Integer)
+    string_value = mapped_column(Text)
+    bool_value = mapped_column(Boolean)
 
     # Relationship
     run = relationship("Run", back_populates="metrics")
@@ -100,10 +112,12 @@ class Config(Base):
 
     __tablename__ = "configs"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    run_id = Column(Integer, ForeignKey("runs.id", ondelete="CASCADE"), nullable=False)
-    key = Column(String, nullable=False)
-    value = Column(Text)  # JSON-encoded value
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id = mapped_column(
+        Integer, ForeignKey("runs.id", ondelete="CASCADE"), nullable=False
+    )
+    key = mapped_column(String, nullable=False)
+    value = mapped_column(Text)  # JSON-encoded value
 
     # Relationship
     run = relationship("Run", back_populates="configs")
@@ -120,15 +134,17 @@ class File(Base):
 
     __tablename__ = "files"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    run_id = Column(Integer, ForeignKey("runs.id", ondelete="CASCADE"), nullable=False)
-    file_type = Column(
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id = mapped_column(
+        Integer, ForeignKey("runs.id", ondelete="CASCADE"), nullable=False
+    )
+    file_type = mapped_column(
         String, nullable=False
     )  # model, prediction, source_code, sample_batch
-    file_path = Column(String, nullable=False)
-    file_hash = Column(String)
-    size = Column(Integer)
-    file_metadata = Column(
+    file_path = mapped_column(String, nullable=False)
+    file_hash = mapped_column(String)
+    size = mapped_column(Integer)
+    file_metadata = mapped_column(
         Text
     )  # JSON (renamed from 'metadata' to avoid SQLAlchemy conflict)
 
@@ -144,15 +160,15 @@ class CustomView(Base):
 
     __tablename__ = "custom_views"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id = mapped_column(
         Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
     )
-    name = Column(String, nullable=False)
-    filters = Column(Text)  # JSON
-    columns = Column(Text)  # JSON
-    sort_by = Column(Text)  # JSON
-    created_at = Column(DateTime, default=datetime.utcnow)
+    name = mapped_column(String, nullable=False)
+    filters = mapped_column(Text)  # JSON
+    columns = mapped_column(Text)  # JSON
+    sort_by = mapped_column(Text)  # JSON
+    created_at = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationship
     project = relationship("Project", back_populates="custom_views")

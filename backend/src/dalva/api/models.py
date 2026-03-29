@@ -41,10 +41,6 @@ class RunBase(BaseModel):
     state: str = "running"
 
 
-class RunCreate(RunBase):
-    project_id: int
-
-
 class RunResponse(RunBase):
     id: int
     project_id: int

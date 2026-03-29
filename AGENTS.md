@@ -112,8 +112,8 @@ cd frontend && npm run lint
 
 **Key Components**:
 - `src/dalva/__init__.py` - Public API (`init()`)
-- `src/dalva/run.py` - Run class that manages experiment lifecycle
-- `src/dalva/services/logger.py` - LoggingService for database operations
+- `src/dalva/run.py` - HTTP client for the REST API
+- `src/dalva/services/logger.py` - Plain functions for database operations
 - `src/dalva/api/main.py` - FastAPI app entry point
 - `src/dalva/api/routes/` - API route handlers (projects, runs, metrics)
 - `src/dalva/db/schema.py` - SQLAlchemy table definitions
@@ -123,8 +123,14 @@ cd frontend && npm run lint
 ```python
 import dalva
 
-# Create a new run
-run = dalva.init(project="my-project", name="my-run", config={"lr": 0.01})
+# Requires dalva server running: dalva server start
+# server_url defaults to http://localhost:8000
+
+run = dalva.init(
+    project="my-project",
+    name="my-run",
+    config={"lr": 0.01}
+)
 run.log({"loss": 0.5}, step=0)
 run.finish()
 
@@ -178,7 +184,9 @@ run.finish()
 - `GET /api/runs/{run_id}` - Get run details
 - `GET /api/runs/{run_id}/summary` - Get run summary with metrics
 - `GET /api/runs/{run_id}/config` - Get run configuration
-- `PATCH /api/runs/{run_id}/state` - Update run state
+- `POST /api/runs/init` - Initialize a new run (SDK-facing)
+- `POST /api/runs/{run_id}/log` - Log metrics for a run
+- `POST /api/runs/{run_id}/finish` - Mark run complete
 - `DELETE /api/runs/{run_id}` - Delete run
 
 **Metrics**:
@@ -249,3 +257,4 @@ The CLI automatically finds available ports for both servers:
 - **CLI Management**: Unified `dalva` CLI command for server management, database operations, and configuration
 - **Frontend Performance**: Virtualized tables and React Query caching for handling large datasets
 - **Resume Support**: Runs can be resumed using `resume="allow"` or `resume="must"` modes
+- **Client-Server Architecture**: SDK is a thin HTTP client; all data flows through the REST API to the server

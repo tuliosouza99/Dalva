@@ -1,20 +1,22 @@
 """API routes for runs."""
 
 import json
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from dalva.api.models import (
-    RunCreate,
     RunResponse,
     RunsListResponse,
     RunSummary,
 )
 from dalva.db.connection import get_db
 from dalva.db.schema import Config, Metric, Run
+from dalva.services.logger import create_run
 
 router = APIRouter()
 
@@ -187,23 +189,45 @@ def get_run_config(run_id: int, db: Session = Depends(get_db)):
     return config_dict
 
 
-@router.post("/", response_model=RunResponse)
-def create_run(run: RunCreate, db: Session = Depends(get_db)):
+class InitRunRequest(BaseModel):
+    """Request body for init endpoint (SDK-facing)."""
+
+    project: str
+    name: Optional[str] = None
+    config: Optional[dict] = None
+    resume: Optional[str] = None
+
+
+class InitRunResponse(BaseModel):
+    """Response for init endpoint."""
+
+    id: int
+    run_id: str
+    name: Optional[str]
+
+
+@router.post("/init", response_model=InitRunResponse)
+def init_run(request: InitRunRequest):
     """
-    Create a new run.
+    Initialize a new run (SDK-facing endpoint).
+
+    This endpoint handles project creation/resumption and run creation
+    in one call, providing a simple interface for the SDK.
 
     Args:
-        run: Run data
-        db: Database session
+        request: Run initialization data
 
     Returns:
-        Created run
+        Created run ID and identifiers
     """
-    db_run = Run(**run.model_dump())
-    db.add(db_run)
-    db.commit()
-    db.refresh(db_run)
-    return db_run
+    db_id, run_id_str, name = create_run(
+        project_name=request.project,
+        run_name=request.name,
+        config=request.config,
+        resume_run_id=request.resume,
+    )
+
+    return InitRunResponse(id=db_id, run_id=run_id_str, name=name)
 
 
 @router.patch("/{run_id}/state")
@@ -231,6 +255,116 @@ def update_run_state(
     db.commit()
     db.refresh(run)
     return run
+
+
+class LogMetricsRequest(BaseModel):
+    """Request body for log endpoint."""
+
+    metrics: dict[str, Any]
+    step: Optional[int] = None
+    timestamp: Optional[datetime] = None
+
+
+class LogResponse(BaseModel):
+    """Response for log endpoint."""
+
+    success: bool = True
+
+
+@router.post("/{run_id}/log", response_model=LogResponse)
+def log_metrics_remote(
+    run_id: int,
+    request: LogMetricsRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Log metrics for a run (synchronous).
+
+    Args:
+        run_id: Run database ID
+        request: Metrics to log
+        db: Database session
+
+    Returns:
+        Success confirmation
+    """
+
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    # Update activity timestamp
+    run.last_activity_at = datetime.now(timezone.utc)
+    run.updated_at = datetime.now(timezone.utc)
+
+    # Log metrics
+    timestamp = request.timestamp or datetime.now(timezone.utc)
+    is_series = request.step is not None
+
+    for metric_path, value in request.metrics.items():
+        if isinstance(value, bool):
+            attr_type = "bool_series" if is_series else "bool"
+            value_key = "bool_value"
+        elif isinstance(value, int):
+            attr_type = "int_series" if is_series else "int"
+            value_key = "int_value"
+        elif isinstance(value, float):
+            attr_type = "float_series" if is_series else "float"
+            value_key = "float_value"
+        else:
+            attr_type = "string_series" if is_series else "string"
+            value_key = "string_value"
+            value = str(value)
+
+        db.add(
+            Metric(
+                run_id=run_id,
+                attribute_path=metric_path,
+                attribute_type=attr_type,
+                step=request.step,
+                timestamp=timestamp,
+                **{value_key: value},
+            )
+        )
+
+    db.commit()
+    return LogResponse(success=True)
+
+
+class FinishResponse(BaseModel):
+    """Response for finish endpoint."""
+
+    state: str
+
+
+@router.post("/{run_id}/finish", response_model=FinishResponse)
+def finish_run_remote(
+    run_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Finish a run (synchronous).
+
+    Args:
+        run_id: Run database ID
+        db: Database session
+
+    Returns:
+        Final run state
+    """
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    # Update activity and mark as completed
+    from datetime import datetime, timezone
+
+    run.last_activity_at = datetime.now(timezone.utc)
+    run.updated_at = datetime.now(timezone.utc)
+    run.state = "completed"
+    db.commit()
+
+    return FinishResponse(state="completed")
 
 
 @router.delete("/{run_id}")

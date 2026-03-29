@@ -60,6 +60,12 @@ def _create_duckdb_tables(engine) -> None:
         """)
         )
 
+        # Add last_activity_at column if it doesn't exist (migration for existing databases)
+        try:
+            conn.execute(text("ALTER TABLE runs ADD COLUMN last_activity_at TIMESTAMP"))
+        except Exception:
+            pass  # Column already exists
+
         # Create sequence for configs table ID
         conn.execute(text("CREATE SEQUENCE IF NOT EXISTS configs_id_seq START 1"))
 
@@ -144,6 +150,11 @@ def _create_duckdb_tables(engine) -> None:
             text("CREATE INDEX IF NOT EXISTS idx_runs_group_name ON runs(group_name)")
         )
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_runs_state ON runs(state)"))
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_runs_last_activity ON runs(last_activity_at)"
+            )
+        )
         conn.execute(
             text(
                 "CREATE INDEX IF NOT EXISTS idx_metrics_run_attr ON metrics(run_id, attribute_path)"

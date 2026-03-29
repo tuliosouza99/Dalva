@@ -16,7 +16,8 @@ import dalva
 run = dalva.init(
     project="my-project",
     name="experiment-1",
-    config={"lr": 0.001, "batch_size": 32}
+    config={"lr": 0.001, "batch_size": 32},
+    server_url="http://localhost:8000"
 )
 ```
 
@@ -26,6 +27,7 @@ run = dalva.init(
 - `name` (optional) - Human-readable run name
 - `config` (optional) - Configuration dictionary
 - `resume` (optional) - Run ID to resume an existing run
+- `server_url` (required) - URL of the Dalva server (e.g., `http://localhost:8000`)
 
 ## The Config Parameter
 
@@ -61,7 +63,8 @@ run = dalva.init(
         
         # Reproducibility
         "seed": 42,
-    }
+    },
+    server_url="http://localhost:8000"
 )
 ```
 
@@ -87,7 +90,8 @@ run = dalva.init(
             "train": {"path": "/data/train", "size": 50000},
             "val": {"path": "/data/val", "size": 10000},
         }
-    }
+    },
+    server_url="http://localhost:8000"
 )
 # Stored as flat keys: model/backbone, optimizer/lr, data/train/path, etc.
 ```

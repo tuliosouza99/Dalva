@@ -1,7 +1,8 @@
 import { Outlet, Link, NavLink, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import { useProject } from '../api/client';
-import { Folder, FolderOpen, GitCompare, Table2, ChevronDown, ChevronRight } from 'lucide-react';
+import { useComparison } from '../contexts/ComparisonContext';
+import { Folder, FolderOpen, GitCompare, Table2 } from 'lucide-react';
 
 export default function Layout() {
   const location = useLocation();
@@ -15,8 +16,13 @@ export default function Layout() {
   
   // Check if we're in a project context
   const isOnProjectPage = location.pathname.includes('/projects/') && projectIdFromPath;
-  const isCompareWithProject = location.pathname === '/compare' && projectIdFromQuery;
+  const isComparePage = location.pathname === '/compare';
+  const isCompareWithProject = isComparePage && projectIdFromQuery;
   const isInProject = isOnProjectPage || isCompareWithProject;
+
+  // Get comparison selection count
+  const { selectedRunIds } = useComparison();
+  const selectedCount = selectedRunIds.length;
   
   // Use projectId from path if available, otherwise use query param
   const { data: project } = useProject(effectiveProjectId || 0);
@@ -95,7 +101,19 @@ export default function Layout() {
                       style={{ paddingLeft: '12px' }}
                     >
                       <GitCompare size={14} />
-                      Compare
+                      <span className="flex-1 truncate">Compare</span>
+                      {selectedCount > 0 && (
+                        <span 
+                          className="text-xs px-1.5 py-0.5 rounded-full"
+                          style={{ 
+                            backgroundColor: 'var(--accent)',
+                            color: 'var(--bg-surface)',
+                            fontWeight: 600
+                          }}
+                        >
+                          {selectedCount}
+                        </span>
+                      )}
                     </NavLink>
                   </div>
                 </div>

@@ -4,14 +4,6 @@ import { useRef, useEffect, useState, useMemo } from 'react';
 import type { Run } from '../../api/client';
 import { api } from '../../api/client';
 
-function CheckIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12"/>
-    </svg>
-  );
-}
-
 function ChevronUpIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -49,6 +41,7 @@ interface VirtualRunsTableProps {
   onSelectionChange?: (selectedIds: number[]) => void;
   metricColumns?: string[];
   projectId?: number;
+  selectionDisabled?: boolean;
 }
 
 export default function VirtualRunsTable({
@@ -64,6 +57,7 @@ export default function VirtualRunsTable({
   selectedRunIds = [],
   onSelectionChange,
   metricColumns = [],
+  selectionDisabled = false,
 }: VirtualRunsTableProps) {
   const navigate = useNavigate();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -109,8 +103,11 @@ export default function VirtualRunsTable({
     if (!onSelectionChange) return;
 
     if (selectedRunIds.includes(runId)) {
+      // Always allow deselecting
       onSelectionChange(selectedRunIds.filter((id) => id !== runId));
     } else {
+      // Only block selecting when at max
+      if (selectionDisabled) return;
       onSelectionChange([...selectedRunIds, runId]);
     }
   };
@@ -121,6 +118,8 @@ export default function VirtualRunsTable({
     if (selectedRunIds.length === sortedRuns.length) {
       onSelectionChange([]);
     } else {
+      // Only block selecting all when it would exceed max
+      if (selectionDisabled) return;
       onSelectionChange(sortedRuns.map((r) => r.id));
     }
   };

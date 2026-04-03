@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ComparisonProvider } from './contexts/ComparisonContext';
 import Layout from './components/Layout';
 import ProjectsPage from './pages/ProjectsPage';
 import RunsPage from './pages/RunsPage';
@@ -19,17 +20,19 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Navigate to="/projects" replace />} />
-            <Route path="projects" element={<ProjectsPage />} />
-            <Route path="projects/:projectId/runs" element={<RunsPage />} />
-            <Route path="runs/:runId" element={<RunDetailPage />} />
-            <Route path="compare" element={<CompareRunsPage />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <ComparisonProvider maxSelections={5}>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Navigate to="/projects" replace />} />
+              <Route path="projects" element={<ProjectsPage />} />
+              <Route path="projects/:projectId/runs" element={<RunsPage />} />
+              <Route path="runs/:runId" element={<RunDetailPage />} />
+              <Route path="compare" element={<CompareRunsPage />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </ComparisonProvider>
     </QueryClientProvider>
   );
 }

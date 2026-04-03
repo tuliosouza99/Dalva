@@ -1,20 +1,22 @@
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useState, useMemo, lazy, Suspense } from 'react';
-import { useRun, useRunSummary, useRunMetrics, useMetricValues } from '../api/client';
+import { useQueries } from '@tanstack/react-query';
+import { api, useMetricValues } from '../api/client';
+import { useComparison } from '../contexts/ComparisonContext';
 
 const MultiMetricChart = lazy(() => import('../components/Charts/MultiMetricChart'));
 
-function ChevronRightIcon({ className = '' }: { className?: string }) {
+function ChevronRightIcon({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="9 18 15 12 9 6"/>
     </svg>
   );
 }
 
-function ChartIcon({ className = '' }: { className?: string }) {
+function ChartIcon({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="18" y1="20" x2="18" y2="10"/>
       <line x1="12" y1="20" x2="12" y2="4"/>
       <line x1="6" y1="20" x2="6" y2="14"/>
@@ -22,33 +24,61 @@ function ChartIcon({ className = '' }: { className?: string }) {
   );
 }
 
-export default function CompareRunsPage() {
-  const [searchParams] = useSearchParams();
+function EmptyState({ onNavigate }: { onNavigate: () => void }) {
+  return (
+    <div className="p-8 page-enter">
+      <div className="card text-center py-16">
+        <ChartIcon className="mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
+        <h3 className="heading-md mb-2">No runs selected</h3>
+        <p className="text-body mb-6 max-w-md mx-auto">
+          Select runs from the runs table and click "Compare" to view them side-by-side
+        </p>
+        <button onClick={onNavigate} className="btn-secondary">
+          Go Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CompareRunsContent({ runIds, onRemove, onClear }: { runIds: number[]; onRemove: (id: number) => void; onClear: () => void }) {
   const navigate = useNavigate();
   const [expandedMetrics, setExpandedMetrics] = useState<Set<string>>(new Set());
 
-  // Get run IDs from query params (e.g., ?runs=1,2,3)
-  const runIds = useMemo(() => {
-    const runsParam = searchParams.get('runs');
-    if (!runsParam) return [];
-    return runsParam.split(',').map((id) => parseInt(id.trim())).filter((id) => !isNaN(id));
-  }, [searchParams]);
+  const queryResults = useQueries({
+    queries: runIds.map((runId) => ({
+      queryKey: ['runs', runId],
+      queryFn: () => api.getRun(runId),
+      enabled: true,
+    })),
+  });
 
-  // Fetch data for each run
-  const runsData = runIds.map((runId) => ({
+  const summaryResults = useQueries({
+    queries: runIds.map((runId) => ({
+      queryKey: ['runs', runId, 'summary'],
+      queryFn: () => api.getRunSummary(runId),
+      enabled: true,
+    })),
+  });
+
+  const metricsResults = useQueries({
+    queries: runIds.map((runId) => ({
+      queryKey: ['runs', runId, 'metrics'],
+      queryFn: () => api.getRunMetrics(runId),
+      enabled: true,
+    })),
+  });
+
+  const runsData = runIds.map((runId, idx) => ({
     runId,
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    run: useRun(runId),
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    summary: useRunSummary(runId),
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    metricNames: useRunMetrics(runId),
+    run: queryResults[idx],
+    summary: summaryResults[idx],
+    metricNames: metricsResults[idx],
   }));
 
   const isLoading = runsData.some((r) => r.run.isLoading || r.summary.isLoading);
   const error = runsData.find((r) => r.run.error || r.summary.error);
 
-  // Get all unique metric names across all runs
   const allMetricNames = useMemo(() => {
     const namesSet = new Set<string>();
     runsData.forEach((r) => {
@@ -80,26 +110,6 @@ export default function CompareRunsPage() {
   };
 
   const allExpanded = expandedMetrics.size === allMetricNames.length && allMetricNames.length > 0;
-
-  if (runIds.length === 0) {
-    return (
-      <div className="p-8 page-enter">
-        <div className="card text-center py-16">
-          <ChartIcon className="mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
-          <h3 className="heading-md mb-2">No runs selected</h3>
-          <p className="text-body mb-6 max-w-md mx-auto">
-            Select runs from the runs table and click "Compare" to view them side-by-side
-          </p>
-          <button
-            onClick={() => navigate(-1)}
-            className="btn-secondary"
-          >
-            Go Back
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (isLoading) {
     return (
@@ -143,17 +153,34 @@ export default function CompareRunsPage() {
               Comparing {runIds.length} {runIds.length === 1 ? 'run' : 'runs'}
             </p>
           </div>
-          <button onClick={() => navigate(-1)} className="btn-secondary text-sm">
-            Back
-          </button>
+          <div className="flex gap-3">
+            <button onClick={onClear} className="btn-secondary text-sm">
+              Clear All
+            </button>
+            <button onClick={() => navigate(-1)} className="btn-secondary text-sm">
+              Back
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Run Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 card-stagger">
         {runsData.map(({ runId, run, metricNames }) => (
-          <div key={runId} className="card card-appear">
-            <div className="flex items-start justify-between mb-2">
+          <div key={runId} className="card card-appear relative">
+            <button
+              onClick={() => onRemove(runId)}
+              className="absolute top-3 right-3 p-1 rounded-md transition-colors"
+              style={{ color: 'var(--text-tertiary)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--badge-failed)'; e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+              title="Remove from comparison"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+            <div className="flex items-start justify-between mb-2 pr-8">
               <h3 className="heading-md truncate" style={{ color: 'var(--text-primary)' }}>
                 {run.data?.name}
               </h3>
@@ -188,7 +215,6 @@ export default function CompareRunsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Header with Expand/Collapse All */}
           <div className="flex justify-between items-center">
             <p className="text-small">
               {allMetricNames.length} metric{allMetricNames.length !== 1 ? 's' : ''} available
@@ -201,14 +227,12 @@ export default function CompareRunsPage() {
             </button>
           </div>
 
-          {/* Metrics List */}
           <div className="space-y-2">
             {allMetricNames.map((metricPath) => {
               const isExpanded = expandedMetrics.has(metricPath);
               
               return (
                 <div key={metricPath} className="card p-0 overflow-hidden">
-                  {/* Collapsed Header */}
                   <button
                     onClick={() => toggleMetric(metricPath)}
                     className="w-full px-6 py-4 flex items-center justify-between transition-colors"
@@ -231,7 +255,6 @@ export default function CompareRunsPage() {
                     )}
                   </button>
 
-                  {/* Expanded Content - Only render when expanded */}
                   {isExpanded && (
                     <div 
                       className="px-6 py-4"
@@ -254,7 +277,6 @@ export default function CompareRunsPage() {
   );
 }
 
-// Component that loads metric data and decides what to show
 interface MetricComparisonViewerProps {
   metricPath: string;
   runIds: number[];
@@ -262,17 +284,14 @@ interface MetricComparisonViewerProps {
 }
 
 function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparisonViewerProps) {
-  // Fetch metric data for all runs
   const metricsData = runIds.map((runId) => ({
     runId,
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     data: useMetricValues(runId, metricPath),
   }));
 
   const isLoading = metricsData.some((m) => m.data.isLoading);
   const error = metricsData.find((m) => m.data.error);
 
-  // Analyze the metric type using first run's data
   const metricAnalysis = useMemo(() => {
     const firstData = metricsData[0]?.data.data?.data;
     
@@ -280,19 +299,16 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
       return { type: 'empty' };
     }
 
-    const numericValues = firstData.filter((v: unknown) => typeof v.value === 'number');
+    const numericValues = firstData.filter((v) => typeof (v as { value?: unknown }).value === 'number');
 
-    // Single value
     if (firstData.length === 1) {
       return { type: 'single' };
     }
 
-    // Multiple numeric values - chartable!
     if (numericValues.length > 1) {
       return { type: 'chart' };
     }
 
-    // Multiple non-numeric values
     return { type: 'list' };
   }, [metricsData]);
 
@@ -324,7 +340,6 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
   }
 
   if (metricAnalysis.type === 'single') {
-    // Extract single values from all runs
     const values = metricsData.map((m) => {
       const metricData = m.data.data?.data;
       if (metricData && metricData.length > 0) {
@@ -333,7 +348,6 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
       return null;
     });
 
-    // Find min/max for highlighting (only for numeric values)
     const numericValues = values.filter((v) => typeof v === 'number') as number[];
     let minValue: number | null = null;
     let maxValue: number | null = null;
@@ -364,7 +378,6 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
               {values.map((value, idx) => {
                 let bgColor = '';
                 
-                // Apply color coding for numeric values
                 if (minValue !== null && maxValue !== null && typeof value === 'number' && minValue !== maxValue) {
                   if (value === maxValue) {
                     bgColor = 'rgba(34, 197, 94, 0.12)';
@@ -405,7 +418,6 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
     );
   }
 
-  // metricAnalysis.type === 'chart'
   return (
     <div className="card p-0" style={{ backgroundColor: 'var(--bg-surface)' }}>
       <Suspense fallback={<div className="p-4 text-center text-body">Loading chart...</div>}>
@@ -420,5 +432,35 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
         />
       </Suspense>
     </div>
+  );
+}
+
+export default function CompareRunsPage() {
+  const navigate = useNavigate();
+  const { selectedRunIds, setSelectedRunIds, clearSelection } = useComparison();
+
+  const runIds = selectedRunIds;
+
+  const handleRemoveRun = (runId: number) => {
+    const newRunIds = runIds.filter(id => id !== runId);
+    setSelectedRunIds(newRunIds);
+  };
+
+  const handleClearAll = () => {
+    clearSelection();
+  };
+
+  // Simple conditional render - when runIds is empty, show empty state
+  // When runIds has items, show CompareRunsContent with hooks
+  if (runIds.length === 0) {
+    return <EmptyState onNavigate={() => navigate('/projects')} />;
+  }
+
+  return (
+    <CompareRunsContent 
+      runIds={runIds} 
+      onRemove={handleRemoveRun} 
+      onClear={handleClearAll} 
+    />
   );
 }

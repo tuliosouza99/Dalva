@@ -83,7 +83,7 @@ export default function RunDetailPage() {
             onClick={() => navigate(`/projects/${run.project_id}/runs`)}
             className="hover:text-[var(--accent)] transition-colors"
           >
-            {run.project_name || 'Runs'}
+            Project {run.project_id}
           </button>
           <span>/</span>
           <span style={{ color: 'var(--text-primary)' }}>{run.run_id}</span>

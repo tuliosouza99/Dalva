@@ -13,16 +13,30 @@ import {
 } from '../api/client';
 import type { RunFilters, CustomView } from '../api/client';
 import VirtualRunsTable from '../components/RunsTable/VirtualRunsTable';
+import { useComparison } from '../contexts/ComparisonContext';
 
 export default function RunsPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const { selectedRunIds, setSelectedRunIds, clearSelection, isAtMax, maxSelections } = useComparison();
+  const selectedRunIdsRef = useRef(selectedRunIds);
+
+  // Keep ref updated with latest selectedRunIds
+  useEffect(() => {
+    selectedRunIdsRef.current = selectedRunIds;
+  }, [selectedRunIds]);
+
+  const handleSelectionChange = (ids: number[]) => {
+    if (isAtMax() && ids.length > selectedRunIds.length) {
+      return;
+    }
+    setSelectedRunIds(ids);
+  };
   const [filters, setFilters] = useState<RunFilters>({
     project_id: parseInt(projectId || '0'),
   });
   const [sortBy, setSortBy] = useState<string>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [selectedRunIds, setSelectedRunIds] = useState<number[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedMetricColumns, setSelectedMetricColumns] = useState<string[]>([]);
   const [showSaveViewModal, setShowSaveViewModal] = useState(false);
@@ -50,9 +64,8 @@ export default function RunsPage() {
 
   const handleDeleteSelectedRuns = async () => {
     if (selectedRunIds.length === 0) return;
-    if (!confirm(`Delete ${selectedRunIds.length} selected run(s)? This cannot be undone.`)) return;
     await Promise.all(selectedRunIds.map((id) => deleteRunMutation.mutateAsync(id)));
-    setSelectedRunIds([]);
+    clearSelection();
   };
   const isMetricSort = sortBy.startsWith('metric:');
 
@@ -446,17 +459,53 @@ export default function RunsPage() {
               setFilters({ ...filters, search: e.target.value || undefined })
             }
           />
-          <select
-            className="input w-36"
-            onChange={(e) =>
-              setFilters({ ...filters, state: e.target.value || undefined })
-            }
-          >
-            <option value="">All States</option>
-            <option value="running">Running</option>
-            <option value="completed">Completed</option>
-            <option value="failed">Failed</option>
-          </select>
+          {/* State Filter */}
+          <div className="relative">
+            <button
+              onClick={() => setOpenDropdown(openDropdown === 'state' ? null : 'state')}
+              className="input list-none cursor-pointer flex items-center gap-2"
+              style={{ width: '140px' }}
+            >
+              <span>
+                {filters.state
+                  ? filters.state.charAt(0).toUpperCase() + filters.state.slice(1)
+                  : 'All States'}
+              </span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="ml-auto transition-transform" style={{ transform: openDropdown === 'state' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            {openDropdown === 'state' && (
+              <div 
+                className="absolute z-10 mt-1 rounded-md shadow-lg min-w-[140px]"
+                style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+              >
+                {[
+                  { value: '', label: 'All States' },
+                  { value: 'running', label: 'Running' },
+                  { value: 'completed', label: 'Completed' },
+                  { value: 'failed', label: 'Failed' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      setFilters({ ...filters, state: option.value || undefined });
+                      setOpenDropdown(null);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm transition-colors"
+                    style={{ 
+                      color: filters.state === option.value ? 'var(--accent)' : 'var(--text-primary)',
+                      backgroundColor: filters.state === option.value ? 'var(--accent-muted)' : 'transparent'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-elevated)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = filters.state === option.value ? 'var(--accent-muted)' : 'transparent')}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Tag Filter */}
           {availableTags && availableTags.length > 0 && (
@@ -550,10 +599,14 @@ export default function RunsPage() {
         {selectedRunIds.length > 0 && (
           <div className="flex gap-3 items-center">
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {selectedRunIds.length} selected
+              {selectedRunIds.length === maxSelections ? (
+                <>Selected {selectedRunIds.length}/{maxSelections} (max)</>
+              ) : (
+                <>{selectedRunIds.length} selected</>
+              )}
             </span>
             <button
-              onClick={() => navigate(`/compare?project=${projectId}&runs=${selectedRunIds.join(',')}`)}
+              onClick={() => navigate(`/compare?project=${projectId}&runs=${selectedRunIdsRef.current.join(',')}`)}
               className="btn-primary text-sm"
               disabled={selectedRunIds.length < 2}
             >
@@ -564,7 +617,12 @@ export default function RunsPage() {
               Compare Runs
             </button>
             <button
-              onClick={handleDeleteSelectedRuns}
+              onClick={() => {
+                const runIds = selectedRunIdsRef.current.join(', ');
+                if (confirm(`Delete runs ${runIds}? This cannot be undone.`)) {
+                  handleDeleteSelectedRuns();
+                }
+              }}
               disabled={deleteRunMutation.isPending}
               className="btn-secondary text-sm"
               style={{ color: '#ef4444' }}
@@ -580,7 +638,7 @@ export default function RunsPage() {
               )}
             </button>
             <button
-              onClick={() => setSelectedRunIds([])}
+              onClick={clearSelection}
               className="text-sm transition-colors"
               style={{ color: 'var(--text-tertiary)' }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
@@ -657,9 +715,10 @@ export default function RunsPage() {
         sortOrder={sortOrder}
         selectable={true}
         selectedRunIds={selectedRunIds}
-        onSelectionChange={setSelectedRunIds}
+        onSelectionChange={handleSelectionChange}
         metricColumns={selectedMetricColumns}
         projectId={parseInt(projectId || '0')}
+        selectionDisabled={isAtMax()}
       />
     </div>
   );

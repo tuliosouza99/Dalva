@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   useProject,
   useInfiniteRuns,
@@ -28,7 +28,15 @@ export default function RunsPage() {
   const [showSaveViewModal, setShowSaveViewModal] = useState(false);
   const [newViewName, setNewViewName] = useState('');
   const [currentView, setCurrentView] = useState<CustomView | null>(null);
+  const [originalViewState, setOriginalViewState] = useState<{
+    filters: RunFilters;
+    tags: string[];
+    columns: string[];
+    sortBy: string;
+    sortOrder: 'asc' | 'desc';
+  } | null>(null);
   const viewsDropdownRef = useRef<HTMLDetailsElement>(null);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
   const projectIdNum = parseInt(projectId || '0');
   const { data: project, isLoading: projectLoading } = useProject(projectIdNum);
@@ -71,6 +79,18 @@ export default function RunsPage() {
   const total = data?.pages[0]?.total ?? 0;
 
   const isLoading = projectLoading || runsLoading;
+
+  // Close dropdown when clicking outside
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSort = (key: string) => {
     if (sortBy === key) {
@@ -147,31 +167,48 @@ export default function RunsPage() {
 
     try {
       // Load filters
+      let newFilters = { ...filters };
+      let newTags: string[] = [];
+      let newColumns: string[] = [];
+      let newSortBy = 'created_at';
+      let newSortOrder: 'asc' | 'desc' = 'desc';
+
       if (view.filters) {
         const parsedFilters = JSON.parse(view.filters);
-        setFilters({
+        newFilters = {
           ...filters,
           state: parsedFilters.state,
           search: parsedFilters.search,
-        });
-        setSelectedTags(parsedFilters.tags || []);
+        };
+        newTags = parsedFilters.tags || [];
+        setFilters(newFilters);
+        setSelectedTags(newTags);
       }
 
       // Load columns
       if (view.columns) {
-        const parsedColumns = JSON.parse(view.columns);
-        setSelectedMetricColumns(parsedColumns);
+        newColumns = JSON.parse(view.columns);
+        setSelectedMetricColumns(newColumns);
       }
 
       // Load sort
       if (view.sort_by) {
         const parsedSort = JSON.parse(view.sort_by);
-        setSortBy(parsedSort.sort_by);
-        setSortOrder(parsedSort.sort_order);
+        newSortBy = parsedSort.sort_by;
+        newSortOrder = parsedSort.sort_order;
+        setSortBy(newSortBy);
+        setSortOrder(newSortOrder);
       }
 
-      // Set as current view
+      // Set as current view and save original state
       setCurrentView(view);
+      setOriginalViewState({
+        filters: newFilters,
+        tags: newTags,
+        columns: newColumns,
+        sortBy: newSortBy,
+        sortOrder: newSortOrder,
+      });
 
       // Close the dropdown
       if (viewsDropdownRef.current) {
@@ -180,6 +217,28 @@ export default function RunsPage() {
     } catch (err) {
       console.error('Failed to load view:', err);
     }
+  };
+
+  // Check if current state differs from original view state
+  const hasViewChanges = useMemo(() => {
+    if (!currentView || !originalViewState) return false;
+
+    const filtersChanged = JSON.stringify(filters) !== JSON.stringify(originalViewState.filters);
+    const tagsChanged = JSON.stringify(selectedTags) !== JSON.stringify(originalViewState.tags);
+    const columnsChanged = JSON.stringify(selectedMetricColumns) !== JSON.stringify(originalViewState.columns);
+    const sortChanged = sortBy !== originalViewState.sortBy || sortOrder !== originalViewState.sortOrder;
+
+    return filtersChanged || tagsChanged || columnsChanged || sortChanged;
+  }, [currentView, originalViewState, filters, selectedTags, selectedMetricColumns, sortBy, sortOrder]);
+
+  const handleDiscardChanges = () => {
+    if (!originalViewState) return;
+    
+    setFilters(originalViewState.filters);
+    setSelectedTags(originalViewState.tags);
+    setSelectedMetricColumns(originalViewState.columns);
+    setSortBy(originalViewState.sortBy);
+    setSortOrder(originalViewState.sortOrder);
   };
 
   const handleOpenSaveModal = (editMode = false) => {
@@ -195,6 +254,7 @@ export default function RunsPage() {
   const handleClearView = () => {
     // Reset all filters and settings to defaults
     setCurrentView(null);
+    setOriginalViewState(null);
     setFilters({
       project_id: projectIdNum,
     });
@@ -219,31 +279,31 @@ export default function RunsPage() {
 
   if (error) {
     return (
-      <div className="p-8">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-red-700 dark:text-red-400">
-          <h3 className="font-semibold mb-1">Error loading runs</h3>
-          <p className="text-sm">{error.message}</p>
+      <div className="p-8 page-enter">
+        <div className="card p-6" style={{ backgroundColor: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+          <h3 className="font-semibold mb-1" style={{ color: 'var(--badge-failed)' }}>Error loading runs</h3>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{error.message}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 page-enter">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+        <div className="flex items-center gap-2 text-sm mb-3" style={{ color: 'var(--text-tertiary)' }}>
           <button
             onClick={() => navigate('/projects')}
-            className="hover:text-primary-600 transition-colors"
+            className="hover:text-[var(--accent)] transition-colors"
           >
             Projects
           </button>
           <span>/</span>
-          <span className="text-gray-900 dark:text-gray-100">{project?.name}</span>
+          <span style={{ color: 'var(--text-primary)' }}>{project?.name}</span>
         </div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{project?.name}</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
+        <h1 className="heading-display">{project?.name}</h1>
+        <p className="text-body mt-1">
           {total} {total === 1 ? 'run' : 'runs'}
         </p>
       </div>
@@ -252,14 +312,22 @@ export default function RunsPage() {
       <div className="mb-4 flex gap-3 items-center flex-wrap">
         {/* Current View Indicator */}
         {currentView && (
-          <div className="px-3 py-1 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-md text-sm text-primary-700 dark:text-primary-400 flex items-center gap-2">
-            <span>📋 {currentView.name}</span>
+          <div 
+            className="px-3 py-1.5 rounded-md text-sm flex items-center gap-2"
+            style={{ backgroundColor: 'var(--accent-muted)', color: 'var(--accent-hover)' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 11H3v10h6V11z"/><path d="M15 3H9v10h6V3z"/><path d="M21 6h-6v12h6V6z"/>
+            </svg>
+            <span>{currentView.name}</span>
             <button
               onClick={handleClearView}
-              className="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300"
+              className="ml-1 hover:opacity-70 transition-opacity"
               title="Clear view and reset all filters"
             >
-              ✕
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
             </button>
           </div>
         )}
@@ -267,22 +335,37 @@ export default function RunsPage() {
         {/* View Selector */}
         {customViews && customViews.length > 0 && (
           <div className="relative">
-            <details ref={viewsDropdownRef} className="group">
-              <summary className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-800 list-none flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                <span>📋 Views</span>
-                <span className="text-xs">▼</span>
-              </summary>
-              <div className="absolute z-10 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg min-w-[250px]">
+            <button
+              onClick={() => setOpenDropdown(openDropdown === 'views' ? null : 'views')}
+              className="input list-none cursor-pointer flex items-center gap-2"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 11H3v10h6V11z"/><path d="M15 3H9v10h6V3z"/><path d="M21 6h-6v12h6V6z"/>
+              </svg>
+              <span>Views</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="ml-auto transition-transform" style={{ transform: openDropdown === 'views' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+            {openDropdown === 'views' && (
+              <div 
+                className="absolute z-10 mt-1 rounded-md shadow-lg min-w-[250px]"
+                style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+              >
                 {customViews.map((view) => (
                   <div
                     key={view.id}
-                    className={`flex items-center justify-between px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                      currentView?.id === view.id ? 'bg-primary-50 dark:bg-primary-900/20' : ''
-                    }`}
+                    className="flex items-center justify-between px-4 py-2 transition-colors"
+                    style={{ color: 'var(--text-primary)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-elevated)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
                     <button
-                      onClick={() => handleLoadView(view.id)}
-                      className="flex-1 text-left text-sm text-gray-900 dark:text-gray-100"
+                      onClick={() => {
+                        handleLoadView(view.id);
+                        setOpenDropdown(null);
+                      }}
+                      className="flex-1 text-left text-sm"
                     >
                       {view.name}
                     </button>
@@ -291,49 +374,80 @@ export default function RunsPage() {
                         e.stopPropagation();
                         handleDeleteView(view.id);
                       }}
-                      className="ml-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+                      className="ml-2 transition-colors"
+                      style={{ color: 'var(--text-tertiary)' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-tertiary)')}
                       title="Delete view"
                     >
-                      🗑️
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                      </svg>
                     </button>
                   </div>
                 ))}
               </div>
-            </details>
+            )}
           </div>
         )}
 
-        {/* Save/Update View Buttons */}
+        {/* Save/Update/Discard View Buttons */}
         {currentView ? (
-          <button
-            onClick={() => handleOpenSaveModal(true)}
-            className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors text-sm"
-          >
-            💾 Update "{currentView.name}"
-          </button>
+          <>
+            <button
+              onClick={() => handleOpenSaveModal(true)}
+              className="btn-secondary text-sm"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              Update "{currentView.name}"
+            </button>
+            {hasViewChanges && (
+              <button
+                onClick={handleDiscardChanges}
+                className="btn-secondary text-sm"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                Discard Changes
+              </button>
+            )}
+          </>
         ) : (
           <button
             onClick={() => handleOpenSaveModal(false)}
-            className="px-4 py-2 border border-primary-600 text-primary-600 dark:text-primary-400 rounded-md hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors text-sm"
+            className="btn-secondary text-sm"
           >
-            💾 Save as New View
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Save as New View
           </button>
         )}
       </div>
 
       {/* Filters */}
-      <div className="mb-4 flex gap-3 items-center justify-between">
+      <div className="mb-6 flex gap-3 items-center justify-between flex-wrap" ref={dropdownRef}>
         <div className="flex gap-3 flex-wrap">
           <input
             type="text"
             placeholder="Search runs..."
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+            className="input w-48"
             onChange={(e) =>
               setFilters({ ...filters, search: e.target.value || undefined })
             }
           />
           <select
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            className="input w-36"
             onChange={(e) =>
               setFilters({ ...filters, state: e.target.value || undefined })
             }
@@ -347,90 +461,130 @@ export default function RunsPage() {
           {/* Tag Filter */}
           {availableTags && availableTags.length > 0 && (
             <div className="relative">
-              <details className="group">
-                <summary className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-800 list-none flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                  <span>
-                    {selectedTags.length === 0
-                      ? 'Filter by tags'
-                      : `${selectedTags.length} tag${selectedTags.length > 1 ? 's' : ''} selected`}
-                  </span>
-                  <span className="text-xs">▼</span>
-                </summary>
-                <div className="absolute z-10 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto min-w-[200px]">
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'tags' ? null : 'tags')}
+                className="input list-none cursor-pointer flex items-center gap-2"
+              >
+                <span>
+                  {selectedTags.length === 0
+                    ? 'Filter by tags'
+                    : `${selectedTags.length} tag${selectedTags.length > 1 ? 's' : ''} selected`}
+                </span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="ml-auto transition-transform" style={{ transform: openDropdown === 'tags' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+              {openDropdown === 'tags' && (
+                <div 
+                  className="absolute z-10 mt-1 rounded-md shadow-lg max-h-60 overflow-auto min-w-[200px]"
+                  style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+                >
                   {availableTags.map((tag) => (
                     <label
                       key={tag}
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                      className="flex items-center gap-2 px-4 py-2 cursor-pointer transition-colors"
+                      style={{ color: 'var(--text-primary)' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-elevated)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                     >
                       <input
                         type="checkbox"
                         checked={selectedTags.includes(tag)}
                         onChange={() => handleTagToggle(tag)}
-                        className="w-4 h-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 focus:ring-primary-500"
+                        className="w-4 h-4 rounded"
+                        style={{ accentColor: 'var(--accent)' }}
                       />
-                      <span className="text-sm text-gray-900 dark:text-gray-100">{tag}</span>
+                      <span className="text-sm">{tag}</span>
                     </label>
                   ))}
                 </div>
-              </details>
+              )}
             </div>
           )}
 
           {/* Column Selector */}
           {availableColumns && availableColumns.length > 0 && (
             <div className="relative">
-              <details className="group">
-                <summary className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-800 list-none flex items-center gap-2 text-gray-900 dark:text-gray-100">
-                  <span>
-                    {selectedMetricColumns.length === 0
-                      ? 'Add columns'
-                      : `${selectedMetricColumns.length} metric${selectedMetricColumns.length > 1 ? 's' : ''}`}
-                  </span>
-                  <span className="text-xs">▼</span>
-                </summary>
-                <div className="absolute z-10 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto min-w-[250px]">
+              <button
+                onClick={() => setOpenDropdown(openDropdown === 'columns' ? null : 'columns')}
+                className="input list-none cursor-pointer flex items-center gap-2"
+              >
+                <span>
+                  {selectedMetricColumns.length === 0
+                    ? 'Add columns'
+                    : `${selectedMetricColumns.length} metric${selectedMetricColumns.length > 1 ? 's' : ''}`}
+                </span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="ml-auto transition-transform" style={{ transform: openDropdown === 'columns' ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+              {openDropdown === 'columns' && (
+                <div 
+                  className="absolute z-10 mt-1 rounded-md shadow-lg max-h-60 overflow-auto min-w-[250px]"
+                  style={{ backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+                >
                   {availableColumns.map((column) => (
                     <label
                       key={column}
-                      className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                      className="flex items-center gap-2 px-4 py-2 cursor-pointer transition-colors"
+                      style={{ color: 'var(--text-primary)' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-elevated)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                     >
                       <input
                         type="checkbox"
                         checked={selectedMetricColumns.includes(column)}
                         onChange={() => handleMetricColumnToggle(column)}
-                        className="w-4 h-4 text-primary-600 rounded border-gray-300 dark:border-gray-600 focus:ring-primary-500"
+                        className="w-4 h-4 rounded"
+                        style={{ accentColor: 'var(--accent)' }}
                       />
-                      <span className="text-sm font-mono text-xs text-gray-900 dark:text-gray-100">{column}</span>
+                      <span className="text-sm mono">{column}</span>
                     </label>
                   ))}
                 </div>
-              </details>
+              )}
             </div>
           )}
         </div>
 
         {selectedRunIds.length > 0 && (
-          <div className="flex gap-2 items-center">
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex gap-3 items-center">
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               {selectedRunIds.length} selected
             </span>
             <button
-              onClick={() => navigate(`/compare?runs=${selectedRunIds.join(',')}`)}
+              onClick={() => navigate(`/compare?project=${projectId}&runs=${selectedRunIds.join(',')}`)}
               className="btn-primary text-sm"
               disabled={selectedRunIds.length < 2}
             >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/>
+                <path d="M6 21V9a9 9 0 0 0 9 9"/>
+              </svg>
               Compare Runs
             </button>
             <button
               onClick={handleDeleteSelectedRuns}
               disabled={deleteRunMutation.isPending}
-              className="px-3 py-2 text-sm text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+              className="btn-secondary text-sm"
+              style={{ color: '#ef4444' }}
             >
-              {deleteRunMutation.isPending ? 'Deleting…' : '🗑️ Delete Selected'}
+              {deleteRunMutation.isPending ? 'Deleting…' : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                  Delete
+                </>
+              )}
             </button>
             <button
               onClick={() => setSelectedRunIds([])}
-              className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+              className="text-sm transition-colors"
+              style={{ color: 'var(--text-tertiary)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-primary)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-tertiary)')}
             >
               Clear
             </button>
@@ -440,9 +594,12 @@ export default function RunsPage() {
 
       {/* Save View Modal */}
       {showSaveViewModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+        <div 
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+        >
+          <div className="card max-w-md w-full mx-4 animate-in" style={{ animation: 'fadeSlideIn 0.2s ease-out' }}>
+            <h3 className="heading-lg mb-4">
               {currentView ? `Update View "${currentView.name}"` : 'Save New Custom View'}
             </h3>
             <input
@@ -450,32 +607,32 @@ export default function RunsPage() {
               placeholder="View name..."
               value={newViewName}
               onChange={(e) => setNewViewName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+              className="input mb-4"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleSaveView();
                 if (e.key === 'Escape') handleCloseModal();
               }}
             />
-            <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <div className="text-body text-sm mb-6">
               <p>{currentView ? 'This will update the view with:' : 'This will save:'}</p>
-              <ul className="list-disc list-inside mt-2">
+              <ul className="list-disc list-inside mt-2 space-y-1">
                 <li>Current filters (state, search, tags: {selectedTags.length})</li>
                 <li>Selected metric columns ({selectedMetricColumns.length})</li>
                 <li>Sort settings ({sortBy} {sortOrder})</li>
               </ul>
             </div>
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-3 justify-end">
               <button
                 onClick={handleCloseModal}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-200"
+                className="btn-secondary"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveView}
                 disabled={!newViewName.trim() || createViewMutation.isPending || updateViewMutation.isPending}
-                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {createViewMutation.isPending || updateViewMutation.isPending
                   ? 'Saving...'

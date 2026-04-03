@@ -8,11 +8,18 @@ interface JsonViewerProps {
 function JsonNode({ keyName, value, depth = 0, dark }: { keyName: string | null; value: unknown; depth?: number; dark?: boolean }) {
   const [isExpanded, setIsExpanded] = useState(depth < 2);
 
+  const keyColor = dark ? 'var(--text-secondary)' : 'var(--text-secondary)';
+  const nullColor = dark ? '#f97316' : '#ea580c';
+  const booleanColor = dark ? '#a78bfa' : '#8b5cf6';
+  const numberColor = dark ? 'var(--accent)' : 'var(--accent)';
+  const stringColor = dark ? '#6ee7b7' : '#059669';
+  const punctuationColor = dark ? 'var(--text-tertiary)' : 'var(--text-tertiary)';
+
   if (value === null) {
     return (
       <div style={{ paddingLeft: depth > 0 ? 16 : 0 }}>
-        <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
-        <span style={{ color: dark ? '#f97316' : '#ea580c' }}>null</span>
+        <span style={{ color: keyColor }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
+        <span style={{ color: nullColor }}>null</span>
       </div>
     );
   }
@@ -20,8 +27,8 @@ function JsonNode({ keyName, value, depth = 0, dark }: { keyName: string | null;
   if (typeof value === 'boolean') {
     return (
       <div style={{ paddingLeft: depth > 0 ? 16 : 0 }}>
-        <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
-        <span style={{ color: dark ? '#a78bfa' : '#8b5cf6' }}>{value.toString()}</span>
+        <span style={{ color: keyColor }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
+        <span style={{ color: booleanColor }}>{value.toString()}</span>
       </div>
     );
   }
@@ -29,8 +36,8 @@ function JsonNode({ keyName, value, depth = 0, dark }: { keyName: string | null;
   if (typeof value === 'number') {
     return (
       <div style={{ paddingLeft: depth > 0 ? 16 : 0 }}>
-        <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
-        <span style={{ color: dark ? '#34d399' : '#10b981' }}>{value}</span>
+        <span style={{ color: keyColor }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
+        <span style={{ color: numberColor }}>{value}</span>
       </div>
     );
   }
@@ -38,8 +45,8 @@ function JsonNode({ keyName, value, depth = 0, dark }: { keyName: string | null;
   if (typeof value === 'string') {
     return (
       <div style={{ paddingLeft: depth > 0 ? 16 : 0 }}>
-        <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
-        <span style={{ color: dark ? '#6ee7b7' : '#34d399' }}>"{value}"</span>
+        <span style={{ color: keyColor }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
+        <span style={{ color: stringColor }}>"{value}"</span>
       </div>
     );
   }
@@ -47,43 +54,43 @@ function JsonNode({ keyName, value, depth = 0, dark }: { keyName: string | null;
   if (Array.isArray(value)) {
     return (
       <div style={{ paddingLeft: depth > 0 ? 16 : 0 }}>
-        <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
+        <span style={{ color: keyColor }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
         {isExpanded ? (
           <>
-            <span style={{ color: dark ? '#e5e7eb' : '#374151', cursor: 'pointer' }} onClick={() => setIsExpanded(false)}>▼</span>
-            <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}> [</span>
+            <span style={{ color: 'var(--text-primary)', cursor: 'pointer' }} onClick={() => setIsExpanded(false)}>▼</span>
+            <span style={{ color: punctuationColor }}> [</span>
             <div>
               {value.map((item, idx) => (
                 <JsonNode key={idx} keyName={null} value={item} depth={depth + 1} dark={dark} />
               ))}
             </div>
-            <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>]</span>
+            <span style={{ color: punctuationColor }}>]</span>
           </>
         ) : (
-          <span style={{ color: dark ? '#e5e7eb' : '#374151', cursor: 'pointer' }} onClick={() => setIsExpanded(true)}>▶</span>
+          <span style={{ color: 'var(--text-primary)', cursor: 'pointer' }} onClick={() => setIsExpanded(true)}>▶ [...]</span>
         )}
       </div>
     );
   }
 
   if (typeof value === 'object') {
-    const entries = Object.entries(value);
+    const entries = Object.entries(value as Record<string, unknown>);
     return (
       <div style={{ paddingLeft: depth > 0 ? 16 : 0 }}>
-        <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
+        <span style={{ color: keyColor }}>{keyName !== null ? `"${keyName}": ` : ''}</span>
         {isExpanded ? (
           <>
-            <span style={{ color: dark ? '#e5e7eb' : '#374151', cursor: 'pointer' }} onClick={() => setIsExpanded(false)}>▼</span>
-            <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}> {'{'}</span>
+            <span style={{ color: 'var(--text-primary)', cursor: 'pointer' }} onClick={() => setIsExpanded(false)}>▼</span>
+            <span style={{ color: punctuationColor }}> {'{'}</span>
             <div>
               {entries.map(([k, v]) => (
                 <JsonNode key={k} keyName={k} value={v} depth={depth + 1} dark={dark} />
               ))}
             </div>
-            <span style={{ color: dark ? '#9ca3af' : '#6b7280' }}>{'}'}</span>
+            <span style={{ color: punctuationColor }}>{'}'}</span>
           </>
         ) : (
-          <span style={{ color: dark ? '#e5e7eb' : '#374151', cursor: 'pointer' }} onClick={() => setIsExpanded(true)}>▶</span>
+          <span style={{ color: 'var(--text-primary)', cursor: 'pointer' }} onClick={() => setIsExpanded(true)}>▶ {'{...}'}</span>
         )}
       </div>
     );
@@ -102,23 +109,42 @@ export default function JsonViewer({ data, dark = false }: JsonViewerProps) {
   };
 
   return (
-    <div className={`rounded-lg border ${dark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-      <div className={`flex items-center justify-between px-4 py-2 border-b ${dark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-100'}`}>
-        <span className={`text-sm font-medium ${dark ? 'text-gray-300' : 'text-gray-700'}`}>
+    <div 
+      className="rounded-lg border overflow-hidden"
+      style={{ 
+        backgroundColor: 'var(--bg-primary)', 
+        borderColor: 'var(--border)'
+      }}
+    >
+      <div 
+        className="flex items-center justify-between px-4 py-2 border-b"
+        style={{ 
+          backgroundColor: 'var(--bg-surface)', 
+          borderColor: 'var(--border)'
+        }}
+      >
+        <span 
+          className="text-sm font-medium"
+          style={{ color: 'var(--text-secondary)' }}
+        >
           JSON
         </span>
         <button
           onClick={handleCopy}
-          className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-            dark
-              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-          }`}
+          className="px-3 py-1 text-xs font-medium rounded transition-colors"
+          style={{
+            backgroundColor: 'var(--bg-elevated)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)'
+          }}
         >
           {copied ? 'Copied!' : 'Copy'}
         </button>
       </div>
-      <div className={`p-4 font-mono text-sm overflow-x-auto max-h-96 overflow-y-auto ${dark ? 'text-gray-200' : 'text-gray-800'}`}>
+      <div 
+        className="p-4 font-mono text-sm overflow-x-auto max-h-96 overflow-y-auto"
+        style={{ color: 'var(--text-primary)' }}
+      >
         {Object.entries(data).map(([key, value]) => (
           <JsonNode key={key} keyName={key} value={value} depth={0} dark={dark} />
         ))}

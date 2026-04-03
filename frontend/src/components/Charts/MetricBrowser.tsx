@@ -76,15 +76,32 @@ function MetricTreeNode({
     return (
       <button
         onClick={() => onMetricSelect(node.fullPath)}
-        className={`w-full text-left px-3 py-2 rounded text-sm font-mono transition-colors ${
-          isSelected
-            ? 'bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200 border-2 border-primary-500'
-            : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border-2 border-transparent'
-        }`}
-        style={{ marginLeft: `${level * 1.5}rem` }}
+        className="w-full text-left px-3 py-2 rounded text-sm font-mono transition-all"
+        style={{
+          marginLeft: `${level * 1.5}rem`,
+          backgroundColor: isSelected ? 'var(--accent-muted)' : 'var(--bg-elevated)',
+          color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
+          border: isSelected ? '2px solid var(--accent)' : '2px solid transparent',
+        }}
+        onMouseEnter={(e) => {
+          if (!isSelected) {
+            e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isSelected) {
+            e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+          }
+        }}
       >
         <div className="flex items-center gap-2">
-          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg 
+            className="w-4 h-4 flex-shrink-0" 
+            style={{ color: isSelected ? 'var(--accent)' : 'var(--text-tertiary)' }}
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
           <span className="truncate">{node.name}</span>
@@ -98,25 +115,42 @@ function MetricTreeNode({
     <div>
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full text-left px-3 py-2 rounded text-sm font-semibold transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100"
-        style={{ marginLeft: `${level * 1.5}rem` }}
+        className="w-full text-left px-3 py-2 rounded text-sm font-semibold transition-colors"
+        style={{ 
+          marginLeft: `${level * 1.5}rem`,
+          color: 'var(--text-primary)'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+        }}
       >
         <div className="flex items-center gap-2">
           <svg
-            className={`w-4 h-4 text-gray-500 transition-transform flex-shrink-0 ${
-              isExpanded ? 'rotate-90' : ''
-            }`}
+            className="w-4 h-4 transition-transform flex-shrink-0"
+            style={{ 
+              color: 'var(--text-tertiary)',
+              transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'
+            }}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg 
+            className="w-4 h-4 flex-shrink-0" 
+            style={{ color: 'var(--text-tertiary)' }}
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
-          <span className="truncate text-gray-900 dark:text-gray-100">{node.name}</span>
-          <span className="text-xs text-gray-400">({node.children.size})</span>
+          <span className="truncate">{node.name}</span>
+          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>({node.children.size})</span>
         </div>
       </button>
       {isExpanded && (
@@ -141,7 +175,7 @@ export default function MetricBrowser({ metrics, onMetricSelect, selectedMetric 
 
   return (
     <div className="card">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+      <h3 className="heading-md mb-4">
         Available Metrics ({metrics.length})
       </h3>
       {metrics.length > 0 ? (
@@ -156,7 +190,7 @@ export default function MetricBrowser({ metrics, onMetricSelect, selectedMetric 
           ))}
         </div>
       ) : (
-        <p className="text-gray-500 dark:text-gray-400 text-center py-8">No metrics found for this run</p>
+        <p className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>No metrics found for this run</p>
       )}
     </div>
   );

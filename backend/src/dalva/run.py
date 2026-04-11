@@ -24,7 +24,7 @@ class Run:
         project: str,
         name: str | None = None,
         config: Mapping | None = None,
-        resume: str | None = None,
+        resume_from: str | None = None,
         server_url: str = "http://localhost:8000",
     ):
         """
@@ -34,7 +34,7 @@ class Run:
             project: Project name
             name: Optional run name (user-defined, for display only)
             config: Optional configuration dictionary
-            resume: run_id to resume (omit to create a new run)
+            resume_from: run_id to resume (omit to create a new run)
             server_url: Server URL. Defaults to http://localhost:8000
         """
         self.project_name = project
@@ -46,7 +46,9 @@ class Run:
         self._verify_server_connection()
 
         # Create run via API
-        self._create_run_on_server(name=name, config=self.config, resume=resume)
+        self._create_run_on_server(
+            name=name, config=self.config, resume_from=resume_from
+        )
 
         # Print run ID for user convenience
         print(f"Run created: {self.run_id}")
@@ -73,7 +75,7 @@ class Run:
         self,
         name: str | None,
         config: Mapping | None,
-        resume: str | None,
+        resume_from: str | None,
     ) -> None:
         """Create the run on the server via API."""
         client = self._get_client()
@@ -81,7 +83,7 @@ class Run:
             "project": self.project_name,
             "name": name,
             "config": config,
-            "resume": resume,
+            "resume_from": resume_from,
         }
         try:
             response = client.post("/api/runs/init", json=payload)

@@ -20,11 +20,13 @@ theme:
     - content.actions.view
   palette:
     - media: "(prefers-color-scheme)"
+      primary: black
       toggle:
         icon: material/brightness-auto
         name: Switch to light mode
 
     - media: "(prefers-color-scheme: light)"
+      primary: blue grey
       scheme: default
       toggle:
         icon: material/brightness-7
@@ -32,6 +34,7 @@ theme:
 
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
+      primary: black
       toggle:
         icon: material/brightness-4
         name: Switch to system preference
@@ -63,6 +66,8 @@ nav:
   - API Documentation:
       - Init Run: api_documentation/init.md
       - Run Class: api_documentation/run_class.md
+      - Init Table: api_documentation/table_init.md
+      - Table Class: api_documentation/table_class.md
 
 markdown_extensions:
   - pymdownx.highlight:

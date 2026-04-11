@@ -7,6 +7,9 @@ Dalva's Python API lets you log experiments:
 - `dalva.init()` - Initialize a new run or resume an existing one
 - `run.log()` - Log metrics with steps
 - `run.finish()` - Complete the run
+- `dalva.table()` - Initialize a new table for tabular data
+- `table.log()` - Log a DataFrame to the table
+- `table.finish()` - Complete the table
 
 ## Initialize a Run
 
@@ -26,7 +29,7 @@ run = dalva.init(
 - `project` (required) - Project name
 - `name` (optional) - Human-readable run name
 - `config` (optional) - Configuration dictionary
-- `resume` (optional) - Run ID to resume an existing run
+- `resume_from` (optional) - Run ID to resume an existing run
 - `server_url` (required) - URL of the Dalva server (e.g., `http://localhost:8000`)
 
 ## The Config Parameter
@@ -247,7 +250,7 @@ This ID is:
 
 ## Resuming Runs
 
-Pass the `run_id` to `resume` to continue a previous run:
+Pass the `run_id` to `resume_from` to continue a previous run:
 
 ```python
 import dalva
@@ -255,7 +258,7 @@ import dalva
 # Resume an existing run
 run = dalva.init(
     project="my-project",
-    resume="ABC-1"  # The run_id to resume
+    resume_from="ABC-1"  # The run_id to resume
 )
 
 run.log({"loss": 0.2}, step=2)
@@ -276,9 +279,140 @@ print(f"Run ID: {run1.run_id}")  # e.g., "ABC-1"
 # Later, resume the same run
 run2 = dalva.init(
     project="training",
-    resume="ABC-1"
+    resume_from="ABC-1"
 )
 run2.log({"loss": 0.6}, step=2)
 run2.log({"loss": 0.4}, step=3)
 run2.finish()
+```
+
+## Tables
+
+Tables let you track **tabular data** alongside your runs. While metrics are time-series values (loss over steps), tables store structured rows like predictions, evaluation results, or dataset statistics.
+
+### Initialize a Table
+
+```python
+import dalva
+import pandas as pd
+
+table = dalva.table(
+    project="my-project",
+    name="predictions",
+    log_mode="IMMUTABLE",
+    server_url="http://localhost:8000"
+)
+```
+
+**Parameters:**
+
+- `project` (required) - Project name
+- `name` (optional) - Human-readable table name
+- `config` (optional) - Configuration dictionary
+- `run_id` (optional) - Run ID string to link this table to a run
+- `resume_from` (optional) - Table ID to resume an existing table
+- `server_url` (required) - URL of the Dalva server
+- `log_mode` (optional) - One of `IMMUTABLE`, `MUTABLE`, or `INCREMENTAL` (default: `IMMUTABLE`)
+
+### Log a DataFrame
+
+```python
+df = pd.DataFrame({
+    "sample_id": [1, 2, 3],
+    "label": ["cat", "dog", "bird"],
+    "confidence": [0.95, 0.87, 0.72],
+    "correct": [True, True, False],
+})
+
+table.log(df)
+```
+
+### Supported Column Types
+
+| Type | Python/pandas dtype | Example |
+|------|---------------------|---------|
+| `int` | `int64`, `int32`, `Int64`, etc. | `42` |
+| `float` | `float64`, `float32` | `0.95` |
+| `bool` | `bool` | `True` |
+| `str` | `object` (string) | `"cat"` |
+| `date` | `datetime64` | `"2025-01-15"` |
+| `list` | list values | `[1, 2, 3]` |
+| `dict` | dict values | `{"key": "val"}` |
+
+Mixed types within a single column are not allowed. All values in a column must be the same type.
+
+### Log Modes
+
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| `IMMUTABLE` | Log exactly once. Re-logging raises an error. | Final evaluation results |
+| `MUTABLE` | Each log creates a new version. Only latest shown. | Updating predictions over epochs |
+| `INCREMENTAL` | Each log appends rows. Column types must match. | Streaming predictions batch by batch |
+
+```python
+# IMMUTABLE - log once
+table = dalva.table(project="my-project", name="final-results", log_mode="IMMUTABLE")
+table.log(df)
+table.finish()
+
+# MUTABLE - re-log creates new version
+table = dalva.table(project="my-project", name="epoch-predictions", log_mode="MUTABLE")
+table.log(df_epoch_1)  # version 1
+table.log(df_epoch_2)  # version 2 (replaces v1 in UI)
+table.finish()
+
+# INCREMENTAL - appends rows
+table = dalva.table(project="my-project", name="all-predictions", log_mode="INCREMENTAL")
+table.log(df_batch_1)  # rows appended
+table.log(df_batch_2)  # more rows appended
+table.finish()
+```
+
+### Link a Table to a Run
+
+Pass the `run_id` to associate a table with a run. The link is visible in both the run detail and table detail pages.
+
+```python
+run = dalva.init(project="my-project", name="training-run")
+# ... log metrics to run ...
+
+table = dalva.table(
+    project="my-project",
+    name="predictions",
+    run_id=run.run_id,  # link to the run
+)
+
+table.log(predictions_df)
+table.finish()
+run.finish()
+```
+
+### Finish a Table
+
+```python
+table.finish()
+```
+
+### Table Object
+
+The `Table` object has these properties:
+
+- `table_id` - System-generated unique identifier (e.g., "ABC-T1")
+- `name` - User-defined display name
+- `project` - Project name
+
+See the [Table Class API documentation](../api_documentation/table_class.md) for the full reference.
+
+### Resuming Tables
+
+MUTABLE and INCREMENTAL tables can be resumed. IMMUTABLE tables cannot.
+
+```python
+# Resume a MUTABLE or INCREMENTAL table
+table = dalva.table(
+    project="my-project",
+    resume_from="ABC-T1"
+)
+table.log(new_data)
+table.finish()
 ```

@@ -139,6 +139,48 @@ def _create_duckdb_tables(engine) -> None:
         """)
         )
 
+        # Create sequence for dalva_tables table ID
+        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS dalva_tables_id_seq START 1"))
+
+        # Dalva tables table
+        conn.execute(
+            text("""
+            CREATE TABLE IF NOT EXISTS dalva_tables (
+                id INTEGER PRIMARY KEY DEFAULT nextval('dalva_tables_id_seq'),
+                project_id INTEGER NOT NULL,
+                table_id VARCHAR NOT NULL,
+                name VARCHAR,
+                run_id INTEGER,
+                log_mode VARCHAR DEFAULT 'IMMUTABLE',
+                version INTEGER DEFAULT 0,
+                row_count INTEGER DEFAULT 0,
+                column_schema VARCHAR,
+                config VARCHAR,
+                state VARCHAR DEFAULT 'active',
+                created_at TIMESTAMP,
+                updated_at TIMESTAMP,
+                UNIQUE(project_id, table_id)
+            )
+        """)
+        )
+
+        # Create sequence for dalva_table_rows table ID
+        conn.execute(
+            text("CREATE SEQUENCE IF NOT EXISTS dalva_table_rows_id_seq START 1")
+        )
+
+        # Dalva table rows table
+        conn.execute(
+            text("""
+            CREATE TABLE IF NOT EXISTS dalva_table_rows (
+                id INTEGER PRIMARY KEY DEFAULT nextval('dalva_table_rows_id_seq'),
+                table_id INTEGER NOT NULL,
+                version INTEGER DEFAULT 0,
+                row_data VARCHAR
+            )
+        """)
+        )
+
         # Create indexes
         conn.execute(
             text("CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name)")
@@ -173,6 +215,24 @@ def _create_duckdb_tables(engine) -> None:
         conn.execute(
             text(
                 "CREATE INDEX IF NOT EXISTS idx_files_run_type ON files(run_id, file_type)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_tables_project ON dalva_tables(project_id)"
+            )
+        )
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS idx_tables_run ON dalva_tables(run_id)")
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_tables_table_id_version ON dalva_tables(table_id, version)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_table_rows_table_version ON dalva_table_rows(table_id, version)"
             )
         )
 

@@ -78,6 +78,48 @@ export interface CustomViewCreate {
   sort_by?: string | null;
 }
 
+// Table types
+export interface ColumnSchema {
+  name: string;
+  type: 'int' | 'float' | 'bool' | 'str' | 'date' | 'list' | 'dict';
+}
+
+export interface DalvaTable {
+  id: number;
+  project_id: number;
+  table_id: string;
+  name: string | null;
+  run_id: number | null;
+  log_mode: 'IMMUTABLE' | 'MUTABLE' | 'INCREMENTAL';
+  version: number;
+  row_count: number;
+  column_schema: string;  // JSON string
+  config: string | null;  // JSON string
+  state: 'active' | 'finished';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TableListResponse {
+  tables: DalvaTable[];
+  total: number;
+  has_more: boolean;
+}
+
+export interface TableDataResponse {
+  rows: Record<string, unknown>[];
+  total: number;
+  column_schema: ColumnSchema[];
+  has_more: boolean;
+}
+
+export interface TableFilters {
+  project_id?: number;
+  run_id?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
 // API Client
 const apiClient = axios.create({
   baseURL: '/api',
@@ -180,6 +222,44 @@ export const api = {
 
   deleteRun: async (runId: number): Promise<void> => {
     await apiClient.delete(`/runs/${runId}`);
+  },
+
+  // Tables
+  getTables: async (filters: TableFilters & { limit?: number; offset?: number }): Promise<TableListResponse> => {
+    const { data } = await apiClient.get('/tables/', { params: filters });
+    return data;
+  },
+
+  getTable: async (tableId: number): Promise<DalvaTable> => {
+    const { data } = await apiClient.get(`/tables/${tableId}`);
+    return data;
+  },
+
+  getTableData: async (
+    tableId: number,
+    params?: { version?: number; limit?: number; offset?: number; sort_by?: string; sort_order?: 'asc' | 'desc' }
+  ): Promise<TableDataResponse> => {
+    const { data } = await apiClient.get(`/tables/${tableId}/data`, { params });
+    return data;
+  },
+
+  getTablesForRun: async (runId: number): Promise<DalvaTable[]> => {
+    const { data } = await apiClient.get(`/runs/${runId}/tables`);
+    return data;
+  },
+
+  deleteTable: async (tableId: number): Promise<void> => {
+    await apiClient.delete(`/tables/${tableId}`);
+  },
+
+  updateTableState: async (tableId: number, state: string): Promise<{ state: string }> => {
+    const { data } = await apiClient.patch(`/tables/${tableId}/state`, null, { params: { state } });
+    return data;
+  },
+
+  updateRunState: async (runId: number, state: string): Promise<Run> => {
+    const { data } = await apiClient.patch(`/runs/${runId}/state`, null, { params: { state } });
+    return data;
   },
 };
 
@@ -340,6 +420,85 @@ export function useDeleteRun() {
     onSuccess: (_data, runId) => {
       queryClient.invalidateQueries({ queryKey: ['runs'] });
       queryClient.removeQueries({ queryKey: ['runs', runId] });
+    },
+  });
+}
+
+// Table hooks
+export function useTables(
+  filters: TableFilters,
+  options?: Omit<UseQueryOptions<TableListResponse, Error>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: ['tables', filters],
+    queryFn: () => api.getTables({ ...filters, limit: 100 }),
+    staleTime: 0,
+    ...options,
+  });
+}
+
+export function useTable(tableId: number, options?: Omit<UseQueryOptions<DalvaTable, Error>, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['tables', tableId],
+    queryFn: () => api.getTable(tableId),
+    enabled: !!tableId,
+    ...options,
+  });
+}
+
+export function useTableData(
+  tableId: number,
+  params?: { version?: number; limit?: number; offset?: number; sort_by?: string; sort_order?: 'asc' | 'desc' },
+  options?: Omit<UseQueryOptions<TableDataResponse, Error>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: ['tables', tableId, 'data', params],
+    queryFn: () => api.getTableData(tableId, params),
+    enabled: !!tableId,
+    ...options,
+  });
+}
+
+export function useTablesForRun(runId: number, options?: Omit<UseQueryOptions<DalvaTable[], Error>, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['runs', runId, 'tables'],
+    queryFn: () => api.getTablesForRun(runId),
+    enabled: !!runId,
+    ...options,
+  });
+}
+
+export function useDeleteTable() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (tableId: number) => api.deleteTable(tableId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+    },
+  });
+}
+
+export function useUpdateTableState() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tableId, state }: { tableId: number; state: string }) =>
+      api.updateTableState(tableId, state),
+    onSuccess: (_data, { tableId }) => {
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['tables', tableId] });
+      queryClient.invalidateQueries({ queryKey: ['runs'] });
+    },
+  });
+}
+
+export function useUpdateRunState() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runId, state }: { runId: number; state: string }) =>
+      api.updateRunState(runId, state),
+    onSuccess: (_data, { runId }) => {
+      queryClient.invalidateQueries({ queryKey: ['runs'] });
+      queryClient.invalidateQueries({ queryKey: ['runs', runId] });
     },
   });
 }

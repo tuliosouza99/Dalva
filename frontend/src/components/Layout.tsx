@@ -17,10 +17,13 @@ export default function Layout() {
   // Check if we're in a project context
   const isOnProjectPage = location.pathname.includes('/projects/') && projectIdFromPath;
   const isRunPage = location.pathname.startsWith('/runs/');
+  const isTableDetailPage = location.pathname.startsWith('/tables/');
+  const isTablePage = isTableDetailPage || location.pathname.includes('/tables');
   const isComparePage = location.pathname === '/compare';
   const isCompareWithProject = isComparePage && projectIdFromQuery;
   const isRunWithProject = isRunPage && projectIdFromQuery;
-  const isInProject = isOnProjectPage || isCompareWithProject || isRunWithProject;
+  const isTableWithProject = isTableDetailPage && projectIdFromQuery;
+  const isInProject = isOnProjectPage || isCompareWithProject || isRunWithProject || isTableWithProject;
 
   // Get comparison selection count
   const { selectedRunIds } = useComparison();
@@ -89,11 +92,20 @@ export default function Layout() {
                     {/* Runs */}
                     <NavLink
                       to={`/projects/${effectiveProjectId}/runs`}
-                      className={() => `nav-item text-sm ${isOnProjectPage || isRunPage ? 'active' : ''}`}
+                      className={() => `nav-item text-sm ${(isOnProjectPage && !isTablePage) || isRunPage ? 'active' : ''}`}
                       style={{ paddingLeft: '12px' }}
                     >
                       <Table2 size={14} />
                       Runs
+                    </NavLink>
+
+                    <NavLink
+                      to={`/projects/${effectiveProjectId}/tables`}
+                      className={() => `nav-item text-sm ${isTablePage ? 'active' : ''}`}
+                      style={{ paddingLeft: '12px' }}
+                    >
+                      <Table2 size={14} />
+                      Tables
                     </NavLink>
                     
                     {/* Compare */}
@@ -103,7 +115,7 @@ export default function Layout() {
                       style={{ paddingLeft: '12px' }}
                     >
                       <GitCompare size={14} />
-                      <span className="flex-1 truncate">Compare</span>
+                      <span className="flex-1 truncate">Compare Runs</span>
                       {selectedCount > 0 && (
                         <span 
                           className="text-xs px-1.5 py-0.5 rounded-full"

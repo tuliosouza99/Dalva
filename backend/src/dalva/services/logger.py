@@ -51,7 +51,7 @@ def create_run(
     project_name: str,
     run_name: Optional[str] = None,
     config: Optional[dict] = None,
-    resume_run_id: Optional[str] = None,
+    resume_from: Optional[str] = None,
 ) -> tuple[int, str, Optional[str]]:
     """Create or resume a run.
 
@@ -68,10 +68,10 @@ def create_run(
 
         project_db_id = project.id
 
-        if resume_run_id:
+        if resume_from:
             existing = (
                 db.query(Run)
-                .filter(Run.project_id == project_db_id, Run.run_id == resume_run_id)
+                .filter(Run.project_id == project_db_id, Run.run_id == resume_from)
                 .first()
             )
             if existing:
@@ -81,7 +81,7 @@ def create_run(
                 db.flush()
                 return existing.id, existing.run_id, existing.name
             raise ValueError(
-                f"Run '{resume_run_id}' not found in project '{project_name}'"
+                f"Run '{resume_from}' not found in project '{project_name}'"
             )
 
         abbrev = _generate_abbreviation(project_name)

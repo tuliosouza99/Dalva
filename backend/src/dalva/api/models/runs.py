@@ -37,7 +37,7 @@ class InitRunRequest(BaseModel):
     project: str
     name: Optional[str] = None
     config: Optional[dict] = None
-    resume: Optional[str] = None
+    resume_from: Optional[str] = None
 
 
 class InitRunResponse(BaseModel):

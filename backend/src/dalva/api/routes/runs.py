@@ -18,9 +18,11 @@ from dalva.api.models.runs import (
     RunsListResponse,
     RunSummary,
 )
+from dalva.api.models.tables import TableResponse
 from dalva.db.connection import get_db
 from dalva.db.schema import Config, Metric, Run
 from dalva.services.logger import create_run
+from dalva.services.tables import get_tables_for_run
 
 router = APIRouter()
 
@@ -211,7 +213,7 @@ def init_run(request: InitRunRequest):
         project_name=request.project,
         run_name=request.name,
         config=request.config,
-        resume_run_id=request.resume,
+        resume_from=request.resume_from,
     )
 
     return InitRunResponse(id=db_id, run_id=run_id_str, name=name)
@@ -323,15 +325,23 @@ def finish_run_remote(
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    # Update activity and mark as completed
-    from datetime import datetime, timezone
-
     run.last_activity_at = datetime.now(timezone.utc)
     run.updated_at = datetime.now(timezone.utc)
     run.state = "completed"
     db.commit()
 
     return FinishResponse(state="completed")
+
+
+@router.get("/{run_id}/tables")
+def get_run_tables(run_id: int, db: Session = Depends(get_db)):
+    """Get all tables linked to a run."""
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    tables = get_tables_for_run(run_id)
+    return [TableResponse.model_validate(t) for t in tables]
 
 
 @router.delete("/{run_id}")

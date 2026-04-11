@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from dalva.api.routes import metrics, projects, runs, views
+from dalva.api.routes import metrics, projects, runs, tables, views
 from dalva.db.connection import init_db
 from dalva.utils.paths import get_static_dir
 
@@ -58,6 +58,7 @@ async def health():
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
 app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
+app.include_router(tables.router, prefix="/api/tables", tags=["tables"])
 app.include_router(views.router, prefix="/api/views", tags=["views"])
 
 

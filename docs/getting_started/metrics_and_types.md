@@ -95,10 +95,57 @@ Scalar metrics are displayed as **value cards** in the run's Overview tab:
 |--------|-------|
 | best_model/accuracy | 0.9523 |
 | best_model/hter | 0.0821 |
+| training_completed | true |
+| best_optimizer | adamw |
 
-### Series Metrics (step=int)
+### Numeric Series (float_series, int_series)
 
-Series metrics are displayed as **interactive charts** in the run's Metrics tab. The chart shows the metric value over steps, with hover tooltips for exact values.
+Numeric series are displayed as **interactive line charts** in the run's Metrics tab. The chart shows the metric value over steps, with hover tooltips for exact values.
+
+### Bool Series (bool_series)
+
+Bool series are displayed as **stacked area charts** with two areas (`true` / `false`) showing cumulative counts over steps.
+
+**Use case — tracking binary states:**
+
+```python
+for step in range(50):
+    run.log({
+        "phase/is_training": step % 10 != 7,
+        "phase/is_converged": step >= 30,
+    }, step=step)
+```
+
+This lets you visualize when a flag flips — for example, when training switches to validation, or when a model converges.
+
+### String Series (string_series)
+
+String series are displayed as **stacked area charts** showing cumulative counts per category over steps. By default the top 3 categories (by total count) are shown as separate areas, with remaining categories grouped under "Other". You can increase the number of visible categories up to `min(10, nunique)` using the selector below the chart.
+
+**Use case — tracking categorical values:**
+
+```python
+optimizers = ["adam", "adam", "sgd", "adam", "rmsprop", ...]
+for step in range(50):
+    run.log({
+        "hyperparams/optimizer": optimizers[step],
+        "phase/name": "train" if step % 8 != 7 else "validate",
+    }, step=step)
+```
+
+Common scenarios for string series:
+
+| Scenario | Example metric | Categories |
+|----------|---------------|------------|
+| Training phase | `phase/name` | `train`, `validate`, `test` |
+| Optimizer sweep | `hyperparams/optimizer` | `adam`, `sgd`, `rmsprop` |
+| Data source region | `infra/region` | `us-east`, `eu-west`, `ap-south` |
+| Learning rate schedule | `lr/schedule` | `cosine`, `step`, `constant` |
+| Model selection | `model/variant` | `base`, `large`, `xl` |
+
+### Compare Runs View
+
+When comparing multiple runs, categorical metrics display **side-by-side stacked area charts** — one per run — so you can see how category distributions differ across experiments.
 
 ## Common Patterns
 

@@ -123,6 +123,7 @@ The Dalva web interface provides:
 - **Runs Table** - Filterable, sortable table of all experiments
 - **Run Details** - Detailed view of individual runs with all metrics
 - **Metric Charts** - Interactive visualizations with zoom, pan, and hover
+- **Categorical Charts** - Stacked area charts for bool and string series
 - **Run Comparison** - Side-by-side comparison of multiple experiments
 
 ## Development
@@ -190,6 +191,9 @@ uv run python backend/examples/simple_experiment.py
 
 # Resume run example
 uv run python backend/examples/resume_run.py
+
+# Categorical metrics example (bool & string series)
+uv run python backend/examples/categorical_demo.py
 ```
 
 ## Contributing

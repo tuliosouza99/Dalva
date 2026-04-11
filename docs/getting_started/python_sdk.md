@@ -161,6 +161,34 @@ Metrics can be logged as:
 | **Series** (with `step`) | Values that change over time | `run.log({"loss": 0.5}, step=0)` |
 | **Scalar** (without `step`) | Final/summary values | `run.log({"best_accuracy": 0.95})` |
 
+### Logging Categorical Metrics
+
+In addition to numeric types (`float`, `int`), you can log `bool` and `str` values to track categorical changes over time. These render as **stacked area charts** instead of line charts.
+
+**Bool series** — track binary flags like training phase, convergence, or early stopping:
+
+```python
+for step in range(100):
+    run.log({
+        "train/loss": train_loss,
+        "phase/is_training": step % 10 != 7,
+        "phase/is_converged": step >= 50,
+    }, step=step)
+```
+
+**String series** — track categorical values like optimizer, data source, or phase name:
+
+```python
+for step in range(100):
+    run.log({
+        "train/loss": train_loss,
+        "hyperparams/optimizer": current_optimizer,
+        "phase/name": "train" if step % 10 != 7 else "validate",
+    }, step=step)
+```
+
+By default, string series show the top 3 categories as separate areas with the rest grouped as "Other". You can adjust this up to 10 in the chart UI.
+
 See [Metrics & Value Types](../getting_started/metrics_and_types.md) for details on how different types are rendered.
 
 ## Why Use Config vs Metrics?

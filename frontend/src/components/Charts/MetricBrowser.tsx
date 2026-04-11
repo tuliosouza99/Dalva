@@ -1,19 +1,29 @@
 import { useState, useMemo } from 'react';
+import type { MetricInfo } from '../../api/client';
 
 interface MetricNode {
   name: string;
   fullPath: string;
   isLeaf: boolean;
+  attributeType?: string;
   children: Map<string, MetricNode>;
 }
 
 interface MetricBrowserProps {
-  metrics: string[];
+  metrics: MetricInfo[];
   onMetricSelect: (metricPath: string) => void;
   selectedMetric: string | null;
 }
 
-function buildMetricTree(metrics: string[]): MetricNode {
+function getTypeLabel(attributeType?: string): string | null {
+  if (!attributeType) return null;
+  if (attributeType === 'bool_series' || attributeType === 'string_series') return 'cat';
+  if (attributeType.endsWith('_series')) return 'series';
+  if (attributeType === 'bool' || attributeType === 'string') return 'scalar';
+  return null;
+}
+
+function buildMetricTree(metrics: MetricInfo[]): MetricNode {
   const root: MetricNode = {
     name: 'root',
     fullPath: '',
@@ -21,8 +31,8 @@ function buildMetricTree(metrics: string[]): MetricNode {
     children: new Map(),
   };
 
-  for (const metricPath of metrics) {
-    const parts = metricPath.split('/');
+  for (const metric of metrics) {
+    const parts = metric.path.split('/');
     let currentNode = root;
 
     for (let i = 0; i < parts.length; i++) {
@@ -35,6 +45,7 @@ function buildMetricTree(metrics: string[]): MetricNode {
           name: part,
           fullPath,
           isLeaf: isLastPart,
+          attributeType: isLastPart ? metric.attribute_type : undefined,
           children: new Map(),
         });
       }
@@ -71,8 +82,8 @@ function MetricTreeNode({
   }, [node.children]);
 
   if (node.isLeaf) {
-    // Leaf node - metric
     const isSelected = selectedMetric === node.fullPath;
+    const typeLabel = getTypeLabel(node.attributeType);
     return (
       <button
         onClick={() => onMetricSelect(node.fullPath)}
@@ -105,6 +116,25 @@ function MetricTreeNode({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
           <span className="truncate">{node.name}</span>
+          {typeLabel && (
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded font-sans font-medium uppercase flex-shrink-0"
+              style={{
+                backgroundColor: typeLabel === 'cat'
+                  ? 'rgba(139, 92, 246, 0.15)'
+                  : typeLabel === 'series'
+                  ? 'rgba(59, 130, 246, 0.15)'
+                  : 'var(--bg-elevated)',
+                color: typeLabel === 'cat'
+                  ? '#8b5cf6'
+                  : typeLabel === 'series'
+                  ? '#3b82f6'
+                  : 'var(--text-tertiary)',
+              }}
+            >
+              {typeLabel}
+            </span>
+          )}
         </div>
       </button>
     );

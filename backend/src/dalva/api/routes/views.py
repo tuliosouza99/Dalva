@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from dalva.api.models import CustomViewCreate, CustomViewResponse
+from dalva.api.models.views import CustomViewCreate, CustomViewResponse
 from dalva.db.connection import get_db
 from dalva.db.schema import CustomView, Project
 

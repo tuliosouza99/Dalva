@@ -4,6 +4,7 @@ import { useMetricValues } from '../../api/client';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { buildChartLayout } from '../../utils/chartTheme';
 import type { MetricValue } from '../../api/client';
+import CategoryAreaChart from './CategoryAreaChart';
 
 interface MetricConfig {
   runId: number;
@@ -30,6 +31,10 @@ const DEFAULT_COLORS = [
   '#afb42b', // Lime
 ];
 
+function isCategoricalSeries(attributeType?: string): boolean {
+  return attributeType === 'bool_series' || attributeType === 'string_series';
+}
+
 export default function MultiMetricChart({
   metrics,
   title = 'Metrics Comparison',
@@ -45,12 +50,27 @@ export default function MultiMetricChart({
   const error = metricData.find((m) => m.error)?.error;
   const isDark = useDarkMode();
 
+  const categoricalMetrics = useMemo(() => {
+    if (isLoading || !metricData.every((m) => m.data)) return [];
+    return metrics
+      .map((metric, idx) => ({
+        metric,
+        idx,
+        data: metricData[idx].data!,
+      }))
+      .filter(({ data }) => isCategoricalSeries(data.attribute_type));
+  }, [metricData, metrics, isLoading]);
+
   const chartData = useMemo(() => {
     if (isLoading || !metricData.every((m) => m.data)) return [];
 
     return metrics.map((metric, idx) => {
-      const data = metricData[idx].data?.data || [];
-      const numericValues = data.filter(
+      const data = metricData[idx].data;
+
+      if (isCategoricalSeries(data?.attribute_type)) return null;
+
+      const values = data?.data || [];
+      const numericValues = values.filter(
         (v: MetricValue) => typeof v.value === 'number'
       );
 
@@ -77,6 +97,8 @@ export default function MultiMetricChart({
       };
     }).filter(Boolean);
   }, [metricData, metrics, isLoading]);
+
+  const hasAnyData = chartData.length > 0 || categoricalMetrics.length > 0;
 
   const layout = useMemo(
     () =>
@@ -138,7 +160,7 @@ export default function MultiMetricChart({
     );
   }
 
-  if (chartData.length === 0) {
+  if (!hasAnyData) {
     return (
       <div
         className="bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center"
@@ -152,8 +174,23 @@ export default function MultiMetricChart({
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <Plot data={chartData as any} layout={layout as any} config={config as any} style={{ width: '100%' }} />
+    <div className="space-y-4">
+      {chartData.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <Plot data={chartData as never[]} layout={layout as never} config={config as never} style={{ width: '100%' }} />
+        </div>
+      )}
+      {categoricalMetrics.map(({ metric, data }) => (
+        <div key={metric.metricPath} className="bg-white rounded-lg border border-gray-200 p-4">
+          <CategoryAreaChart
+            values={data.data}
+            attributeType={data.attribute_type!}
+            metricPath={metric.name || metric.metricPath}
+            title={metric.name || metric.metricPath}
+            height={height}
+          />
+        </div>
+      ))}
     </div>
   );
 }

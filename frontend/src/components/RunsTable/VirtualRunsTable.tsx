@@ -24,7 +24,7 @@ interface Column {
   key: string;
   label: string;
   width: string;
-  render: (run: Run, metricValues?: Record<string, Record<string, number | null>>) => React.ReactNode;
+  render: (run: Run, metricValues?: Record<string, Record<string, number | string | boolean | null>>) => React.ReactNode;
 }
 
 interface VirtualRunsTableProps {
@@ -57,11 +57,12 @@ export default function VirtualRunsTable({
   selectedRunIds = [],
   onSelectionChange,
   metricColumns = [],
+  projectId,
   selectionDisabled = false,
 }: VirtualRunsTableProps) {
   const navigate = useNavigate();
   const parentRef = useRef<HTMLDivElement>(null);
-  const [metricValues, setMetricValues] = useState<Record<string, Record<string, number | null>>>({});
+  const [metricValues, setMetricValues] = useState<Record<string, Record<string, number | string | boolean | null>>>({});
 
   // Fetch metric values when runs or metricColumns change
   useEffect(() => {
@@ -86,9 +87,10 @@ export default function VirtualRunsTable({
         const aValue = metricValues[String(a.id)]?.[metricPath];
         const bValue = metricValues[String(b.id)]?.[metricPath];
 
-        // Handle null/undefined values - put them at the end
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
+
+        if (typeof aValue !== 'number' || typeof bValue !== 'number') return 0;
 
         const comparison = aValue - bValue;
         return sortOrder === 'asc' ? comparison : -comparison;
@@ -134,9 +136,16 @@ export default function VirtualRunsTable({
       if (value === null || value === undefined) {
         return <span className="text-sm text-gray-400 dark:text-gray-500">-</span>;
       }
+      if (typeof value === 'number') {
+        return (
+          <span className="text-sm text-gray-900 dark:text-gray-100 font-mono">
+            {value.toFixed(4)}
+          </span>
+        );
+      }
       return (
-        <span className="text-sm text-gray-900 dark:text-gray-100 font-mono">
-          {typeof value === 'number' ? value.toFixed(4) : value}
+        <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+          {String(value)}
         </span>
       );
     },
@@ -195,7 +204,7 @@ export default function VirtualRunsTable({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/runs/${run.id}`);
+                navigate(`/runs/${run.id}${projectId ? `?project=${projectId}` : ''}`);
               }}
               className="mono text-sm cursor-pointer transition-colors"
               style={{ color: 'var(--accent-hover)' }}
@@ -277,7 +286,7 @@ export default function VirtualRunsTable({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/runs/${run.id}`);
+                navigate(`/runs/${run.id}${projectId ? `?project=${projectId}` : ''}`);
               }}
               className="mono text-sm cursor-pointer transition-colors"
               style={{ color: 'var(--accent-hover)' }}

@@ -1,6 +1,6 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, lazy, Suspense } from 'react';
-import { useRun, useRunSummary, useRunMetrics, useDeleteRun } from '../api/client';
+import { useRun, useRunSummary, useRunMetrics, useDeleteRun, useProject } from '../api/client';
 import MetricBrowser from '../components/Charts/MetricBrowser';
 import JsonViewer from '../components/JsonViewer';
 
@@ -27,9 +27,24 @@ export default function RunDetailPage() {
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
   const { data: run, isLoading: runLoading } = useRun(parseInt(runId || '0'));
+  const { data: project } = useProject(run?.project_id || 0);
   const { data: summary, isLoading: summaryLoading } = useRunSummary(parseInt(runId || '0'));
   const { data: metricNames, isLoading: metricsLoading } = useRunMetrics(parseInt(runId || '0'));
   const deleteRunMutation = useDeleteRun();
+
+  const [, setSearchParams] = useSearchParams();
+
+  const projectName = project?.name || `Project ${run?.project_id}`;
+
+  useState(() => {
+    if (run?.project_id) {
+      setSearchParams((prev) => {
+        if (prev.get('project') === String(run.project_id)) return prev;
+        prev.set('project', String(run.project_id));
+        return prev;
+      });
+    }
+  });
 
   const handleDeleteRun = () => {
     if (!run) return;
@@ -83,7 +98,7 @@ export default function RunDetailPage() {
             onClick={() => navigate(`/projects/${run.project_id}/runs`)}
             className="hover:text-[var(--accent)] transition-colors"
           >
-            Project {run.project_id}
+            {projectName}
           </button>
           <span>/</span>
           <span style={{ color: 'var(--text-primary)' }}>{run.run_id}</span>

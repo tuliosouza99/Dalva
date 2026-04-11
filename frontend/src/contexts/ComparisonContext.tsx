@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 
 interface ComparisonContextType {
   selectedRunIds: number[];
@@ -29,11 +29,28 @@ export function ComparisonProvider({ children, maxSelections }: { children: Reac
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(selectedRunIds));
     } catch {
-      // Ignore storage errors
+      // storage unavailable
     }
   }, [selectedRunIds]);
 
-  const toggleRunId = (id: number) => {
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) {
+            setSelectedRunIds(parsed);
+          }
+        } catch {
+          // invalid json
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const toggleRunId = useCallback((id: number) => {
     setSelectedRunIds(prev => {
       if (prev.includes(id)) {
         return prev.filter(runId => runId !== id);
@@ -43,15 +60,15 @@ export function ComparisonProvider({ children, maxSelections }: { children: Reac
       }
       return [...prev, id];
     });
-  };
+  }, [maxSelections]);
 
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     setSelectedRunIds([]);
-  };
+  }, []);
 
-  const isSelected = (id: number) => selectedRunIds.includes(id);
+  const isSelected = useCallback((id: number) => selectedRunIds.includes(id), [selectedRunIds]);
 
-  const isAtMax = () => maxSelections !== undefined && selectedRunIds.length >= maxSelections;
+  const isAtMax = useCallback(() => maxSelections !== undefined && selectedRunIds.length >= maxSelections, [maxSelections, selectedRunIds.length]);
 
   return (
     <ComparisonContext.Provider value={{ selectedRunIds, setSelectedRunIds, toggleRunId, clearSelection, isSelected, isAtMax, maxSelections }}>

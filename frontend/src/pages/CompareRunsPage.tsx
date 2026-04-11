@@ -1,8 +1,9 @@
-import { useNavigate } from 'react-router-dom';
-import { useState, useMemo, lazy, Suspense } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { api, useMetricValues } from '../api/client';
 import { useComparison } from '../contexts/ComparisonContext';
+import CategoryAreaChart from '../components/Charts/CategoryAreaChart';
 
 const MultiMetricChart = lazy(() => import('../components/Charts/MultiMetricChart'));
 
@@ -83,7 +84,7 @@ function CompareRunsContent({ runIds, onRemove, onClear }: { runIds: number[]; o
     const namesSet = new Set<string>();
     runsData.forEach((r) => {
       if (r.metricNames.data) {
-        r.metricNames.data.forEach((name: string) => namesSet.add(name));
+        r.metricNames.data.forEach((m: { path: string }) => namesSet.add(m.path));
       }
     });
     return Array.from(namesSet).sort();
@@ -286,6 +287,7 @@ interface MetricComparisonViewerProps {
 function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparisonViewerProps) {
   const metricsData = runIds.map((runId) => ({
     runId,
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     data: useMetricValues(runId, metricPath),
   }));
 
@@ -293,15 +295,24 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
   const error = metricsData.find((m) => m.data.error);
 
   const metricAnalysis = useMemo(() => {
-    const firstData = metricsData[0]?.data.data?.data;
+    const allData = metricsData.map((m) => m.data.data);
+    const firstWithData = allData.find((d) => d && d.data.length > 0);
     
-    if (!firstData || firstData.length === 0) {
+    if (!firstWithData) {
       return { type: 'empty' };
     }
 
-    const numericValues = firstData.filter((v) => typeof (v as { value?: unknown }).value === 'number');
+    const attributeType = firstWithData.attribute_type;
+    const isCategorical = attributeType === 'bool_series' || attributeType === 'string_series';
 
-    if (firstData.length === 1) {
+    if (isCategorical) {
+      return { type: 'category', attributeType };
+    }
+
+    const firstValues = firstWithData.data;
+    const numericValues = firstValues.filter((v) => typeof (v as { value?: unknown }).value === 'number');
+
+    if (firstValues.length === 1) {
       return { type: 'single' };
     }
 
@@ -411,9 +422,70 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
   }
 
   if (metricAnalysis.type === 'list') {
+    const values = metricsData.map((m) => {
+      const metricData = m.data.data?.data;
+      if (metricData && metricData.length > 0) {
+        return metricData[0].value;
+      }
+      return null;
+    });
+
     return (
-      <div className="card p-4 text-center">
-        <p className="text-body text-sm">This metric contains non-numeric values and cannot be charted</p>
+      <div className="card p-0 overflow-hidden">
+        <table className="min-w-full">
+          <thead style={{ backgroundColor: 'var(--bg-primary)' }}>
+            <tr>
+              {runNames.map((name, idx) => (
+                <th
+                  key={idx}
+                  className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  {name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {values.map((value, idx) => (
+                <td
+                  key={idx}
+                  className="px-4 py-4 text-sm font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {value === null || value === undefined
+                    ? '-'
+                    : String(value)}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  if (metricAnalysis.type === 'category') {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {metricsData.map((m, idx) => {
+          const metricValues = m.data.data?.data;
+          if (!metricValues || metricValues.length === 0) return null;
+          return (
+            <div key={m.runId} className="rounded-lg border p-4" style={{ borderColor: 'var(--border)' }}>
+              <p className="text-xs mb-2 font-medium" style={{ color: 'var(--text-tertiary)' }}>
+                {runNames[idx]}
+              </p>
+              <CategoryAreaChart
+                values={metricValues}
+                attributeType={metricAnalysis.attributeType!}
+                metricPath={runNames[idx]}
+                height={300}
+              />
+            </div>
+          );
+        })}
       </div>
     );
   }
@@ -437,12 +509,23 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
 
 export default function CompareRunsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { selectedRunIds, setSelectedRunIds, clearSelection } = useComparison();
 
-  const runIds = selectedRunIds;
+  const runIdsFromUrl = searchParams.get('runs');
+  const projectId = searchParams.get('project');
+
+  useEffect(() => {
+    if (runIdsFromUrl) {
+      const parsed = runIdsFromUrl.split(',').map(Number).filter((n) => !isNaN(n));
+      if (parsed.length > 0) {
+        setSelectedRunIds(parsed);
+      }
+    }
+  }, [runIdsFromUrl, setSelectedRunIds]);
 
   const handleRemoveRun = (runId: number) => {
-    const newRunIds = runIds.filter(id => id !== runId);
+    const newRunIds = selectedRunIds.filter(id => id !== runId);
     setSelectedRunIds(newRunIds);
   };
 
@@ -450,15 +533,13 @@ export default function CompareRunsPage() {
     clearSelection();
   };
 
-  // Simple conditional render - when runIds is empty, show empty state
-  // When runIds has items, show CompareRunsContent with hooks
-  if (runIds.length === 0) {
-    return <EmptyState onNavigate={() => navigate('/projects')} />;
+  if (selectedRunIds.length === 0) {
+    return <EmptyState onNavigate={() => navigate(projectId ? `/projects/${projectId}/runs` : '/projects')} />;
   }
 
   return (
     <CompareRunsContent 
-      runIds={runIds} 
+      runIds={selectedRunIds} 
       onRemove={handleRemoveRun} 
       onClear={handleClearAll} 
     />

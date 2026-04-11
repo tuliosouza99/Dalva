@@ -4,11 +4,16 @@ import { useMetricValues } from '../../api/client';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { buildChartLayout } from '../../utils/chartTheme';
 import type { MetricValue } from '../../api/client';
+import CategoryAreaChart from './CategoryAreaChart';
 
 interface MetricViewerProps {
   runId: number;
   metricPath: string;
   onClose: () => void;
+}
+
+function isCategoricalSeries(attributeType?: string): boolean {
+  return attributeType === 'bool_series' || attributeType === 'string_series';
 }
 
 export default function MetricViewer({ runId, metricPath, onClose }: MetricViewerProps) {
@@ -23,6 +28,14 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
     const values = data.data;
     const attributeType = data.attribute_type;
     const isSeries = attributeType?.endsWith('_series') ?? false;
+
+    if (isSeries && isCategoricalSeries(attributeType)) {
+      return {
+        type: 'category',
+        values,
+        attributeType: attributeType!,
+      };
+    }
 
     if (isSeries) {
       const numericValues = values.filter(
@@ -208,6 +221,22 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
           }}
         >
           <Plot data={chartData as never} layout={layout as never} config={config as never} style={{ width: '100%' }} />
+        </div>
+      )}
+
+      {metricAnalysis.type === 'category' && (
+        <div 
+          className="rounded-lg border p-4"
+          style={{ 
+            backgroundColor: 'var(--bg-surface)', 
+            borderColor: 'var(--border)'
+          }}
+        >
+          <CategoryAreaChart
+            values={metricAnalysis.values as MetricValue[]}
+            attributeType={metricAnalysis.attributeType as string}
+            metricPath={metricPath}
+          />
         </div>
       )}
     </div>

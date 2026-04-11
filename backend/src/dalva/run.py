@@ -1,6 +1,6 @@
 """Run class for experiment tracking via HTTP."""
 
-from typing import Any
+from typing import Mapping
 
 import httpx
 
@@ -23,7 +23,7 @@ class Run:
         self,
         project: str,
         name: str | None = None,
-        config: dict | None = None,
+        config: Mapping | None = None,
         resume: str | None = None,
         server_url: str = "http://localhost:8000",
     ):
@@ -72,7 +72,7 @@ class Run:
     def _create_run_on_server(
         self,
         name: str | None,
-        config: dict | None,
+        config: Mapping | None,
         resume: str | None,
     ) -> None:
         """Create the run on the server via API."""
@@ -93,7 +93,9 @@ class Run:
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to create run on server: {e}")
 
-    def log(self, metrics: dict[str, Any], step: int | None = None):
+    def log(
+        self, metrics: Mapping[str, bool | float | int | str], step: int | None = None
+    ):
         """Log metrics to the run.
 
         Args:

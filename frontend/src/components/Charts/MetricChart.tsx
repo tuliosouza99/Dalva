@@ -4,6 +4,7 @@ import { useMetricValues } from '../../api/client';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { buildChartLayout } from '../../utils/chartTheme';
 import type { MetricValue } from '../../api/client';
+import CategoryAreaChart from './CategoryAreaChart';
 
 interface MetricChartProps {
   runId: number;
@@ -11,6 +12,10 @@ interface MetricChartProps {
   title?: string;
   height?: number;
   showLegend?: boolean;
+}
+
+function isCategoricalSeries(attributeType?: string): boolean {
+  return attributeType === 'bool_series' || attributeType === 'string_series';
 }
 
 export default function MetricChart({
@@ -23,8 +28,10 @@ export default function MetricChart({
   const { data, isLoading, error } = useMetricValues(runId, metricPath);
   const isDark = useDarkMode();
 
+  const isCategoryChart = isCategoricalSeries(data?.attribute_type);
+
   const chartData = useMemo(() => {
-    if (!data?.data) return [];
+    if (!data?.data || isCategoryChart) return [];
 
     const values = data.data;
 
@@ -55,7 +62,7 @@ export default function MetricChart({
           : '<b>Index:</b> %{x}<br><b>Value:</b> %{y:.6f}<extra></extra>',
       },
     ];
-  }, [data, metricPath]);
+  }, [data, metricPath, isCategoryChart]);
 
   const layout = useMemo(
     () =>
@@ -116,7 +123,7 @@ export default function MetricChart({
     );
   }
 
-  if (chartData.length === 0) {
+  if (chartData.length === 0 && !isCategoryChart) {
     return (
       <div
         className="bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center"
@@ -130,9 +137,23 @@ export default function MetricChart({
     );
   }
 
+  if (isCategoryChart && data?.data && data.data.length > 0) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <CategoryAreaChart
+          values={data.data}
+          attributeType={data.attribute_type!}
+          metricPath={metricPath}
+          title={title || metricPath}
+          height={height}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <Plot data={chartData as any} layout={layout as any} config={config as any} style={{ width: '100%' }} />
+      <Plot data={chartData as never[]} layout={layout as never} config={config as never} style={{ width: '100%' }} />
     </div>
   );
 }

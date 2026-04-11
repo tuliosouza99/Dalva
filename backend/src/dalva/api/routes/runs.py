@@ -2,14 +2,18 @@
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from dalva.api.models import (
+from dalva.api.models.runs import (
+    FinishResponse,
+    InitRunRequest,
+    InitRunResponse,
+    LogMetricsRequest,
+    LogResponse,
     RunResponse,
     RunsListResponse,
     RunSummary,
@@ -189,23 +193,6 @@ def get_run_config(run_id: int, db: Session = Depends(get_db)):
     return config_dict
 
 
-class InitRunRequest(BaseModel):
-    """Request body for init endpoint (SDK-facing)."""
-
-    project: str
-    name: Optional[str] = None
-    config: Optional[dict] = None
-    resume: Optional[str] = None
-
-
-class InitRunResponse(BaseModel):
-    """Response for init endpoint."""
-
-    id: int
-    run_id: str
-    name: Optional[str]
-
-
 @router.post("/init", response_model=InitRunResponse)
 def init_run(request: InitRunRequest):
     """
@@ -255,20 +242,6 @@ def update_run_state(
     db.commit()
     db.refresh(run)
     return run
-
-
-class LogMetricsRequest(BaseModel):
-    """Request body for log endpoint."""
-
-    metrics: dict[str, Any]
-    step: Optional[int] = None
-    timestamp: Optional[datetime] = None
-
-
-class LogResponse(BaseModel):
-    """Response for log endpoint."""
-
-    success: bool = True
 
 
 @router.post("/{run_id}/log", response_model=LogResponse)
@@ -329,12 +302,6 @@ def log_metrics_remote(
 
     db.commit()
     return LogResponse(success=True)
-
-
-class FinishResponse(BaseModel):
-    """Response for finish endpoint."""
-
-    state: str
 
 
 @router.post("/{run_id}/finish", response_model=FinishResponse)

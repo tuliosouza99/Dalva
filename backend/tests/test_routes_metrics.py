@@ -21,8 +21,12 @@ class TestListMetrics:
         assert response.status_code == 200
         metrics = response.json()
         assert len(metrics) == 2
-        assert "loss" in metrics
-        assert "accuracy" in metrics
+        paths = [m["path"] for m in metrics]
+        assert "loss" in paths
+        assert "accuracy" in paths
+        for m in metrics:
+            assert "path" in m
+            assert "attribute_type" in m
 
     def test_list_metrics_run_not_found(self, api_client):
         """Test listing metrics for non-existent run."""

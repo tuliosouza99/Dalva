@@ -16,9 +16,11 @@ export default function Layout() {
   
   // Check if we're in a project context
   const isOnProjectPage = location.pathname.includes('/projects/') && projectIdFromPath;
+  const isRunPage = location.pathname.startsWith('/runs/');
   const isComparePage = location.pathname === '/compare';
   const isCompareWithProject = isComparePage && projectIdFromQuery;
-  const isInProject = isOnProjectPage || isCompareWithProject;
+  const isRunWithProject = isRunPage && projectIdFromQuery;
+  const isInProject = isOnProjectPage || isCompareWithProject || isRunWithProject;
 
   // Get comparison selection count
   const { selectedRunIds } = useComparison();
@@ -87,7 +89,7 @@ export default function Layout() {
                     {/* Runs */}
                     <NavLink
                       to={`/projects/${effectiveProjectId}/runs`}
-                      className={({ isActive }) => `nav-item text-sm ${isActive ? 'active' : ''}`}
+                      className={() => `nav-item text-sm ${isOnProjectPage || isRunPage ? 'active' : ''}`}
                       style={{ paddingLeft: '12px' }}
                     >
                       <Table2 size={14} />

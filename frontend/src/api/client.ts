@@ -46,6 +46,11 @@ export interface MetricValuesResponse {
   attribute_type?: string;
 }
 
+export interface MetricInfo {
+  path: string;
+  attribute_type: string;
+}
+
 export interface RunFilters {
   project_id?: number;
   group?: string;
@@ -121,7 +126,7 @@ export const api = {
   },
 
   // Metrics
-  getRunMetrics: async (runId: number): Promise<string[]> => {
+  getRunMetrics: async (runId: number): Promise<MetricInfo[]> => {
     const { data} = await apiClient.get(`/metrics/runs/${runId}`);
     return data;
   },
@@ -140,7 +145,7 @@ export const api = {
     return data;
   },
 
-  getSummaryMetrics: async (runIds: number[], metricPaths: string[]): Promise<Record<string, Record<string, number | null>>> => {
+  getSummaryMetrics: async (runIds: number[], metricPaths: string[]): Promise<Record<string, Record<string, number | string | boolean | null>>> => {
     const { data } = await apiClient.post('/metrics/summary', {
       run_ids: runIds,
       metric_paths: metricPaths
@@ -256,7 +261,7 @@ export function useRunSummary(runId: number, options?: Omit<UseQueryOptions<any,
   });
 }
 
-export function useRunMetrics(runId: number, options?: Omit<UseQueryOptions<string[], Error>, 'queryKey' | 'queryFn'>) {
+export function useRunMetrics(runId: number, options?: Omit<UseQueryOptions<MetricInfo[], Error>, 'queryKey' | 'queryFn'>) {
   return useQuery({
     queryKey: ['metrics', runId],
     queryFn: () => api.getRunMetrics(runId),

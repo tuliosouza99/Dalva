@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from dalva.api.models import ProjectCreate, ProjectResponse, ProjectSummary
+from dalva.api.models.projects import ProjectCreate, ProjectResponse, ProjectSummary
 from dalva.db.connection import get_db
 from dalva.db.schema import Metric, Project, Run
 
@@ -153,34 +153,34 @@ def get_project_tags(project_id: int, db: Session = Depends(get_db)):
 @router.get("/{project_id}/available-columns", response_model=list[str])
 def get_available_columns(project_id: int, db: Session = Depends(get_db)):
     """
-    Get available metric columns for the runs table (single-value float metrics).
+    Get available metric columns for the runs table.
 
-    Args:
-        project_id: Project ID
-        db: Database session
-
-    Returns:
-        List of metric paths that are single-value floats
+    Returns numeric (float/int) scalar metrics only. Bool and string metrics
+    are excluded since the table renders numeric columns.
     """
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Get all distinct metric paths that are single-value (step=None) and float type
-    # Join with runs to filter by project
     metrics = (
         db.query(Metric.attribute_path)
         .join(Run, Metric.run_id == Run.id)
         .filter(
             Run.project_id == project_id,
             Metric.step.is_(None),
-            Metric.float_value.isnot(None),
+            Metric.attribute_type.notin_(
+                [
+                    "bool",
+                    "bool_series",
+                    "string",
+                    "string_series",
+                ]
+            ),
         )
         .distinct()
         .all()
     )
 
-    # Extract paths and sort
     paths = sorted([m[0] for m in metrics])
     return paths
 

@@ -3,20 +3,18 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import distinct
 from sqlalchemy.orm import Session
 
-from dalva.api.models import MetricValue, MetricValuesResponse
+from dalva.api.models.metrics import (
+    MetricInfo,
+    MetricValue,
+    MetricValuesResponse,
+    SummaryMetricsRequest,
+)
 from dalva.db.connection import get_db
 from dalva.db.schema import Metric, Run
 
 router = APIRouter()
-
-
-class SummaryMetricsRequest(BaseModel):
-    run_ids: list[int]
-    metric_paths: list[str]
 
 
 @router.post("/summary")
@@ -114,23 +112,24 @@ def get_summary_metrics(
     return {str(run_id): metrics_dict for run_id, metrics_dict in result.items()}
 
 
-@router.get("/runs/{run_id}")
+@router.get("/runs/{run_id}", response_model=list[MetricInfo])
 def list_metrics(run_id: int, db: Session = Depends(get_db)):
     """
-    List all metric names for a run.
+    List all metrics for a run with their attribute types.
     """
     run = db.query(Run).filter(Run.id == run_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
     metrics = (
-        db.query(distinct(Metric.attribute_path))
+        db.query(Metric.attribute_path, Metric.attribute_type)
         .filter(Metric.run_id == run_id)
+        .distinct(Metric.attribute_path)
         .order_by(Metric.attribute_path)
         .all()
     )
 
-    return [m[0] for m in metrics]
+    return [MetricInfo(path=m[0], attribute_type=m[1]) for m in metrics]
 
 
 @router.get(

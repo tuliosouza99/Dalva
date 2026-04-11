@@ -6,8 +6,9 @@ Dalva's Python API lets you log experiments:
 
 - `dalva.init()` - Initialize a new run or resume an existing one
 - `run.log()` - Log metrics with steps
-- `run.finish()` - Complete the run
-- `dalva.table()` - Initialize a new table for tabular data
+- `run.create_table()` - Create a table linked to the run
+- `run.finish()` - Complete the run and all linked tables
+- `dalva.table()` - Initialize a standalone table (not linked to a run)
 - `table.log()` - Log a DataFrame to the table
 - `table.finish()` - Complete the table
 
@@ -209,6 +210,8 @@ See [Metrics & Value Types](../getting_started/metrics_and_types.md) for details
 run.finish()
 ```
 
+If you created tables via `run.create_table()`, they will be finished automatically before the run is marked complete. Calling `finish()` multiple times is safe.
+
 ## Run Object
 
 The `Run` object has these properties:
@@ -370,18 +373,26 @@ table.finish()
 
 ### Link a Table to a Run
 
-Pass the `run_id` to associate a table with a run. The link is visible in both the run detail and table detail pages.
+The recommended way to link a table to a run is `run.create_table()`. The table is automatically associated with the same project and run, and `run.finish()` will finish the table too.
 
 ```python
 run = dalva.init(project="my-project", name="training-run")
 # ... log metrics to run ...
 
+table = run.create_table(name="predictions", log_mode="IMMUTABLE")
+table.log(predictions_df)
+
+run.finish()  # auto-finishes the table too
+```
+
+You can also use `dalva.table()` with an explicit `run_id` for standalone tables:
+
+```python
 table = dalva.table(
     project="my-project",
     name="predictions",
-    run_id=run.run_id,  # link to the run
+    run_id=run.run_id,
 )
-
 table.log(predictions_df)
 table.finish()
 run.finish()
@@ -389,9 +400,13 @@ run.finish()
 
 ### Finish a Table
 
+For tables created via `run.create_table()`, calling `run.finish()` will automatically finish the table. You can also finish a table explicitly:
+
 ```python
 table.finish()
 ```
+
+Calling `finish()` multiple times is safe — it's a no-op after the first call.
 
 ### Table Object
 

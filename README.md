@@ -107,7 +107,7 @@ import dalva
 # Resume an existing run
 run = dalva.init(
     project="image-classification",
-    resume="resnet50-experiment"  # Pass run_id or run name to resume
+    resume_from="resnet50-experiment"  # Pass run_id or run name to resume
 )
 
 # Continue logging

@@ -59,6 +59,7 @@ class Table:
         self._log_mode = log_mode or "IMMUTABLE"
         self._run_id = run_id
         self._run_db_id: int | None = None
+        self._finished: bool = False
 
         self._verify_server_connection()
 
@@ -293,6 +294,8 @@ class Table:
             table.finish()
             ```
         """
+        if self._finished:
+            return
         client = self._get_client()
         try:
             response = client.post(f"/api/tables/{self._db_id}/finish")
@@ -303,6 +306,7 @@ class Table:
             raise ConnectionError(f"Failed to finish table on server: {e}")
         finally:
             self._client = None
+            self._finished = True
 
     def __repr__(self) -> str:
         """String representation."""

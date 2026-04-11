@@ -1,7 +1,8 @@
 """
 Example: Linked run and table.
 
-Creates a run and a table linked to it, logs data to both, and finishes them.
+Creates a run and a table linked to it via run.create_table(),
+logs data to both, then finishes with a single run.finish() call.
 
 Usage:
     dalva server start
@@ -32,13 +33,7 @@ for step in range(10):
         {"train/loss": loss, "train/accuracy": min(0.99, 0.5 + step * 0.05)}, step=step
     )
 
-table = dalva.table(
-    project="link-test",
-    name="Predictions",
-    run_id=run.run_id,
-    server_url=server_url,
-    log_mode="IMMUTABLE",
-)
+table = run.create_table(name="Predictions", log_mode="IMMUTABLE")
 
 df = pd.DataFrame(
     {
@@ -50,7 +45,6 @@ df = pd.DataFrame(
 )
 table.log(df)
 
-table.finish()
 run.finish()
 
 print(f"\nRun: {run.run_id}  |  Table: {table.table_id}")

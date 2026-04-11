@@ -1,260 +1,76 @@
 # AGENTS.md
 
-This file provides guidance to Agents when working with code in this repository.
+## Commands
 
-## Project Overview
+**Backend (from repo root, always use `uv`):**
+```bash
+uv sync                          # install deps
+uv run pytest backend/tests/ -v  # run all tests
+uv run ruff check                # lint
+uv run ruff format --check       # check formatting
+uv run uvicorn dalva.api.main:app --reload  # dev server
+```
 
-Dalva is a lightweight experiment tracker for deep learning. It consists of a FastAPI backend with a React/TypeScript frontend for visualizing experiments.
+**Frontend (from `frontend/`):**
+```bash
+npm install        # install deps
+npm run dev        # dev server (proxies /api to backend via VITE_BACKEND_URL, default localhost:8000)
+npm run build      # production build → ../static
+npm run build:check  # build with tsc type-check
+npm run lint       # eslint
+```
 
-## Development Commands
+**Note:** `npm test` does not exist — there is no frontend test runner.
 
-### CLI Installation
+**CLI (after `uv sync`):**
+```bash
+dalva server start              # production: build frontend + serve on single port
+dalva server dev                # dev: separate backend/frontend with hot reload
+dalva db info / backup / reset  # database management
+```
 
-Dalva provides a CLI tool for managing the server and database:
+## Layout
+
+```
+backend/src/dalva/    # Python package (hatch builds from here)
+  api/                # FastAPI app + routes + Pydantic models
+  cli/                # Click CLI (entry: dalva.cli.main:cli)
+  db/                 # SQLAlchemy schema + connection
+  services/           # Business logic (logger.py, tables.py)
+  static/             # Frontend build output bundled into wheel (gitignored)
+  utils/
+frontend/src/         # React 19 + TypeScript + Vite
+  api/client.ts       # Axios + React Query hooks (all API calls go here)
+  pages/              # Route pages
+  components/         # Reusable components
+  contexts/           # React contexts (ComparisonContext)
+frontend/build → ../static  # Vite outputs here (hatch_build.py copies into package)
+```
+
+## Critical Gotchas
+
+- **DuckDB + NullPool:** All engines use `NullPool` (not the default `QueuePool`). DuckDB allows only one writer at a time; connection pooling holds the write lock and blocks other processes. See `db/connection.py:266`.
+- **No `Base.metadata.create_all()`:** DuckDB doesn't support `SERIAL`. Tables are created via raw SQL with explicit `CREATE SEQUENCE` + `DEFAULT nextval(...)` in `db/connection.py:_create_duckdb_tables()` and `tests/conftest.py:_create_tables()`. If you add a table, update **both**.
+- **Schema changes = migration by ALTER:** The codebase uses `ALTER TABLE ... ADD COLUMN` wrapped in try/except for backward compatibility (see `connection.py:64`). There is no formal migration framework.
+- **Test isolation:** `conftest.py` sets `DALVA_DB_PATH=""` at module level, then creates a temp DuckDB per test function. Tests never touch `~/.dalva/`.
+- **CI builds frontend first:** The test workflow runs `npm install && npm run build` before `uv sync && pytest` because the hatch build hook needs static files.
+
+## Testing
 
 ```bash
-# Install dependencies (includes CLI)
-cd backend && uv sync
-
-# The `dalva` command is now available
-dalva --help
+uv run pytest backend/tests/ -v                    # all tests
+uv run pytest backend/tests/test_api.py -v         # single file
+uv run pytest -m unit                              # by marker
 ```
 
-### First-Time Setup
+Available markers (defined in `pyproject.toml`): `unit`, `integration`, `slow`, `db`, `api`.
 
-No setup wizard required. The database (`~/.dalva/dalva.duckdb`) is created automatically the first time you start the server or log an experiment.
+Test fixtures in `conftest.py`: `db_engine`, `db_session`, `api_client` (TestClient with patched `get_db`), `sample_project`, `sample_run`, `sample_metrics`, `sample_table`.
 
-### Quick Start (Production Mode)
+## Architecture Notes
 
-Dalva serves both backend and frontend from a single port in production:
-
-```bash
-# Start everything (automatically finds available port starting from 8000)
-dalva server start
-
-# Or specify a port
-dalva server start --port 8080
-
-# Disable auto-reload
-dalva server start --no-reload
-```
-
-This command:
-- Finds the first available port starting from 8000 (if not specified)
-- Builds the frontend
-- Serves everything from the backend on the selected port
-
-### Development Mode (with Hot Reload)
-
-For active frontend development with hot reload:
-
-```bash
-# Run backend and frontend separately
-dalva server dev
-
-# Or specify custom ports
-dalva server dev --backend-port 8001 --frontend-port 5174
-```
-
-This command:
-- Finds available ports for both backend (starting from 8000) and frontend (starting from 5173)
-- Starts backend and frontend on the selected ports
-- Frontend automatically proxies `/api` requests to the backend
-- Displays URLs for both servers
-
-**Note**: The old `start.sh` and `dev.sh` scripts are deprecated. Use the `dalva` CLI instead.
-
-### Backend (Python/FastAPI)
-
-The backend uses **uv** for Python dependency management. Always use uv commands:
-
-```bash
-# Install dependencies
-cd backend && uv sync
-
-# Run the server
-cd backend && uv run uvicorn dalva.api.main:app --reload
-
-# Run example scripts
-cd backend && uv run python examples/simple_experiment.py
-```
-
-### Frontend (React/TypeScript/Vite)
-
-```bash
-# Install dependencies
-cd frontend && npm install
-
-# Run development server (default: http://localhost:5173)
-cd frontend && npm run dev
-
-# Build for production (outputs to ../static)
-cd frontend && npm run build
-
-# Build with type checking
-cd frontend && npm run build:check
-
-# Lint code
-cd frontend && npm run lint
-```
-
-## Architecture Overview
-
-### Backend Architecture
-
-**Framework**: FastAPI with SQLAlchemy ORM
-
-**Database**:
-- DuckDB database stored at `~/.dalva/dalva.duckdb` (centralized location)
-- Can be overridden via `DALVA_DB_PATH` environment variable
-- Tables: `projects`, `runs`, `metrics`, `configs`, `custom_views`
-- Metrics use EAV (Entity-Attribute-Value) model for flexibility
-
-**Key Components**:
-- `src/dalva/__init__.py` - Public API (`init()`)
-- `src/dalva/run.py` - HTTP client for the REST API
-- `src/dalva/services/logger.py` - Plain functions for database operations
-- `src/dalva/api/main.py` - FastAPI app entry point
-- `src/dalva/api/routes/` - API route handlers (projects, runs, metrics)
-- `src/dalva/db/schema.py` - SQLAlchemy table definitions
-- `src/dalva/db/connection.py` - Database connection and initialization
-
-**Python API**:
-```python
-import dalva
-
-# Requires dalva server running: dalva server start
-# server_url defaults to http://localhost:8000
-
-run = dalva.init(
-    project="my-project",
-    name="my-run",
-    config={"lr": 0.01}
-)
-run.log({"loss": 0.5}, step=0)
-run.finish()
-
-# Resume an existing run
-run = dalva.init(project="my-project", resume="RUN-1")
-run.log({"loss": 0.3}, step=100)
-run.finish()
-```
-
-### Frontend Architecture
-
-**Framework**: React 19 with TypeScript, Vite build tool
-
-**Key Libraries**:
-- React Router v7 - Client-side routing
-- TanStack Query (React Query) v5 - Data fetching and caching
-- TanStack Virtual - Virtualized tables for performance
-- Plotly.js - Interactive charts
-- Tailwind CSS v4 - Styling
-- React Grid Layout - Dashboard widget layout
-
-**Directory Structure**:
-- `src/api/client.ts` - Axios API client and React Query hooks
-- `src/pages/` - Page components (ProjectsPage, RunsPage, RunDetailPage, CompareRunsPage)
-- `src/components/` - Reusable components
-  - `Layout.tsx` - Main app layout with navigation
-  - `RunsTable/` - Virtualized table for runs list
-  - `Charts/` - Metric visualization components
-
-**Routing**:
-- `/projects` - List all projects
-- `/projects/:projectId/runs` - List runs for a project
-- `/projects/:projectId/dashboard` - Project dashboard
-- `/runs/:runId` - Run detail page with metrics
-- `/compare` - Compare runs side-by-side
-
-**Data Flow**:
-- React Query hooks (defined in `client.ts`) handle all API calls
-- 30-second stale time, no refetch on window focus
-- Virtualized tables for efficient rendering of large datasets
-
-### API Endpoints
-
-**Projects**:
-- `GET /api/projects` - List all projects
-- `GET /api/projects/{project_id}` - Get project with summary stats
-- `DELETE /api/projects/{project_id}` - Delete project
-
-**Runs**:
-- `GET /api/runs` - List runs (supports filters, pagination, sorting)
-- `GET /api/runs/{run_id}` - Get run details
-- `GET /api/runs/{run_id}/summary` - Get run summary with metrics
-- `GET /api/runs/{run_id}/config` - Get run configuration
-- `POST /api/runs/init` - Initialize a new run (SDK-facing)
-- `POST /api/runs/{run_id}/log` - Log metrics for a run
-- `POST /api/runs/{run_id}/finish` - Mark run complete
-- `DELETE /api/runs/{run_id}` - Delete run
-
-**Metrics**:
-- `GET /api/metrics/runs/{run_id}` - List all metric names for a run
-- `GET /api/metrics/runs/{run_id}/metric/{metric_path}` - Get metric values
-
-## Database Management
-
-**Check statistics**:
-```bash
-dalva db info
-```
-
-**Backup**:
-```bash
-dalva db backup --output ~/backups/dalva-backup.duckdb
-```
-
-**Reset (deletes all data)**:
-```bash
-dalva db reset
-```
-
-## Development Workflow
-
-### Production Mode (Single Port)
-
-Run everything from a single command:
-
-```bash
-dalva server start
-```
-
-The backend serves the built frontend from the `/static` directory. The CLI automatically finds an available port starting from 8000 and displays the URL.
-
-### Development Mode (Hot Reload)
-
-For active development with frontend hot reload:
-
-```bash
-dalva server dev
-```
-
-The CLI automatically finds available ports for both servers:
-- Backend: starts from port 8000
-- Frontend: starts from port 5173
-- Frontend automatically proxies `/api` requests to the backend's port
-
-### Adding New Features
-
-**Backend**:
-1. Update `db/schema.py` if database changes are needed
-2. Add route handlers in `api/routes/`
-3. Register router in `api/main.py`
-4. Add/update service methods in `services/`
-
-**Frontend**:
-1. Add API functions and hooks to `api/client.ts`
-2. Create page components in `pages/`
-3. Add reusable components in `components/`
-4. Update routing in `App.tsx`
-
-## Key Design Decisions
-
-- **Database Engine**: Uses DuckDB instead of SQLite for better analytics performance
-- **Metrics Storage**: Uses EAV model to support arbitrary metric structures without schema changes
-- **Database Location**: Centralized at `~/.dalva/dalva.duckdb` to access experiments from any project
-- **CLI Management**: Unified `dalva` CLI command for server management, database operations, and configuration
-- **Frontend Performance**: Virtualized tables and React Query caching for handling large datasets
-- **Resume Support**: Runs can be resumed using `resume="allow"` or `resume="must"` modes
-- **Client-Server Architecture**: SDK is a thin HTTP client; all data flows through the REST API to the server
+- **Config priority:** env vars > `~/.dalva/config.json` > defaults. Override DB path with `DALVA_DB_PATH`.
+- **Frontend dev proxy:** Vite proxies `/api` to `VITE_BACKEND_URL` (default `http://localhost:8000`).
+- **SPA serving:** In production, FastAPI serves built frontend from `static/`. A catch-all route returns `index.html` for non-`/api` paths.
+- **Publishing:** `hatch_build.py` copies `static/` into `backend/src/dalva/static/` before wheel build. Frontend must be pre-built (`npm run build`).
+- **Tables feature:** `DalvaTable` / `DalvaTableRow` support tabular data alongside metrics. Has its own API routes (`/api/tables`), service (`services/tables.py`), and frontend pages (`TablesPage`, `TableDetailPage`).

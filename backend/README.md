@@ -127,7 +127,7 @@ import dalva
 run = dalva.init(
     project="my-project",
     name="long-running-experiment",
-    resume="allow"  # "allow" or "must"
+    resume_from="allow"  # "allow" or "must"
 )
 
 dalva.log({"loss": 0.3}, step=100)

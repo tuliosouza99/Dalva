@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ComparisonProvider } from './contexts/ComparisonContext';
+import { ComparisonProvider } from './contexts/ComparisonProvider';
 import Layout from './components/Layout';
 import ProjectsPage from './pages/ProjectsPage';
 import RunsPage from './pages/RunsPage';

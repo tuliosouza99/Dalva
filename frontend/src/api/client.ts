@@ -21,10 +21,15 @@ export interface Run {
   run_id: string;
   name: string;
   group_name: string | null;
-  tags: string | null;  // Comma-separated tags
+  tags: string | null;
   state: 'running' | 'completed' | 'failed';
   created_at: string;
   updated_at: string;
+}
+
+export interface RunSummary extends Run {
+  metrics: Record<string, unknown>;
+  config: Record<string, unknown>;
 }
 
 export interface RunsListResponse {
@@ -162,7 +167,7 @@ export const api = {
     return data;
   },
 
-  getRunSummary: async (runId: number) => {
+  getRunSummary: async (runId: number): Promise<RunSummary> => {
     const { data } = await apiClient.get(`/runs/${runId}/summary`);
     return data;
   },
@@ -332,7 +337,7 @@ export function useRun(runId: number, options?: Omit<UseQueryOptions<Run, Error>
   });
 }
 
-export function useRunSummary(runId: number, options?: Omit<UseQueryOptions<any, Error>, 'queryKey' | 'queryFn'>) {
+export function useRunSummary(runId: number, options?: Omit<UseQueryOptions<RunSummary, Error>, 'queryKey' | 'queryFn'>) {
   return useQuery({
     queryKey: ['runs', runId, 'summary'],
     queryFn: () => api.getRunSummary(runId),

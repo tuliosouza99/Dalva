@@ -120,7 +120,7 @@ export default function CategoryAreaChart({
         line: {
           color: AREA_COLORS[idx % AREA_COLORS.length],
           width: 1,
-          shape: 'hv' as const,
+          shape: 'spline' as const,
         },
         hovertemplate:
           '<b>Step:</b> %{x}<br><b>' +

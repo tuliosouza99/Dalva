@@ -35,12 +35,43 @@ for step in range(10):
 
 table = run.create_table(name="Predictions", log_mode="IMMUTABLE")
 
+labels = [
+    "cat",
+    "dog",
+    "bird",
+    "fish",
+    "horse",
+    "rabbit",
+    "snake",
+    "turtle",
+    "frog",
+    "lizard",
+    "cat",
+    "dog",
+    "bird",
+    "horse",
+    "rabbit",
+    "snake",
+    "turtle",
+    "cat",
+    "dog",
+    "fish",
+    "frog",
+    "lizard",
+    "cat",
+    "horse",
+    "rabbit",
+]
+
 df = pd.DataFrame(
     {
-        "sample_id": range(5),
-        "label": ["cat", "dog", "bird", "cat", "dog"],
-        "confidence": [0.95, 0.87, 0.72, 0.91, 0.83],
-        "correct": [True, True, False, True, False],
+        "sample_id": range(25),
+        "label": labels,
+        "confidence": [
+            round(0.5 + i * 0.02 + random.uniform(-0.05, 0.05), 3) for i in range(25)
+        ],
+        "score": [round(random.uniform(0, 100), 1) for _ in range(25)],
+        "correct": [random.random() > 0.3 for _ in range(25)],
     }
 )
 table.log(df)

@@ -1,11 +1,17 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useState } from 'react';
-import { useTable, useTableData, useRun, useProject, useDeleteTable, useUpdateTableState } from '../api/client';
-import { ArrowUpDown, ArrowUp, ArrowDown, Link2, ChevronLeft, ChevronRight, Trash2, Table2 } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { useTable, useTableData, useTableStats, useRun, useProject, useDeleteTable, useUpdateTableState } from '../api/client';
+import type { ColumnFilter } from '../api/client';
+import { Link2, ChevronLeft, ChevronRight, Trash2, Table2, FilterX } from 'lucide-react';
+import ColumnHeader from '../components/DataTable/ColumnHeader';
 
-function SortIcon({ column, sortBy, sortOrder }: { column: string; sortBy: string | null; sortOrder: string }) {
-  if (sortBy !== column) return <ArrowUpDown size={12} className="opacity-50" />;
-  return sortOrder === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
 }
 
 export default function TableDetailPage() {
@@ -19,6 +25,9 @@ export default function TableDetailPage() {
   const [pageSize, setPageSize] = useState(50);
   const [sortBy, setSortBy] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [filters, setFilters] = useState<ColumnFilter[]>([]);
+
+  const debouncedFilters = useDebounce(filters, 400);
 
   const { data: table, isLoading: tableLoading } = useTable(tableIdNum);
   const { data: tableData, isLoading: dataLoading } = useTableData(tableIdNum, {
@@ -26,6 +35,10 @@ export default function TableDetailPage() {
     offset: page * pageSize,
     sort_by: sortBy || undefined,
     sort_order: sortOrder,
+    filters: filters.length > 0 ? filters : undefined,
+  });
+  const { data: tableStats } = useTableStats(tableIdNum, {
+    filters: debouncedFilters.length > 0 ? debouncedFilters : undefined,
   });
   const deleteTableMutation = useDeleteTable();
   const updateTableStateMutation = useUpdateTableState();
@@ -34,6 +47,7 @@ export default function TableDetailPage() {
   const { data: project } = useProject(table?.project_id || 0);
 
   const totalPages = Math.ceil((tableData?.total || 0) / pageSize);
+  const activeFilterCount = filters.length;
 
   const handleSort = (column: string) => {
     if (sortBy === column) {
@@ -43,6 +57,27 @@ export default function TableDetailPage() {
       setSortOrder('asc');
     }
     setPage(0);
+  };
+
+  const handleColumnFilter = useCallback((filter: ColumnFilter | undefined, columnName?: string) => {
+    setFilters((prev) => {
+      const col = filter?.column ?? columnName ?? '';
+      const without = prev.filter((f) => f.column !== col);
+      if (filter) {
+        return [...without, filter];
+      }
+      return without;
+    });
+    setPage(0);
+  }, []);
+
+  const clearAllFilters = () => {
+    setFilters([]);
+    setPage(0);
+  };
+
+  const getColumnFilter = (colName: string): ColumnFilter | undefined => {
+    return filters.find((f) => f.column === colName);
   };
 
   const renderCellValue = (value: unknown, type: string): React.ReactNode => {
@@ -225,8 +260,25 @@ export default function TableDetailPage() {
             <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               {tableData?.total ?? 0} rows
             </span>
+            {activeFilterCount > 0 && (
+              <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--accent-muted)', color: 'var(--accent)' }}>
+                {activeFilterCount} filter{activeFilterCount > 1 ? 's' : ''}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-4">
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearAllFilters}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors"
+                style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent)'}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+              >
+                <FilterX size={11} />
+                Clear
+              </button>
+            )}
             <div className="flex items-center gap-2">
               <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Per page:</span>
               <select
@@ -270,18 +322,18 @@ export default function TableDetailPage() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[600px]">
             <thead>
-              <tr className="table-header">
+              <tr>
                 {columns.map((col) => (
-                  <th
+                  <ColumnHeader
                     key={col.name}
-                    className="px-4 py-3 text-left cursor-pointer hover:text-[var(--text-primary)] transition-colors"
-                    onClick={() => handleSort(col.name)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span>{col.name}</span>
-                      <SortIcon column={col.name} sortBy={sortBy} sortOrder={sortOrder} />
-                    </div>
-                  </th>
+                    column={col}
+                    stats={tableStats?.columns[col.name]}
+                    sortBy={sortBy}
+                    sortOrder={sortOrder}
+                    filter={getColumnFilter(col.name)}
+                    onSort={handleSort}
+                    onFilter={handleColumnFilter}
+                  />
                 ))}
               </tr>
             </thead>
@@ -296,7 +348,18 @@ export default function TableDetailPage() {
                 <tr>
                   <td colSpan={columns.length} className="px-4 py-16 text-center">
                     <Table2 size={32} className="mx-auto mb-3" style={{ color: 'var(--text-tertiary)' }} />
-                    <p className="text-body">No data in this table</p>
+                    <p className="text-body">
+                      {activeFilterCount > 0 ? 'No rows match filters' : 'No data in this table'}
+                    </p>
+                    {activeFilterCount > 0 && (
+                      <button
+                        onClick={clearAllFilters}
+                        className="mt-2 text-sm underline"
+                        style={{ color: 'var(--accent)' }}
+                      >
+                        Clear all filters
+                      </button>
+                    )}
                   </td>
                 </tr>
               ) : (

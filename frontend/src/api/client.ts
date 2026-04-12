@@ -125,6 +125,57 @@ export interface TableFilters {
   sort_order?: 'asc' | 'desc';
 }
 
+export interface ColumnFilter {
+  column: string;
+  op: 'between' | 'contains' | 'eq';
+  min?: number;
+  max?: number;
+  value?: unknown;
+}
+
+export interface NumericBin {
+  start: number;
+  end: number;
+  count: number;
+}
+
+export interface NumericStats {
+  type: 'numeric';
+  min: number | null;
+  max: number | null;
+  bins: NumericBin[];
+  null_count: number;
+}
+
+export interface BoolStats {
+  type: 'bool';
+  counts: { true: number; false: number };
+  null_count: number;
+}
+
+export interface StringTopValue {
+  value: string;
+  count: number;
+}
+
+export interface StringStats {
+  type: 'string';
+  top_values: StringTopValue[];
+  unique_count: number;
+  null_count: number;
+}
+
+export interface SkippedStats {
+  type: 'date' | 'list' | 'dict';
+  null_count: number;
+}
+
+export type ColumnStats = NumericStats | BoolStats | StringStats | SkippedStats;
+
+export interface TableStatsResponse {
+  columns: Record<string, ColumnStats>;
+}
+
 // API Client
 const apiClient = axios.create({
   baseURL: '/api',
@@ -242,9 +293,27 @@ export const api = {
 
   getTableData: async (
     tableId: number,
-    params?: { version?: number; limit?: number; offset?: number; sort_by?: string; sort_order?: 'asc' | 'desc' }
+    params?: { version?: number; limit?: number; offset?: number; sort_by?: string; sort_order?: 'asc' | 'desc'; filters?: ColumnFilter[] }
   ): Promise<TableDataResponse> => {
-    const { data } = await apiClient.get(`/tables/${tableId}/data`, { params });
+    const queryParams: Record<string, string> = {};
+    if (params?.version !== undefined) queryParams.version = String(params.version);
+    if (params?.limit !== undefined) queryParams.limit = String(params.limit);
+    if (params?.offset !== undefined) queryParams.offset = String(params.offset);
+    if (params?.sort_by) queryParams.sort_by = params.sort_by;
+    if (params?.sort_order) queryParams.sort_order = params.sort_order;
+    if (params?.filters && params.filters.length > 0) queryParams.filters = JSON.stringify(params.filters);
+    const { data } = await apiClient.get(`/tables/${tableId}/data`, { params: queryParams });
+    return data;
+  },
+
+  getTableStats: async (
+    tableId: number,
+    params?: { version?: number; filters?: ColumnFilter[] }
+  ): Promise<TableStatsResponse> => {
+    const queryParams: Record<string, string> = {};
+    if (params?.version !== undefined) queryParams.version = String(params.version);
+    if (params?.filters && params.filters.length > 0) queryParams.filters = JSON.stringify(params.filters);
+    const { data } = await apiClient.get(`/tables/${tableId}/stats`, { params: queryParams });
     return data;
   },
 
@@ -453,13 +522,27 @@ export function useTable(tableId: number, options?: Omit<UseQueryOptions<DalvaTa
 
 export function useTableData(
   tableId: number,
-  params?: { version?: number; limit?: number; offset?: number; sort_by?: string; sort_order?: 'asc' | 'desc' },
+  params?: { version?: number; limit?: number; offset?: number; sort_by?: string; sort_order?: 'asc' | 'desc'; filters?: ColumnFilter[] },
   options?: Omit<UseQueryOptions<TableDataResponse, Error>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery({
     queryKey: ['tables', tableId, 'data', params],
     queryFn: () => api.getTableData(tableId, params),
     enabled: !!tableId,
+    ...options,
+  });
+}
+
+export function useTableStats(
+  tableId: number,
+  params?: { version?: number; filters?: ColumnFilter[] },
+  options?: Omit<UseQueryOptions<TableStatsResponse, Error>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: ['tables', tableId, 'stats', params],
+    queryFn: () => api.getTableStats(tableId, params),
+    enabled: !!tableId,
+    staleTime: 30_000,
     ...options,
   });
 }

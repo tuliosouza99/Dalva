@@ -1,5 +1,6 @@
 """API routes for tables."""
 
+import json
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from dalva.api.models.tables import (
     ColumnSchema,
+    ColumnFilter,
     FinishTableResponse,
     InitTableRequest,
     InitTableResponse,
@@ -17,6 +19,7 @@ from dalva.api.models.tables import (
     TableDataResponse,
     TableListResponse,
     TableResponse,
+    TableStatsResponse,
 )
 from dalva.db.connection import get_db
 from dalva.db.schema import DalvaTable, DalvaTableRow, Project
@@ -26,6 +29,7 @@ from dalva.services.tables import (
     delete_table,
     finish_table,
     get_table_data,
+    get_table_stats,
     get_tables_for_project,
     get_tables_for_run,
 )
@@ -91,12 +95,22 @@ def get_table_data_endpoint(
     offset: int = 0,
     sort_by: Optional[str] = None,
     sort_order: str = "asc",
+    filters: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     """Get table data with pagination, sorting, and filtering."""
     table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
     if not table:
         raise HTTPException(status_code=404, detail="Table not found")
+
+    parsed_filters = None
+    if filters:
+        try:
+            raw = json.loads(filters)
+            validated = [ColumnFilter(**f) for f in raw]
+            parsed_filters = [f.model_dump() for f in validated]
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(status_code=400, detail=f"Invalid filters: {e}")
 
     try:
         rows, total, column_schema = get_table_data(
@@ -106,6 +120,7 @@ def get_table_data_endpoint(
             offset=offset,
             sort_by=sort_by,
             sort_order=sort_order,
+            filters=parsed_filters,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -117,6 +132,39 @@ def get_table_data_endpoint(
         column_schema=[ColumnSchema(**c) for c in column_schema],
         has_more=has_more,
     )
+
+
+@router.get("/{table_id}/stats", response_model=TableStatsResponse)
+def get_table_stats_endpoint(
+    table_id: int,
+    version: Optional[int] = None,
+    filters: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Get per-column statistics for a table."""
+    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+
+    parsed_filters = None
+    if filters:
+        try:
+            raw = json.loads(filters)
+            validated = [ColumnFilter(**f) for f in raw]
+            parsed_filters = [f.model_dump() for f in validated]
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(status_code=400, detail=f"Invalid filters: {e}")
+
+    try:
+        stats = get_table_stats(
+            table_db_id=table_id,
+            version=version,
+            filters=parsed_filters,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return TableStatsResponse(columns=stats)
 
 
 @router.post("/init", response_model=InitTableResponse)

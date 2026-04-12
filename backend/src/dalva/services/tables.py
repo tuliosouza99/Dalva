@@ -7,9 +7,9 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, text
 
-from dalva.db.connection import session_scope
+from dalva.db.connection import get_engine, session_scope
 from dalva.db.schema import DalvaTable, DalvaTableRow, Project
 
 
@@ -193,7 +193,7 @@ def get_table_data(
     offset: int = 0,
     sort_by: Optional[str] = None,
     sort_order: str = "asc",
-    filters: Optional[dict[str, Any]] = None,
+    filters: Optional[list[dict[str, Any]]] = None,
 ) -> tuple[list[dict[str, Any]], int, list[dict[str, str]]]:
     """Get table data with pagination, sorting, and filtering.
 
@@ -204,57 +204,58 @@ def get_table_data(
         offset: Number of rows to skip
         sort_by: Column name to sort by
         sort_order: 'asc' or 'desc'
-        filters: Dictionary of column -> filter value
+        filters: List of filter dicts with column/op/value keys
 
     Returns:
         Tuple of (rows, total_count, column_schema)
     """
-    with session_scope() as db:
-        table = db.query(DalvaTable).filter(DalvaTable.id == table_db_id).first()
+    engine = get_engine()
+    with engine.connect() as conn:
+        table = conn.execute(
+            text("SELECT column_schema FROM dalva_tables WHERE id = :tid"),
+            {"tid": table_db_id},
+        ).fetchone()
         if not table:
             raise ValueError(f"Table {table_db_id} not found")
 
-        column_schema = json.loads(table.column_schema) if table.column_schema else []
-        query = db.query(DalvaTableRow).filter(DalvaTableRow.table_id == table_db_id)
+        column_schema = json.loads(table[0]) if table[0] else []
 
-        if version is not None:
-            query = query.filter(DalvaTableRow.version == version)
-        else:
-            max_version = (
-                db.query(DalvaTableRow.version)
-                .filter(DalvaTableRow.table_id == table_db_id)
-                .order_by(DalvaTableRow.version.desc())
-                .first()
-            )
-            if max_version:
-                query = query.filter(DalvaTableRow.version == max_version[0])
+        ver_where, ver_params = _get_version_filter(table_db_id, version)
 
-        rows_raw = query.all()
+        filter_clause = ""
+        filter_params: dict[str, Any] = {}
+        if filters:
+            where, params = _build_filter_sql(filters)
+            filter_clause = f" AND {where}"
+            filter_params = params
 
-        rows = []
-        for row in rows_raw:
-            row_dict = json.loads(row.row_data)
-            if filters:
-                match = True
-                for col, val in filters.items():
-                    if col in row_dict and row_dict[col] != val:
-                        match = False
-                        break
-                if match:
-                    rows.append(row_dict)
-            else:
-                rows.append(row_dict)
+        base_params = {**ver_params, **filter_params}
 
+        count_sql = text(
+            f"SELECT COUNT(*) FROM dalva_table_rows WHERE {ver_where}{filter_clause}"
+        )
+        total = conn.execute(count_sql, base_params).scalar()
+
+        order_clause = ""
         if sort_by:
-            rows.sort(
-                key=lambda r: (r.get(sort_by) is None, r.get(sort_by, "")),
-                reverse=(sort_order == "desc"),
+            direction = "DESC" if sort_order == "desc" else "ASC"
+            order_clause = (
+                f" ORDER BY json_extract(row_data, '$.\"{sort_by}\"') {direction}"
             )
 
-        total = len(rows)
-        paginated = rows[offset : offset + limit]
+        data_sql = text(f"""
+            SELECT row_data FROM dalva_table_rows
+            WHERE {ver_where}{filter_clause}
+            {order_clause}
+            LIMIT :lim OFFSET :offs
+        """)
+        rows_raw = conn.execute(
+            data_sql, {**base_params, "lim": limit, "offs": offset}
+        ).fetchall()
 
-        return paginated, total, column_schema
+        rows = [json.loads(r[0]) for r in rows_raw]
+
+        return rows, total or 0, column_schema
 
 
 def finish_table(table_db_id: int) -> str:
@@ -348,3 +349,291 @@ def delete_table(table_db_id: int) -> None:
 
         db.delete(table)
         db.flush()
+
+
+def _build_filter_sql(
+    filters: list[dict[str, Any]], param_offset: int = 0
+) -> tuple[str, dict[str, Any]]:
+    """Build SQL WHERE clauses from filter definitions.
+
+    Args:
+        filters: List of filter dicts with column/op/value keys
+        param_offset: Starting index for named parameters (avoids collisions)
+
+    Returns:
+        Tuple of (sql_fragment, params_dict)
+    """
+    clauses = []
+    params: dict[str, Any] = {}
+    for i, f in enumerate(filters):
+        col = f["column"]
+        op = f["op"]
+        idx = param_offset + i
+        if op == "between":
+            if f.get("min") is not None and f.get("max") is not None:
+                clauses.append(
+                    f"CAST(json_extract(row_data, '$.\"{col}\"') AS DOUBLE) "
+                    f"BETWEEN :fmin{idx} AND :fmax{idx}"
+                )
+                params[f"fmin{idx}"] = f["min"]
+                params[f"fmax{idx}"] = f["max"]
+            elif f.get("min") is not None:
+                clauses.append(
+                    f"CAST(json_extract(row_data, '$.\"{col}\"') AS DOUBLE) >= :fmin{idx}"
+                )
+                params[f"fmin{idx}"] = f["min"]
+            elif f.get("max") is not None:
+                clauses.append(
+                    f"CAST(json_extract(row_data, '$.\"{col}\"') AS DOUBLE) <= :fmax{idx}"
+                )
+                params[f"fmax{idx}"] = f["max"]
+            else:
+                raise ValueError("Between filter requires at least min or max")
+        elif op == "contains":
+            clauses.append(
+                f"contains(lower(json_extract_string(row_data, '$.\"{col}\"')), lower(:fval{idx}))"
+            )
+            params[f"fval{idx}"] = str(f["value"])
+        elif op == "eq":
+            clauses.append(f"json_extract(row_data, '$.\"{col}\"') = :fval{idx}")
+            params[f"fval{idx}"] = f["value"]
+        else:
+            raise ValueError(f"Unsupported filter operator: {op}")
+
+    where = " AND ".join(clauses)
+    return where, params
+
+
+def _get_version_filter(
+    table_db_id: int, version: Optional[int] = None
+) -> tuple[str, dict[str, Any]]:
+    """Get version filter SQL for table rows.
+
+    Returns:
+        Tuple of (where_clause, params_dict)
+    """
+    if version is not None:
+        return "table_id = :tid AND version = :ver", {
+            "tid": table_db_id,
+            "ver": version,
+        }
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("SELECT MAX(version) FROM dalva_table_rows WHERE table_id = :tid"),
+            {"tid": table_db_id},
+        ).fetchone()
+    if result and result[0] is not None:
+        return "table_id = :tid AND version = :ver", {
+            "tid": table_db_id,
+            "ver": result[0],
+        }
+    return "table_id = :tid AND version = -1", {"tid": table_db_id}
+
+
+def get_table_stats(
+    table_db_id: int,
+    version: Optional[int] = None,
+    filters: Optional[list[dict[str, Any]]] = None,
+) -> dict[str, Any]:
+    """Compute per-column statistics for a table using DuckDB SQL.
+
+    Args:
+        table_db_id: Internal table ID
+        version: Specific version to analyze (None for latest)
+        filters: Optional list of filter dicts to apply before computing stats
+
+    Returns:
+        Dict mapping column name -> stats dict
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        table = conn.execute(
+            text("SELECT column_schema FROM dalva_tables WHERE id = :tid"),
+            {"tid": table_db_id},
+        ).fetchone()
+        if not table:
+            raise ValueError(f"Table {table_db_id} not found")
+
+        column_schema = json.loads(table[0]) if table[0] else []
+        if not column_schema:
+            return {}
+
+        ver_where, ver_params = _get_version_filter(table_db_id, version)
+
+        filter_clause = ""
+        filter_params: dict[str, Any] = {}
+        if filters:
+            where, params = _build_filter_sql(filters)
+            filter_clause = f" AND {where}"
+            filter_params = params
+
+        base_params = {**ver_params, **filter_params}
+
+        stats: dict[str, Any] = {}
+
+        for col in column_schema:
+            col_name = col["name"]
+            col_type = col["type"]
+
+            if col_type in ("int", "float"):
+                sql = text(f"""
+                    SELECT
+                        MIN(CAST(json_extract(row_data, '$.\"{col_name}\"') AS DOUBLE)),
+                        MAX(CAST(json_extract(row_data, '$.\"{col_name}\"') AS DOUBLE)),
+                        COUNT(*) FILTER (
+                            json_type(row_data, '$.\"{col_name}\"') IS NOT NULL
+                            AND json_type(row_data, '$.\"{col_name}\"') != 'NULL'
+                        ),
+                        COUNT(*) FILTER (
+                            json_extract(row_data, '$.\"{col_name}\"') IS NULL
+                            OR json_type(row_data, '$.\"{col_name}\"') = 'NULL'
+                        )
+                    FROM dalva_table_rows
+                    WHERE {ver_where}{filter_clause}
+                """)
+                row = conn.execute(sql, base_params).fetchone()
+                if row and row[2] > 0:
+                    min_val = float(row[0])
+                    max_val = float(row[1])
+                    non_null = int(row[2])
+                    null_count = int(row[3])
+
+                    num_bins = min(10, non_null)
+                    bin_width = (
+                        (max_val - min_val) / num_bins
+                        if num_bins > 0 and max_val > min_val
+                        else 1.0
+                    )
+
+                    if num_bins > 0 and max_val > min_val:
+                        bin_params = {
+                            **base_params,
+                            "bmin": min_val,
+                            "bwidth": bin_width,
+                        }
+                        bin_sql = text(f"""
+                            SELECT
+                                FLOOR((CAST(json_extract(row_data, '$.\"{col_name}\"') AS DOUBLE) - :bmin) / :bwidth) AS bin_idx,
+                                COUNT(*) AS cnt
+                            FROM dalva_table_rows
+                            WHERE {ver_where}{filter_clause}
+                              AND json_type(row_data, '$.\"{col_name}\"') IS NOT NULL
+                              AND json_type(row_data, '$.\"{col_name}\"') != 'NULL'
+                            GROUP BY bin_idx
+                            ORDER BY bin_idx
+                        """)
+                        bin_rows = conn.execute(bin_sql, bin_params).fetchall()
+
+                        bins = []
+                        for bin_idx_raw, cnt in bin_rows:
+                            bin_idx = int(bin_idx_raw) if bin_idx_raw is not None else 0
+                            start = min_val + bin_idx * bin_width
+                            end = start + bin_width
+                            bins.append({"start": start, "end": end, "count": int(cnt)})
+                    else:
+                        bins = [{"start": min_val, "end": max_val, "count": non_null}]
+
+                    stats[col_name] = {
+                        "type": "numeric",
+                        "min": min_val,
+                        "max": max_val,
+                        "bins": bins,
+                        "null_count": null_count,
+                    }
+                else:
+                    null_count = int(row[3]) if row else 0
+                    stats[col_name] = {
+                        "type": "numeric",
+                        "min": None,
+                        "max": None,
+                        "bins": [],
+                        "null_count": null_count,
+                    }
+
+            elif col_type == "bool":
+                sql = text(f"""
+                    SELECT
+                        COUNT(*) FILTER (json_extract(row_data, '$.\"{col_name}\"') = true),
+                        COUNT(*) FILTER (json_extract(row_data, '$.\"{col_name}\"') = false),
+                        COUNT(*) FILTER (
+                            json_extract(row_data, '$.\"{col_name}\"') IS NULL
+                            OR json_type(row_data, '$.\"{col_name}\"') = 'NULL'
+                        )
+                    FROM dalva_table_rows
+                    WHERE {ver_where}{filter_clause}
+                """)
+                row = conn.execute(sql, base_params).fetchone()
+                stats[col_name] = {
+                    "type": "bool",
+                    "counts": {
+                        "true": int(row[0]) if row else 0,
+                        "false": int(row[1]) if row else 0,
+                    },
+                    "null_count": int(row[2]) if row else 0,
+                }
+
+            elif col_type == "str":
+                sql_unique = text(f"""
+                    SELECT
+                        COUNT(DISTINCT json_extract_string(row_data, '$.\"{col_name}\"')),
+                        COUNT(*) FILTER (
+                            json_extract(row_data, '$.\"{col_name}\"') IS NULL
+                            OR json_type(row_data, '$.\"{col_name}\"') = 'NULL'
+                        ),
+                        COUNT(*) FILTER (
+                            json_extract(row_data, '$.\"{col_name}\"') IS NOT NULL
+                            AND json_type(row_data, '$.\"{col_name}\"') != 'NULL'
+                        )
+                    FROM dalva_table_rows
+                    WHERE {ver_where}{filter_clause}
+                """)
+                unique_row = conn.execute(sql_unique, base_params).fetchone()
+
+                sql_top = text(f"""
+                    SELECT
+                        json_extract_string(row_data, '$.\"{col_name}\"') AS val,
+                        COUNT(*) AS cnt
+                    FROM dalva_table_rows
+                    WHERE {ver_where}{filter_clause}
+                      AND json_type(row_data, '$.\"{col_name}\"') IS NOT NULL
+                      AND json_type(row_data, '$.\"{col_name}\"') != 'NULL'
+                    GROUP BY val
+                    ORDER BY cnt DESC
+                    LIMIT 4
+                """)
+                top_rows = conn.execute(sql_top, base_params).fetchall()
+
+                distinct_count = int(unique_row[0]) if unique_row else 0
+                total_non_null = int(unique_row[2]) if unique_row else 0
+                shown_count = sum(int(r[1]) for r in top_rows)
+                other_count = total_non_null - shown_count
+
+                top_values = [{"value": r[0], "count": int(r[1])} for r in top_rows]
+                if other_count > 0:
+                    top_values.append({"value": "(other)", "count": other_count})
+
+                stats[col_name] = {
+                    "type": "string",
+                    "top_values": top_values,
+                    "unique_count": distinct_count,
+                    "null_count": int(unique_row[1]) if unique_row else 0,
+                }
+
+            else:
+                sql_null = text(f"""
+                    SELECT COUNT(*) FILTER (
+                        json_extract(row_data, '$.\"{col_name}\"') IS NULL
+                        OR json_type(row_data, '$.\"{col_name}\"') = 'NULL'
+                    )
+                    FROM dalva_table_rows
+                    WHERE {ver_where}{filter_clause}
+                """)
+                null_count = conn.execute(sql_null, base_params).scalar()
+                stats[col_name] = {
+                    "type": col_type,
+                    "null_count": int(null_count) if null_count else 0,
+                }
+
+        return stats

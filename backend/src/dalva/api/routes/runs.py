@@ -12,6 +12,7 @@ from dalva.api.models.runs import (
     FinishResponse,
     InitRunRequest,
     InitRunResponse,
+    LogConfigRequest,
     LogMetricsRequest,
     LogResponse,
     RunResponse,
@@ -21,7 +22,7 @@ from dalva.api.models.runs import (
 from dalva.api.models.tables import TableResponse
 from dalva.db.connection import get_db, next_id
 from dalva.db.schema import Config, Metric, Run
-from dalva.services.logger import create_run
+from dalva.services.logger import _log_config, create_run
 from dalva.services.tables import get_tables_for_run
 
 router = APIRouter()
@@ -137,7 +138,10 @@ def get_run_summary(run_id: int, db: Session = Depends(get_db)):
 
     # Get latest metrics (summary metrics with step=None)
     summary_metrics = (
-        db.query(Metric).filter(Metric.run_id == run_id, Metric.step.is_(None)).all()
+        db.query(Metric)
+        .filter(Metric.run_id == run_id, Metric.step.is_(None))
+        .order_by(Metric.id.desc())
+        .all()
     )
 
     # Build metrics dict
@@ -256,7 +260,15 @@ def log_metrics_remote(
     db: Session = Depends(get_db),
 ):
     """
-    Log metrics for a run (synchronous).
+    Log metrics for a run (strict insert — no overwrites).
+
+    Raises 409 Conflict if:
+    - A metric with the same (run_id, attribute_path, step) already exists
+    - The same attribute_path has been logged at a different step with a different type
+    - The same attribute_path has both scalar (step=NULL) and series (step!=NULL) values
+
+    To overwrite, first use DELETE /api/runs/{run_id}/metrics/{attribute_path} to remove
+    the existing metric, then log the new value.
 
     Args:
         run_id: Run database ID
@@ -266,20 +278,96 @@ def log_metrics_remote(
     Returns:
         Success confirmation
     """
-
     run = db.query(Run).filter(Run.id == run_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    # Update activity timestamp
     run.last_activity_at = datetime.now(timezone.utc)
     run.updated_at = datetime.now(timezone.utc)
 
-    # Log metrics
     timestamp = request.timestamp or datetime.now(timezone.utc)
     is_series = request.step is not None
     suffix = "_series" if is_series else ""
 
+    conflicts = []
+
+    for metric_path, value in request.metrics.items():
+        if isinstance(value, bool):
+            attr_type = f"bool{suffix}"
+        elif isinstance(value, int):
+            attr_type = f"int{suffix}"
+        elif isinstance(value, float):
+            attr_type = f"float{suffix}"
+        else:
+            attr_type = f"string{suffix}"
+
+        step = request.step
+
+        # Check 1: base type conflict across ALL steps (including int vs float)
+        # We check this BEFORE exact duplicate to give the more specific error
+        existing_types = (
+            db.query(Metric.attribute_type)
+            .filter(
+                Metric.run_id == run_id,
+                Metric.attribute_path == metric_path,
+            )
+            .distinct()
+            .all()
+        )
+        existing_types = {et[0] for et in existing_types}
+        if existing_types:
+            base_new = attr_type.replace("_series", "")
+            base_existing = {et.replace("_series", "") for et in existing_types}
+
+            # 1a: base type conflict (e.g., int vs float, float vs string, bool vs int)
+            if base_new not in base_existing:
+                conflicts.append(
+                    f"Type conflict for '{metric_path}': "
+                    f"cannot log {attr_type}, existing types are {existing_types}"
+                )
+                continue
+
+            # 1b: scalar/series mismatch for same base type
+            has_scalar = any("_series" not in et for et in existing_types)
+            has_series = any("_series" in et for et in existing_types)
+            if is_series and has_scalar:
+                conflicts.append(
+                    f"Metric '{metric_path}' already has scalar (summary) values — "
+                    f"cannot log series at step {step} (use remove() first)"
+                )
+                continue
+            elif not is_series and has_series:
+                conflicts.append(
+                    f"Metric '{metric_path}' already has series (stepped) values — "
+                    f"cannot log scalar (use remove() first)"
+                )
+                continue
+
+        # Check 2: exact duplicate (same run_id, attribute_path, step)
+        existing_exact = (
+            db.query(Metric)
+            .filter(
+                Metric.run_id == run_id,
+                Metric.attribute_path == metric_path,
+                Metric.step == step,
+            )
+            .first()
+        )
+        if existing_exact:
+            conflicts.append(
+                f"Metric '{metric_path}' already exists at "
+                f"{'step ' + str(step) if step is not None else 'summary'} "
+                f"(use remove() first to overwrite)"
+            )
+            continue
+
+    if conflicts:
+        raise HTTPException(
+            status_code=409,
+            detail={"message": "Metric logging conflict(s)", "conflicts": conflicts},
+        )
+
+    # All clear — insert
     for metric_path, value in request.metrics.items():
         if isinstance(value, bool):
             attr_type = f"bool{suffix}"
@@ -368,3 +456,150 @@ def delete_run(run_id: int, db: Session = Depends(get_db)):
     db.delete(run)
     db.commit()
     return {"message": "Run deleted successfully"}
+
+
+@router.delete(
+    "/{run_id}/metrics/{attribute_path}",
+    responses={
+        404: {"description": "Metric not found"},
+        409: {"description": "Ambiguous request — specify step parameter"},
+    },
+)
+def remove_metric(
+    run_id: int,
+    attribute_path: str,
+    step: Optional[int] = Query(
+        None,
+        description=(
+            "Step to remove. If omitted, removes ALL metrics with this attribute_path "
+            "across all steps (scalar and series). Requires step to target a specific value."
+        ),
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    Remove one or more metrics from a run.
+
+    - With `step`: removes the metric at that specific step only.
+    - Without `step`: removes ALL metrics with this attribute_path (all steps, scalar and series).
+
+    To overwrite an existing metric, you must remove it first, then log the new value.
+
+    Args:
+        run_id: Run database ID
+        attribute_path: Metric name/path
+        step: Optional step number. If None, removes all entries for this metric.
+        db: Database session
+
+    Returns:
+        Success message with count of rows deleted
+    """
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    query = db.query(Metric).filter(
+        Metric.run_id == run_id,
+        Metric.attribute_path == attribute_path,
+    )
+
+    if step is not None:
+        query = query.filter(Metric.step == step)
+
+    rows = query.all()
+    count = len(rows)
+
+    if count == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No metric '{attribute_path}' found for this run",
+        )
+
+    for row in rows:
+        db.delete(row)
+
+    db.commit()
+    return {
+        "message": f"Removed {count} metric row(s) for '{attribute_path}'",
+        "count": count,
+    }
+
+
+@router.delete("/{run_id}/config/{key}")
+def remove_config(
+    run_id: int,
+    key: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Remove a config key from a run.
+
+    To overwrite an existing config key, you must remove it first, then re-log
+    the run with the new config.
+
+    Args:
+        run_id: Run database ID
+        key: Config key name
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    config = (
+        db.query(Config)
+        .filter(
+            Config.run_id == run_id,
+            Config.key == key,
+        )
+        .first()
+    )
+
+    if not config:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Config key '{key}' not found for this run",
+        )
+
+    db.delete(config)
+    db.commit()
+    return {"message": f"Config key '{key}' removed"}
+
+
+@router.post("/{run_id}/config", response_model=LogResponse)
+def log_config_remote(
+    run_id: int,
+    request: LogConfigRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Add config key-value pairs to a run (strict insert — no overwrites).
+
+    Raises 409 Conflict if any key already exists for the run.
+    Use DELETE /api/runs/{run_id}/config/{key} to remove a key first.
+
+    Args:
+        run_id: Run database ID
+        request: Config dict to log
+        db: Database session
+
+    Returns:
+        Success confirmation
+    """
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    try:
+        _log_config(run_id, request.config, session=db)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=409,
+            detail={"message": "Config logging conflict(s)", "conflicts": [str(e)]},
+        )
+
+    db.commit()
+    return LogResponse(success=True)

@@ -66,6 +66,50 @@ def _create_duckdb_tables(engine) -> None:
         except Exception:
             pass  # Column already exists
 
+        # Migration: deduplicate metrics before adding unique index.
+        # DuckDB treats NULLs as equal in UNIQUE indexes with COALESCE, so we
+        # use COALESCE(step, -999999999) as a sentinel for NULL steps.
+        # We deduplicate by keeping the row with the highest id per group.
+        try:
+            conn.execute(
+                text("""
+                DELETE FROM metrics WHERE id NOT IN (
+                    SELECT MAX(id) FROM metrics
+                    GROUP BY run_id, attribute_path,
+                        COALESCE(step, -999999999)
+                )
+            """)
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            pass  # Table may not exist yet or already deduplicated
+
+        # Replace column-level UNIQUE constraint with expression-based index
+        # that treats NULL steps as a sentinel value, so duplicate scalar metrics
+        # (step=NULL) are actually prevented at the DB level.
+        try:
+            conn.execute(
+                text("ALTER TABLE metrics DROP CONSTRAINT uq_run_metric_attr_step")
+            )
+        except Exception:
+            pass  # Constraint may not exist
+
+        try:
+            conn.execute(text("DROP INDEX IF EXISTS uq_run_metric_attr_step"))
+        except Exception:
+            pass
+
+        try:
+            conn.execute(
+                text("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_run_metric_attr_step
+                ON metrics (run_id, attribute_path, COALESCE(step, -999999999))
+            """)
+            )
+        except Exception:
+            pass
+
         # Create sequence for configs table ID
         conn.execute(text("CREATE SEQUENCE IF NOT EXISTS configs_id_seq START 1"))
 

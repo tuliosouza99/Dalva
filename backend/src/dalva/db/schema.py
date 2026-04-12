@@ -105,7 +105,9 @@ class Metric(Base):
     # Relationship
     run = relationship("Run", back_populates="metrics")
 
-    # Indexes for performance
+    # Indexes for performance. The UNIQUE constraint on (run_id, attribute_path, step)
+    # is created via raw SQL (COALESCE-based index) in connection.py because DuckDB
+    # allows duplicate NULLs in standard UNIQUE constraints.
     __table_args__ = (
         Index("idx_metrics_run_attr", "run_id", "attribute_path"),
         Index("idx_metrics_run_step", "run_id", "step"),

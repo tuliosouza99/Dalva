@@ -57,3 +57,7 @@ class LogResponse(BaseModel):
 
 class FinishResponse(BaseModel):
     state: str
+
+
+class LogConfigRequest(BaseModel):
+    config: dict[str, Any]

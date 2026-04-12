@@ -122,7 +122,7 @@ def _create_tables(engine) -> None:
         """)
         )
 
-        # Metrics table
+        # Metrics table (no inline UNIQUE — created via index below)
         conn.execute(
             text("""
             CREATE TABLE IF NOT EXISTS metrics (
@@ -138,6 +138,17 @@ def _create_tables(engine) -> None:
                 bool_value BOOLEAN
             )
         """)
+        )
+
+        # UNIQUE index using COALESCE so NULL steps are treated as a sentinel
+        # value and duplicate scalar metrics are prevented at the DB level.
+        conn.execute(
+            text(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_run_metric_attr_step
+                ON metrics (run_id, attribute_path, COALESCE(step, -999999999))
+            """
+            )
         )
 
         # Files table

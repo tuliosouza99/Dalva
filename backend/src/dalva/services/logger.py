@@ -19,6 +19,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from sqlalchemy.orm import Session
+
 from dalva.db.connection import next_id, session_scope
 from dalva.db.schema import Config, Project, Run
 
@@ -55,6 +57,9 @@ def create_run(
 ) -> tuple[int, str, Optional[str]]:
     """Create or resume a run.
 
+    When resuming, config keys that already exist for the run will cause a
+    ``ValueError``.  Use ``remove_config()`` to delete conflicting keys first.
+
     Returns:
         Tuple of (internal_db_id, run_id_string, descriptive_name)
     """
@@ -77,6 +82,23 @@ def create_run(
                 .first()
             )
             if existing:
+                if config:
+                    flat: dict[str, Any] = {}
+                    _flatten_config(config, "", flat)
+                    dup_keys = []
+                    for key in flat:
+                        if (
+                            db.query(Config)
+                            .filter(Config.run_id == existing.id, Config.key == key)
+                            .first()
+                        ):
+                            dup_keys.append(key)
+                    if dup_keys:
+                        raise ValueError(
+                            f"Config key(s) {dup_keys} already exist for run "
+                            f"'{resume_from}'. Use remove_config() first to overwrite."
+                        )
+                    _log_config(existing.id, config, session=db)
                 existing.state = "running"
                 existing.updated_at = datetime.now(timezone.utc)
                 existing.last_activity_at = datetime.now(timezone.utc)
@@ -108,13 +130,36 @@ def create_run(
     return run_db_id, run_id_str, run_name
 
 
-def _log_config(run_id: int, config: dict, prefix: str = "") -> None:
-    """Recursively persist configuration key-value pairs."""
+def _log_config(
+    run_id: int, config: dict, prefix: str = "", session: Optional[Session] = None
+) -> None:
+    """Recursively persist configuration key-value pairs.
+
+    Raises if a config key already exists for the run (strict insert).
+    Use remove_config() first to replace a config key.
+
+    Args:
+        run_id: Internal database ID of the run.
+        config: Config dict to persist.
+        prefix: Key prefix for nested dicts.
+        session: Optional existing session to reuse (avoids opening a new
+            one when called from create_run during resume).
+    """
     flat: dict[str, Any] = {}
     _flatten_config(config, prefix, flat)
 
-    with session_scope() as db:
+    def _do_log(db: Session) -> None:
         for key, value in flat.items():
+            existing = (
+                db.query(Config)
+                .filter(Config.run_id == run_id, Config.key == key)
+                .first()
+            )
+            if existing:
+                raise ValueError(
+                    f"Config key '{key}' already exists for this run. "
+                    f"Use remove_config('{key}') first to overwrite."
+                )
             db.add(
                 Config(
                     id=next_id(db, "configs"),
@@ -123,6 +168,12 @@ def _log_config(run_id: int, config: dict, prefix: str = "") -> None:
                     value=json.dumps(value),
                 )
             )
+
+    if session is not None:
+        _do_log(session)
+    else:
+        with session_scope() as db:
+            _do_log(db)
 
 
 def _flatten_config(d: dict, prefix: str, out: dict) -> None:

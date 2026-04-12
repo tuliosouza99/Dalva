@@ -122,6 +122,10 @@ class Run:
             metrics: Dictionary of metric name -> value
             step: Optional step number for series values
 
+        Raises:
+            ConnectionError: On server errors (including 409 Conflict if a metric
+                with the same key already exists — use remove() first to overwrite)
+
         Example:
             ```python
             run = Run(project="my-project", config={"lr": 0.001})
@@ -140,9 +144,121 @@ class Run:
             response = client.post(f"/api/runs/{self._db_id}/log", json=payload)
             response.raise_for_status()
         except httpx.HTTPStatusError as e:
+            if e.response.status_code == 409:
+                raise ValueError(_server_error(e))
             raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to log metrics to server: {e}")
+
+    def remove(self, metric: str, step: int | None = None):
+        """Remove a metric from the run.
+
+        Args:
+            metric: Metric name/path to remove
+            step: Optional step number. If omitted, removes ALL entries for this
+                metric across all steps (scalar and series).
+
+        Returns:
+            Dict with 'message' and 'count'
+
+        Raises:
+            ConnectionError: On server errors (including 404 if metric not found)
+
+        Example:
+            ```python
+            run = dalva.init(project="my-project")
+            run.log({"loss": 0.5}, step=0)
+            # To overwrite:
+            run.remove("loss", step=0)
+            run.log({"loss": 0.3}, step=0)
+            # To remove all entries for a metric:
+            run.remove("loss")
+            ```
+        """
+        client = self._get_client()
+        params = {}
+        if step is not None:
+            params["step"] = step
+        try:
+            response = client.delete(
+                f"/api/runs/{self._db_id}/metrics/{metric}",
+                params=params,
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
+        except httpx.HTTPError as e:
+            raise ConnectionError(f"Failed to remove metric from server: {e}")
+
+    def log_config(self, config: Mapping[str, bool | int | float | str | dict]):
+        """Add config key-value pairs to the run (strict insert — no overwrites).
+
+        Raises ``ValueError`` on 409 Conflict if any key already exists.
+        Use ``remove_config(key)`` first to overwrite.
+
+        Args:
+            config: Dictionary of config key -> value. Nested dicts are flattened
+                with '/' as separator (e.g. ``{"optimizer": {"lr": 0.001}}`` becomes
+                ``{"optimizer/lr": 0.001}``).
+
+        Raises:
+            ConnectionError: On server errors
+
+        Example:
+            ```python
+            run = dalva.init(project="my-project")
+            run.log_config({"lr": 0.001, "batch_size": 32})
+            # To add more config later:
+            run.log_config({"epochs": 100})  # succeeds if keys don't exist
+            run.log_config({"lr": 0.01})     # raises ValueError — key exists
+            run.remove_config("lr")
+            run.log_config({"lr": 0.01})     # now succeeds
+            ```
+        """
+        client = self._get_client()
+        try:
+            response = client.post(
+                f"/api/runs/{self._db_id}/config",
+                json={"config": dict(config)},
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 409:
+                raise ValueError(_server_error(e))
+            raise ConnectionError(_server_error(e))
+        except httpx.HTTPError as e:
+            raise ConnectionError(f"Failed to log config to server: {e}")
+
+    def remove_config(self, key: str):
+        """Remove a config key from the run.
+
+        Args:
+            key: Config key name to remove
+
+        Returns:
+            Dict with 'message'
+
+        Raises:
+            ConnectionError: On server errors (including 404 if key not found)
+
+        Example:
+            ```python
+            run = dalva.init(project="my-project", config={"lr": 0.001})
+            # To overwrite config:
+            run.remove_config("lr")
+            run.log_config({"lr": 0.01})  # succeeds after removal
+            ```
+        """
+        client = self._get_client()
+        try:
+            response = client.delete(f"/api/runs/{self._db_id}/config/{key}")
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
+        except httpx.HTTPError as e:
+            raise ConnectionError(f"Failed to remove config from server: {e}")
 
     def create_table(
         self,

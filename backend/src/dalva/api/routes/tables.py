@@ -121,6 +121,7 @@ def get_table_data_endpoint(
             sort_by=sort_by,
             sort_order=sort_order,
             filters=parsed_filters,
+            log_mode=table.log_mode,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -160,6 +161,7 @@ def get_table_stats_endpoint(
             table_db_id=table_id,
             version=version,
             filters=parsed_filters,
+            log_mode=table.log_mode,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

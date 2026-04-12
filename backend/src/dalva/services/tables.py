@@ -194,6 +194,7 @@ def get_table_data(
     sort_by: Optional[str] = None,
     sort_order: str = "asc",
     filters: Optional[list[dict[str, Any]]] = None,
+    log_mode: Optional[str] = None,
 ) -> tuple[list[dict[str, Any]], int, list[dict[str, str]]]:
     """Get table data with pagination, sorting, and filtering.
 
@@ -205,6 +206,7 @@ def get_table_data(
         sort_by: Column name to sort by
         sort_order: 'asc' or 'desc'
         filters: List of filter dicts with column/op/value keys
+        log_mode: Table log mode (INCREMENTAL returns all rows, others use version filter)
 
     Returns:
         Tuple of (rows, total_count, column_schema)
@@ -220,7 +222,7 @@ def get_table_data(
 
         column_schema = json.loads(table[0]) if table[0] else []
 
-        ver_where, ver_params = _get_version_filter(table_db_id, version)
+        ver_where, ver_params = _get_version_filter(table_db_id, version, log_mode)
 
         filter_clause = ""
         filter_params: dict[str, Any] = {}
@@ -405,9 +407,14 @@ def _build_filter_sql(
 
 
 def _get_version_filter(
-    table_db_id: int, version: Optional[int] = None
+    table_db_id: int, version: Optional[int] = None, log_mode: Optional[str] = None
 ) -> tuple[str, dict[str, Any]]:
     """Get version filter SQL for table rows.
+
+    Args:
+        table_db_id: Internal table ID
+        version: Specific version to fetch (None for latest)
+        log_mode: Table log mode - INCREMENTAL returns all rows when version is None
 
     Returns:
         Tuple of (where_clause, params_dict)
@@ -417,6 +424,9 @@ def _get_version_filter(
             "tid": table_db_id,
             "ver": version,
         }
+
+    if log_mode == "INCREMENTAL":
+        return "table_id = :tid", {"tid": table_db_id}
 
     engine = get_engine()
     with engine.connect() as conn:
@@ -436,6 +446,7 @@ def get_table_stats(
     table_db_id: int,
     version: Optional[int] = None,
     filters: Optional[list[dict[str, Any]]] = None,
+    log_mode: Optional[str] = None,
 ) -> dict[str, Any]:
     """Compute per-column statistics for a table using DuckDB SQL.
 
@@ -443,6 +454,7 @@ def get_table_stats(
         table_db_id: Internal table ID
         version: Specific version to analyze (None for latest)
         filters: Optional list of filter dicts to apply before computing stats
+        log_mode: Table log mode - INCREMENTAL returns all rows when version is None
 
     Returns:
         Dict mapping column name -> stats dict
@@ -460,7 +472,7 @@ def get_table_stats(
         if not column_schema:
             return {}
 
-        ver_where, ver_params = _get_version_filter(table_db_id, version)
+        ver_where, ver_params = _get_version_filter(table_db_id, version, log_mode)
 
         filter_clause = ""
         filter_params: dict[str, Any] = {}

@@ -2,7 +2,7 @@ import { Outlet, Link, NavLink, useLocation, useParams, useSearchParams } from '
 import ThemeToggle from './ThemeToggle';
 import { useProject } from '../api/client';
 import { useComparison } from '../contexts/ComparisonContext';
-import { Folder, FolderOpen, GitCompare, Table2 } from 'lucide-react';
+import { Folder, FolderOpen, GitCompare, Table2, BarChart3 } from 'lucide-react';
 
 export default function Layout() {
   const location = useLocation();
@@ -95,7 +95,7 @@ export default function Layout() {
                       className={() => `nav-item text-sm ${(isOnProjectPage && !isTablePage) || isRunPage ? 'active' : ''}`}
                       style={{ paddingLeft: '12px' }}
                     >
-                      <Table2 size={14} />
+                      <BarChart3 size={14} />
                       Runs
                     </NavLink>
 

@@ -5,6 +5,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Mapping, Optional
 
 import httpx
+import numpy as np
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -214,6 +215,8 @@ class Table:
                         json.dumps(val) if isinstance(val, (list, dict)) else val
                     )
                 else:
+                    if isinstance(val, (np.integer, np.floating, np.bool_)):
+                        val = val.item()
                     record[col_name] = val
             rows.append(record)
 

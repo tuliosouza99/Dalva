@@ -126,7 +126,7 @@ class TestAPILogEndpoint:
         assert response.status_code == 200
 
         with session_scope() as session:
-            run_after = session.query(Run).get(sample_run["id"])
+            run_after = session.get(Run, sample_run["id"])
             assert run_after.last_activity_at is not None
 
 
@@ -217,5 +217,5 @@ class TestSchemaLastActivityAt:
         """Test that last_activity_at defaults to None on new runs."""
         from dalva.db.schema import Run
 
-        run = db_session.query(Run).get(sample_run["id"])
+        run = db_session.get(Run, sample_run["id"])
         assert run.last_activity_at is None

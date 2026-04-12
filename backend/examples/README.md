@@ -51,7 +51,7 @@ dalva.finish()
 run = dalva.init(
     project="my-project",
     name="my-run",
-    resume="allow"  # or "must"
+    resume_from="allow"  # or "must"
 )
 dalva.log({"loss": 0.5}, step=1)
 dalva.finish()

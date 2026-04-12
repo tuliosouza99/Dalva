@@ -32,6 +32,7 @@ run.finish()
 - **Simple API** - Just `init()`, `log()`, and `finish()`
 - **Self-Hosted** - Data stored locally in DuckDB
 - **Flexible Metrics** - Log any metrics without schemas
+- **Tabular Data** - Track DataFrames alongside runs with `dalva.table()`
 - **Web Interface** - View and compare experiments at `http://localhost:8000`
 
 ## Installation

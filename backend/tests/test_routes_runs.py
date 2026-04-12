@@ -53,7 +53,7 @@ class TestListRuns:
         sample_run["group_name"] = "experiment-a"
         from dalva.db.schema import Run
 
-        run = db_session.query(Run).get(sample_run["id"])
+        run = db_session.get(Run, sample_run["id"])
         run.group_name = "experiment-a"
         db_session.commit()
 

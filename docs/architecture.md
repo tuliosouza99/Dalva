@@ -12,36 +12,34 @@ Dalva is a full-stack application with:
 
 ```mermaid
 graph TB
-    subgraph SDK["Python SDK (dalva package)"]
-        Run[Run Class]
-    end
-    
-    Run -->|HTTP POST| API[REST API]
-    
-    subgraph Frontend["Frontend (React)"]
-        P[Projects Page]
-        R[Runs Page]
-        M[Metrics Charts]
-        C[Compare Runs Page]
-    end
-    
-    Frontend --> Q[React Query Cache]
-    Q --> API
-    
-    subgraph Backend["Backend (FastAPI)"]
-        Routes[API Routes]
-        LF[Logger Functions]
-    end
-    
-    API --> Routes
-    Routes --> LF
-    
-    LF --> DB[(DuckDB)]
-    
-    DB --> Projects[projects]
-    DB --> Runs[runs]
-    DB --> Metrics[metrics]
-    DB --> Configs[configs]
+subgraph SDK["Python SDK"]
+sdk_run[Run Class]
+sdk_table[Table Class]
+end
+sdk_run -->|HTTP POST| api[REST API]
+sdk_table -->|HTTP POST| api
+subgraph FE["Frontend - React"]
+fe_proj[Projects Page]
+fe_runs[Runs Page]
+fe_tables[Tables Page]
+fe_metrics[Metrics Charts]
+fe_compare[Compare Runs Page]
+end
+FE --> rq[React Query Cache]
+rq --> api
+subgraph BE["Backend - FastAPI"]
+routes[API Routes]
+logger[Logger Functions]
+end
+api --> routes
+routes --> logger
+logger --> db[(DuckDB)]
+db --> tbl_projects[projects]
+db --> tbl_runs[runs]
+db --> tbl_metrics[metrics]
+db --> tbl_configs[configs]
+db --> tbl_dalva_tables[dalva_tables]
+db --> tbl_dalva_rows[dalva_table_rows]
 ```
 
 ## Backend Architecture
@@ -134,9 +132,34 @@ erDiagram
         string value
     }
     
+    dalva_tables {
+        int id PK
+        int project_id FK
+        string table_id
+        string name
+        int run_id FK
+        string log_mode
+        int version
+        int row_count
+        string column_schema
+        string state
+        datetime created_at
+        datetime updated_at
+    }
+    
+    dalva_table_rows {
+        int id PK
+        int table_id FK
+        int version
+        string row_data
+    }
+    
     projects ||--o{ runs : "has"
+    projects ||--o{ dalva_tables : "has"
     runs ||--o{ metrics : "logs"
     runs ||--o{ configs : "has"
+    runs ||--o{ dalva_tables : "linked to"
+    dalva_tables ||--o{ dalva_table_rows : "contains"
 ```
 
 ## Frontend Architecture

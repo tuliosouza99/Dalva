@@ -1,8 +1,13 @@
 """Run class for experiment tracking via HTTP."""
 
-from typing import Mapping
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Mapping
 
 import httpx
+
+if TYPE_CHECKING:
+    from dalva.table import Table
 
 
 class Run:
@@ -24,7 +29,7 @@ class Run:
         project: str,
         name: str | None = None,
         config: Mapping | None = None,
-        resume: str | None = None,
+        resume_from: str | None = None,
         server_url: str = "http://localhost:8000",
     ):
         """
@@ -34,19 +39,23 @@ class Run:
             project: Project name
             name: Optional run name (user-defined, for display only)
             config: Optional configuration dictionary
-            resume: run_id to resume (omit to create a new run)
+            resume_from: run_id to resume (omit to create a new run)
             server_url: Server URL. Defaults to http://localhost:8000
         """
         self.project_name = project
         self.config = config or {}
         self._server_url = server_url
         self._client: httpx.Client | None = None
+        self._tables: list[Table] = []
+        self._finished: bool = False
 
         # Verify server is accessible
         self._verify_server_connection()
 
         # Create run via API
-        self._create_run_on_server(name=name, config=self.config, resume=resume)
+        self._create_run_on_server(
+            name=name, config=self.config, resume_from=resume_from
+        )
 
         # Print run ID for user convenience
         print(f"Run created: {self.run_id}")
@@ -73,7 +82,7 @@ class Run:
         self,
         name: str | None,
         config: Mapping | None,
-        resume: str | None,
+        resume_from: str | None,
     ) -> None:
         """Create the run on the server via API."""
         client = self._get_client()
@@ -81,7 +90,7 @@ class Run:
             "project": self.project_name,
             "name": name,
             "config": config,
-            "resume": resume,
+            "resume_from": resume_from,
         }
         try:
             response = client.post("/api/runs/init", json=payload)
@@ -122,16 +131,66 @@ class Run:
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to log metrics to server: {e}")
 
-    def finish(self):
-        """Finish the run and mark it as completed.
+    def create_table(
+        self,
+        name: str | None = None,
+        config: Mapping | None = None,
+        log_mode: str | None = "IMMUTABLE",
+    ) -> Table:
+        """Create a table linked to this run.
+
+        The table is automatically associated with the same project and run.
+        When run.finish() is called, all linked tables will be finished first.
+
+        Args:
+            name: Optional table name (user-defined, for display only)
+            config: Optional configuration dictionary
+            log_mode: IMMUTABLE, MUTABLE, or INCREMENTAL
+
+        Returns:
+            Table object linked to this run
 
         Example:
             ```python
-            run = Run(project="my-project")
+            run = dalva.init(project="my-project")
+            table = run.create_table(name="predictions", log_mode="IMMUTABLE")
+            table.log(df)
+            run.finish()  # auto-finishes table too
+            ```
+        """
+        from dalva.table import Table
+
+        table = Table(
+            project=self.project_name,
+            name=name,
+            config=config,
+            run_id=self.run_id,
+            server_url=self._server_url,
+            log_mode=log_mode,
+        )
+        self._tables.append(table)
+        return table
+
+    def finish(self):
+        """Finish the run and mark it as completed.
+
+        All tables created via run.create_table() will be finished first.
+
+        Example:
+            ```python
+            run = dalva.init(project="my-project")
             run.log({"loss": 0.5}, step=0)
             run.finish()
             ```
         """
+        if self._finished:
+            return
+        for table in self._tables:
+            if not table._finished:
+                try:
+                    table.finish()
+                except Exception:
+                    pass
         client = self._get_client()
         try:
             response = client.post(f"/api/runs/{self._db_id}/finish")
@@ -142,6 +201,7 @@ class Run:
             raise ConnectionError(f"Failed to finish run on server: {e}")
         finally:
             self._client = None
+            self._finished = True
 
     def __repr__(self):
         """String representation."""

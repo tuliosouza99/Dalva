@@ -21,10 +21,15 @@ export interface Run {
   run_id: string;
   name: string;
   group_name: string | null;
-  tags: string | null;  // Comma-separated tags
+  tags: string | null;
   state: 'running' | 'completed' | 'failed';
   created_at: string;
   updated_at: string;
+}
+
+export interface RunSummary extends Run {
+  metrics: Record<string, unknown>;
+  config: Record<string, unknown>;
 }
 
 export interface RunsListResponse {
@@ -78,6 +83,99 @@ export interface CustomViewCreate {
   sort_by?: string | null;
 }
 
+// Table types
+export interface ColumnSchema {
+  name: string;
+  type: 'int' | 'float' | 'bool' | 'str' | 'date' | 'list' | 'dict';
+}
+
+export interface DalvaTable {
+  id: number;
+  project_id: number;
+  table_id: string;
+  name: string | null;
+  run_id: number | null;
+  log_mode: 'IMMUTABLE' | 'MUTABLE' | 'INCREMENTAL';
+  version: number;
+  row_count: number;
+  column_schema: string;  // JSON string
+  config: string | null;  // JSON string
+  state: 'active' | 'finished';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TableListResponse {
+  tables: DalvaTable[];
+  total: number;
+  has_more: boolean;
+}
+
+export interface TableDataResponse {
+  rows: Record<string, unknown>[];
+  total: number;
+  column_schema: ColumnSchema[];
+  has_more: boolean;
+}
+
+export interface TableFilters {
+  project_id?: number;
+  run_id?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface ColumnFilter {
+  column: string;
+  op: 'between' | 'contains' | 'eq';
+  min?: number;
+  max?: number;
+  value?: unknown;
+}
+
+export interface NumericBin {
+  start: number;
+  end: number;
+  count: number;
+}
+
+export interface NumericStats {
+  type: 'numeric';
+  min: number | null;
+  max: number | null;
+  bins: NumericBin[];
+  null_count: number;
+}
+
+export interface BoolStats {
+  type: 'bool';
+  counts: { true: number; false: number };
+  null_count: number;
+}
+
+export interface StringTopValue {
+  value: string;
+  count: number;
+}
+
+export interface StringStats {
+  type: 'string';
+  top_values: StringTopValue[];
+  unique_count: number;
+  null_count: number;
+}
+
+export interface SkippedStats {
+  type: 'date' | 'list' | 'dict';
+  null_count: number;
+}
+
+export type ColumnStats = NumericStats | BoolStats | StringStats | SkippedStats;
+
+export interface TableStatsResponse {
+  columns: Record<string, ColumnStats>;
+}
+
 // API Client
 const apiClient = axios.create({
   baseURL: '/api',
@@ -120,7 +218,7 @@ export const api = {
     return data;
   },
 
-  getRunSummary: async (runId: number) => {
+  getRunSummary: async (runId: number): Promise<RunSummary> => {
     const { data } = await apiClient.get(`/runs/${runId}/summary`);
     return data;
   },
@@ -180,6 +278,62 @@ export const api = {
 
   deleteRun: async (runId: number): Promise<void> => {
     await apiClient.delete(`/runs/${runId}`);
+  },
+
+  // Tables
+  getTables: async (filters: TableFilters & { limit?: number; offset?: number }): Promise<TableListResponse> => {
+    const { data } = await apiClient.get('/tables/', { params: filters });
+    return data;
+  },
+
+  getTable: async (tableId: number): Promise<DalvaTable> => {
+    const { data } = await apiClient.get(`/tables/${tableId}`);
+    return data;
+  },
+
+  getTableData: async (
+    tableId: number,
+    params?: { version?: number; limit?: number; offset?: number; sort_by?: string; sort_order?: 'asc' | 'desc'; filters?: ColumnFilter[] }
+  ): Promise<TableDataResponse> => {
+    const queryParams: Record<string, string> = {};
+    if (params?.version !== undefined) queryParams.version = String(params.version);
+    if (params?.limit !== undefined) queryParams.limit = String(params.limit);
+    if (params?.offset !== undefined) queryParams.offset = String(params.offset);
+    if (params?.sort_by) queryParams.sort_by = params.sort_by;
+    if (params?.sort_order) queryParams.sort_order = params.sort_order;
+    if (params?.filters && params.filters.length > 0) queryParams.filters = JSON.stringify(params.filters);
+    const { data } = await apiClient.get(`/tables/${tableId}/data`, { params: queryParams });
+    return data;
+  },
+
+  getTableStats: async (
+    tableId: number,
+    params?: { version?: number; filters?: ColumnFilter[] }
+  ): Promise<TableStatsResponse> => {
+    const queryParams: Record<string, string> = {};
+    if (params?.version !== undefined) queryParams.version = String(params.version);
+    if (params?.filters && params.filters.length > 0) queryParams.filters = JSON.stringify(params.filters);
+    const { data } = await apiClient.get(`/tables/${tableId}/stats`, { params: queryParams });
+    return data;
+  },
+
+  getTablesForRun: async (runId: number): Promise<DalvaTable[]> => {
+    const { data } = await apiClient.get(`/runs/${runId}/tables`);
+    return data;
+  },
+
+  deleteTable: async (tableId: number): Promise<void> => {
+    await apiClient.delete(`/tables/${tableId}`);
+  },
+
+  updateTableState: async (tableId: number, state: string): Promise<{ state: string }> => {
+    const { data } = await apiClient.patch(`/tables/${tableId}/state`, null, { params: { state } });
+    return data;
+  },
+
+  updateRunState: async (runId: number, state: string): Promise<Run> => {
+    const { data } = await apiClient.patch(`/runs/${runId}/state`, null, { params: { state } });
+    return data;
   },
 };
 
@@ -252,7 +406,7 @@ export function useRun(runId: number, options?: Omit<UseQueryOptions<Run, Error>
   });
 }
 
-export function useRunSummary(runId: number, options?: Omit<UseQueryOptions<any, Error>, 'queryKey' | 'queryFn'>) {
+export function useRunSummary(runId: number, options?: Omit<UseQueryOptions<RunSummary, Error>, 'queryKey' | 'queryFn'>) {
   return useQuery({
     queryKey: ['runs', runId, 'summary'],
     queryFn: () => api.getRunSummary(runId),
@@ -340,6 +494,99 @@ export function useDeleteRun() {
     onSuccess: (_data, runId) => {
       queryClient.invalidateQueries({ queryKey: ['runs'] });
       queryClient.removeQueries({ queryKey: ['runs', runId] });
+    },
+  });
+}
+
+// Table hooks
+export function useTables(
+  filters: TableFilters,
+  options?: Omit<UseQueryOptions<TableListResponse, Error>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: ['tables', filters],
+    queryFn: () => api.getTables({ ...filters, limit: 100 }),
+    staleTime: 0,
+    ...options,
+  });
+}
+
+export function useTable(tableId: number, options?: Omit<UseQueryOptions<DalvaTable, Error>, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['tables', tableId],
+    queryFn: () => api.getTable(tableId),
+    enabled: !!tableId,
+    ...options,
+  });
+}
+
+export function useTableData(
+  tableId: number,
+  params?: { version?: number; limit?: number; offset?: number; sort_by?: string; sort_order?: 'asc' | 'desc'; filters?: ColumnFilter[] },
+  options?: Omit<UseQueryOptions<TableDataResponse, Error>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: ['tables', tableId, 'data', params],
+    queryFn: () => api.getTableData(tableId, params),
+    enabled: !!tableId,
+    ...options,
+  });
+}
+
+export function useTableStats(
+  tableId: number,
+  params?: { version?: number; filters?: ColumnFilter[] },
+  options?: Omit<UseQueryOptions<TableStatsResponse, Error>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery({
+    queryKey: ['tables', tableId, 'stats', params],
+    queryFn: () => api.getTableStats(tableId, params),
+    enabled: !!tableId,
+    staleTime: 30_000,
+    ...options,
+  });
+}
+
+export function useTablesForRun(runId: number, options?: Omit<UseQueryOptions<DalvaTable[], Error>, 'queryKey' | 'queryFn'>) {
+  return useQuery({
+    queryKey: ['runs', runId, 'tables'],
+    queryFn: () => api.getTablesForRun(runId),
+    enabled: !!runId,
+    ...options,
+  });
+}
+
+export function useDeleteTable() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (tableId: number) => api.deleteTable(tableId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+    },
+  });
+}
+
+export function useUpdateTableState() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ tableId, state }: { tableId: number; state: string }) =>
+      api.updateTableState(tableId, state),
+    onSuccess: (_data, { tableId }) => {
+      queryClient.invalidateQueries({ queryKey: ['tables'] });
+      queryClient.invalidateQueries({ queryKey: ['tables', tableId] });
+      queryClient.invalidateQueries({ queryKey: ['runs'] });
+    },
+  });
+}
+
+export function useUpdateRunState() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ runId, state }: { runId: number; state: string }) =>
+      api.updateRunState(runId, state),
+    onSuccess: (_data, { runId }) => {
+      queryClient.invalidateQueries({ queryKey: ['runs'] });
+      queryClient.invalidateQueries({ queryKey: ['runs', runId] });
     },
   });
 }

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class RunBase(BaseModel):
@@ -13,13 +13,12 @@ class RunBase(BaseModel):
 
 
 class RunResponse(RunBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     project_id: int
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class RunSummary(RunResponse):
@@ -37,7 +36,7 @@ class InitRunRequest(BaseModel):
     project: str
     name: Optional[str] = None
     config: Optional[dict] = None
-    resume: Optional[str] = None
+    resume_from: Optional[str] = None
 
 
 class InitRunResponse(BaseModel):

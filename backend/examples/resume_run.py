@@ -2,9 +2,16 @@
 Example demonstrating run resumption.
 
 Shows how to resume an existing run to continue logging metrics.
+
+Usage:
+    dalva server start
+    python examples/resume_run.py [server_url]
 """
 
 import dalva
+import sys
+
+server_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
 
 # First, create a run
 print("=== Creating initial run ===")
@@ -12,6 +19,7 @@ run1 = dalva.init(
     project="example-project",
     name="resumable-run",
     config={"initial_lr": 0.01},
+    server_url=server_url,
 )
 
 run1.log({"loss": 1.0, "step": 0}, step=0)
@@ -23,7 +31,8 @@ run1.finish()
 print(f"\n=== Resuming run {run1.run_id} ===")
 run2 = dalva.init(
     project="example-project",
-    resume=run1.run_id,  # Pass the run_id to resume
+    resume_from=run1.run_id,
+    server_url=server_url,
 )
 
 run2.log({"loss": 0.6, "step": 2}, step=2)

@@ -13,7 +13,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import mapped_column, relationship
 
 Base = declarative_base()
@@ -38,6 +38,9 @@ class Project(Base):
     runs = relationship("Run", back_populates="project", cascade="all, delete-orphan")
     custom_views = relationship(
         "CustomView", back_populates="project", cascade="all, delete-orphan"
+    )
+    dalva_tables = relationship(
+        "DalvaTable", back_populates="project", cascade="all, delete-orphan"
     )
 
 
@@ -70,6 +73,9 @@ class Run(Base):
     metrics = relationship("Metric", back_populates="run", cascade="all, delete-orphan")
     configs = relationship("Config", back_populates="run", cascade="all, delete-orphan")
     files = relationship("File", back_populates="run", cascade="all, delete-orphan")
+    dalva_tables = relationship(
+        "DalvaTable", back_populates="run", cascade="all, delete-orphan"
+    )
 
     # Constraints
     __table_args__ = (
@@ -172,3 +178,67 @@ class CustomView(Base):
 
     # Relationship
     project = relationship("Project", back_populates="custom_views")
+
+
+class DalvaTable(Base):
+    """Table metadata for tabular data tracking."""
+
+    __tablename__ = "dalva_tables"
+
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    project_id = mapped_column(
+        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    table_id = mapped_column(String, nullable=False)
+    name = mapped_column(String)
+    run_id = mapped_column(
+        Integer, ForeignKey("runs.id", ondelete="SET NULL"), nullable=True
+    )
+    log_mode = mapped_column(
+        String, default="IMMUTABLE"
+    )  # IMMUTABLE, MUTABLE, INCREMENTAL
+    version = mapped_column(Integer, default=0)
+    row_count = mapped_column(Integer, default=0)
+    column_schema = mapped_column(Text)  # JSON: [{"name": "col1", "type": "int"}, ...]
+    config = mapped_column(Text)  # JSON
+    state = mapped_column(String, default="active")  # active, finished
+    created_at = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    # Relationships
+    project = relationship("Project", back_populates="dalva_tables")
+    run = relationship("Run", back_populates="dalva_tables")
+    rows = relationship(
+        "DalvaTableRow", back_populates="table_record", cascade="all, delete-orphan"
+    )
+
+    # Constraints and indexes
+    __table_args__ = (
+        UniqueConstraint("project_id", "table_id", name="uq_project_table"),
+        Index("idx_tables_project", "project_id"),
+        Index("idx_tables_run", "run_id"),
+        Index("idx_tables_table_id_version", "table_id", "version"),
+    )
+
+
+class DalvaTableRow(Base):
+    """Individual rows stored as JSON for tabular data."""
+
+    __tablename__ = "dalva_table_rows"
+
+    id = mapped_column(Integer, primary_key=True, autoincrement=True)
+    table_id = mapped_column(
+        Integer, ForeignKey("dalva_tables.id", ondelete="CASCADE"), nullable=False
+    )
+    version = mapped_column(Integer, default=0)
+    row_data = mapped_column(Text)  # JSON: {"col1": val1, "col2": val2, ...}
+
+    # Relationship
+    table_record = relationship("DalvaTable", back_populates="rows")
+
+    # Indexes
+    __table_args__ = (Index("idx_table_rows_table_version", "table_id", "version"),)

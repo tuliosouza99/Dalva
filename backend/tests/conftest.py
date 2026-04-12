@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
-from dalva.api.routes import metrics, projects, runs
+from dalva.api.routes import metrics, projects, runs, tables
 from dalva.db.schema import Metric, Run
+from dalva.db.schema import DalvaTable as DalvaTableSchema
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
@@ -71,6 +72,10 @@ def _create_tables(engine) -> None:
         conn.execute(text("CREATE SEQUENCE IF NOT EXISTS metrics_id_seq START 1"))
         conn.execute(text("CREATE SEQUENCE IF NOT EXISTS files_id_seq START 1"))
         conn.execute(text("CREATE SEQUENCE IF NOT EXISTS custom_views_id_seq START 1"))
+        conn.execute(text("CREATE SEQUENCE IF NOT EXISTS dalva_tables_id_seq START 1"))
+        conn.execute(
+            text("CREATE SEQUENCE IF NOT EXISTS dalva_table_rows_id_seq START 1")
+        )
 
         # Projects table
         conn.execute(
@@ -165,6 +170,40 @@ def _create_tables(engine) -> None:
         """)
         )
 
+        # Dalva tables table
+        conn.execute(
+            text("""
+            CREATE TABLE IF NOT EXISTS dalva_tables (
+                id INTEGER PRIMARY KEY DEFAULT nextval('dalva_tables_id_seq'),
+                project_id INTEGER NOT NULL,
+                table_id VARCHAR NOT NULL,
+                name VARCHAR,
+                run_id INTEGER,
+                log_mode VARCHAR DEFAULT 'IMMUTABLE',
+                version INTEGER DEFAULT 0,
+                row_count INTEGER DEFAULT 0,
+                column_schema VARCHAR,
+                config VARCHAR,
+                state VARCHAR DEFAULT 'active',
+                created_at TIMESTAMP,
+                updated_at TIMESTAMP,
+                UNIQUE(project_id, table_id)
+            )
+        """)
+        )
+
+        # Dalva table rows table
+        conn.execute(
+            text("""
+            CREATE TABLE IF NOT EXISTS dalva_table_rows (
+                id INTEGER PRIMARY KEY DEFAULT nextval('dalva_table_rows_id_seq'),
+                table_id INTEGER NOT NULL,
+                version INTEGER DEFAULT 0,
+                row_data VARCHAR
+            )
+        """)
+        )
+
         # Indexes
         conn.execute(
             text("CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name)")
@@ -189,6 +228,24 @@ def _create_tables(engine) -> None:
         conn.execute(
             text(
                 "CREATE INDEX IF NOT EXISTS idx_metrics_attr_type ON metrics(attribute_type)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_tables_project ON dalva_tables(project_id)"
+            )
+        )
+        conn.execute(
+            text("CREATE INDEX IF NOT EXISTS idx_tables_run ON dalva_tables(run_id)")
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_tables_table_id_version ON dalva_tables(table_id, version)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_table_rows_table_version ON dalva_table_rows(table_id, version)"
             )
         )
 
@@ -227,6 +284,7 @@ def api_client(db_engine, monkeypatch) -> TestClient:
     app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
     app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
     app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
+    app.include_router(tables.router, prefix="/api/tables", tags=["tables"])
 
     def get_test_engine():
         return db_engine
@@ -234,6 +292,7 @@ def api_client(db_engine, monkeypatch) -> TestClient:
     monkeypatch.setattr("dalva.api.routes.projects.get_db", get_test_engine)
     monkeypatch.setattr("dalva.api.routes.runs.get_db", get_test_engine)
     monkeypatch.setattr("dalva.api.routes.metrics.get_db", get_test_engine)
+    monkeypatch.setattr("dalva.api.routes.tables.get_db", get_test_engine)
 
     @app.get("/api/health")
     async def health():
@@ -335,3 +394,34 @@ def sample_metrics(db_session, sample_run) -> list:
         }
         for m in metrics
     ]
+
+
+@pytest.fixture(scope="function")
+def sample_table(db_session, sample_project) -> dict:
+    """Create a sample table in the database."""
+    table = DalvaTableSchema(
+        project_id=sample_project["id"],
+        table_id="TST-T1",
+        name="Test Table",
+        log_mode="IMMUTABLE",
+        version=0,
+        row_count=0,
+        column_schema="[]",
+        state="active",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    db_session.add(table)
+    db_session.commit()
+    db_session.refresh(table)
+
+    return {
+        "id": table.id,
+        "project_id": table.project_id,
+        "table_id": table.table_id,
+        "name": table.name,
+        "log_mode": table.log_mode,
+        "version": table.version,
+        "row_count": table.row_count,
+        "state": table.state,
+    }

@@ -1,6 +1,6 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, lazy, Suspense } from 'react';
-import { useRun, useRunSummary, useRunMetrics, useDeleteRun, useProject } from '../api/client';
+import { useRun, useRunSummary, useRunMetrics, useDeleteRun, useProject, useTablesForRun, useUpdateRunState } from '../api/client';
 import MetricBrowser from '../components/Charts/MetricBrowser';
 import JsonViewer from '../components/JsonViewer';
 
@@ -23,14 +23,16 @@ function ChartIcon({ className = '', style }: { className?: string; style?: Reac
 export default function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'metrics' | 'config'>('overview');
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'metrics' | 'config' | 'tables'>('overview');
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 
   const { data: run, isLoading: runLoading } = useRun(parseInt(runId || '0'));
   const { data: project } = useProject(run?.project_id || 0);
   const { data: summary, isLoading: summaryLoading } = useRunSummary(parseInt(runId || '0'));
   const { data: metricNames, isLoading: metricsLoading } = useRunMetrics(parseInt(runId || '0'));
+  const { data: linkedTables } = useTablesForRun(parseInt(runId || '0'));
   const deleteRunMutation = useDeleteRun();
+  const updateRunStateMutation = useUpdateRunState();
 
   const [, setSearchParams] = useSearchParams();
 
@@ -114,16 +116,24 @@ export default function RunDetailPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className={`badge ${
-              run.state === 'running'
-                ? 'badge-running'
-                : run.state === 'completed'
-                ? 'badge-completed'
-                : 'badge-failed'
-            }`}>
+            <button
+              onClick={() => {
+                const states: Record<string, string> = { running: 'completed', completed: 'failed', failed: 'running' };
+                updateRunStateMutation.mutate({ runId: run.id, state: states[run.state] || 'completed' });
+              }}
+              disabled={updateRunStateMutation.isPending}
+              className={`badge cursor-pointer transition-opacity hover:opacity-80 ${
+                run.state === 'running'
+                  ? 'badge-running'
+                  : run.state === 'completed'
+                  ? 'badge-completed'
+                  : 'badge-failed'
+              }`}
+              title="Click to cycle state"
+            >
               {run.state === 'running' && <span className="pulse-dot" />}
-              {run.state}
-            </span>
+              {run.state.charAt(0).toUpperCase() + run.state.slice(1)}
+            </button>
             <button
               onClick={handleDeleteRun}
               disabled={deleteRunMutation.isPending}
@@ -148,7 +158,7 @@ export default function RunDetailPage() {
       {/* Tabs */}
       <div className="border-b mb-6" style={{ borderColor: 'var(--border)' }}>
         <nav className="-mb-px flex space-x-8">
-          {['overview', 'metrics', 'config'].map((tab) => (
+          {['overview', 'metrics', 'config', 'tables'].map((tab) => (
             <button
               key={tab}
               onClick={() => setSelectedTab(tab as typeof selectedTab)}
@@ -171,6 +181,14 @@ export default function RunDetailPage() {
               }}
             >
               {tab}
+              {tab === 'tables' && linkedTables && linkedTables.length > 0 && (
+                <span
+                  className="ml-2 text-xs px-1.5 py-0.5 rounded-full"
+                  style={{ backgroundColor: 'var(--accent)', color: 'var(--bg-surface)' }}
+                >
+                  {linkedTables.length}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -291,6 +309,72 @@ export default function RunDetailPage() {
               <p className="text-center py-8" style={{ color: 'var(--text-secondary)' }}>No configuration data available</p>
             );
           })()}
+        </div>
+      )}
+
+      {selectedTab === 'tables' && (
+        <div className="card">
+          <h3 className="heading-md mb-4">Linked Tables</h3>
+          {!linkedTables || linkedTables.length === 0 ? (
+            <div className="text-center py-12">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto mb-3" style={{ color: 'var(--text-tertiary)' }}>
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="3" y1="15" x2="21" y2="15"/>
+                <line x1="9" y1="3" x2="9" y2="21"/>
+              </svg>
+              <p className="text-body">No tables linked to this run</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {linkedTables.map((table) => (
+                <button
+                  key={table.id}
+                  onClick={() => navigate(`/tables/${table.id}?project=${run.project_id}`)}
+                  className="w-full flex items-center justify-between p-4 rounded-lg border transition-colors text-left hover:border-[var(--accent)]"
+                  style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-surface)' }}
+                >
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <span className="mono text-sm font-medium" style={{ color: 'var(--accent-hover)' }}>
+                          {table.table_id}
+                        </span>
+                        <span className={`badge text-xs ${
+                          table.log_mode === 'IMMUTABLE'
+                            ? 'badge-completed'
+                            : table.log_mode === 'MUTABLE'
+                            ? 'badge-running'
+                            : 'badge-failed'
+                        }`}>
+                          {table.log_mode}
+                        </span>
+                        <span className={`badge ${
+                          table.state === 'active'
+                            ? 'badge-running'
+                            : 'badge-completed'
+                        }`}>
+                          {table.state === 'active' && <span className="pulse-dot" />}
+                          {table.state.charAt(0).toUpperCase() + table.state.slice(1)}
+                        </span>
+                      </div>
+                      <div className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                        {table.name || 'Unnamed table'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm mono" style={{ color: 'var(--text-primary)' }}>
+                      {table.row_count.toLocaleString()} rows
+                    </div>
+                    <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                      v{table.version}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

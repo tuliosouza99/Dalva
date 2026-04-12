@@ -2,13 +2,47 @@
 
 import json
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Mapping, Optional
+from typing import Mapping, Optional
 
 import httpx
-import numpy as np
+import pandas as pd
+import pandera.pandas as pa
+from pandera.errors import SchemaErrors
 
-if TYPE_CHECKING:
-    import pandas as pd
+
+def _is_na(v):
+    return v is None or (isinstance(v, float) and v != v)
+
+
+def _is_date(s: pd.Series) -> pd.Series:
+    return s.map(lambda v: isinstance(v, (datetime, date)) if not _is_na(v) else True)
+
+
+def _is_list(s: pd.Series) -> pd.Series:
+    return s.map(
+        lambda v: (
+            isinstance(v, list) or (isinstance(v, str) and v.startswith("["))
+            if not _is_na(v)
+            else True
+        )
+    )
+
+
+def _is_dict(s: pd.Series) -> pd.Series:
+    return s.map(
+        lambda v: (
+            isinstance(v, dict) or (isinstance(v, str) and v.startswith("{"))
+            if not _is_na(v)
+            else True
+        )
+    )
+
+
+_OBJECT_CHECKS = {
+    "date": pa.Check(_is_date),
+    "list": pa.Check(_is_list),
+    "dict": pa.Check(_is_dict),
+}
 
 
 class Table:
@@ -156,106 +190,76 @@ class Table:
         except Exception:
             return None
 
-    def _validate_dataframe(self, df) -> tuple[list[dict], list[dict]]:
-        """Validate DataFrame and convert to records.
+    def _infer_type(self, col_name: str, dtype, non_null: "pd.Series") -> str:
+        """Infer column type name from pandas dtype and sample."""
+        if dtype == "object":
+            sample = non_null.iloc[0] if len(non_null) > 0 else None
+            if sample is None:
+                return "str"
+            elif isinstance(sample, (list, dict)):
+                return "list" if isinstance(sample, list) else "dict"
+            elif isinstance(sample, date):
+                return "date"
+            else:
+                return "str"
+        elif dtype == "bool" or pd.api.types.is_bool_dtype(dtype):
+            return "bool"
+        elif pd.api.types.is_integer_dtype(dtype):
+            return "int"
+        elif pd.api.types.is_float_dtype(dtype):
+            return "float"
+        return "str"
 
-        Returns:
-            Tuple of (rows, column_schema)
-        """
-        import pandas as pd
-
-        rows = []
+    def _build_schema(
+        self, df: "pd.DataFrame"
+    ) -> tuple[pa.DataFrameSchema, list[dict]]:
+        """Build a pandera DataFrameSchema from the DataFrame."""
+        columns = {}
         column_schema = []
 
         for col_name in df.columns:
-            col = df[col_name]
-            dtype = col.dtype
+            non_null = df[col_name].dropna()
+            inferred = self._infer_type(col_name, df[col_name].dtype, non_null)
 
-            if dtype == "object":
-                sample = col.dropna().iloc[0] if len(col.dropna()) > 0 else None
-                if isinstance(sample, (list, dict)):
-                    inferred_type = "list" if isinstance(sample, list) else "dict"
-                elif isinstance(
-                    sample, datetime
-                ) or pd.api.types.is_datetime64_any_dtype(dtype):
-                    inferred_type = "date"
-                else:
-                    inferred_type = "str"
-            elif dtype == "bool" or pd.api.types.is_bool_dtype(dtype):
-                inferred_type = "bool"
-            elif pd.api.types.is_integer_dtype(dtype):
-                inferred_type = "int"
-            elif pd.api.types.is_float_dtype(dtype):
-                inferred_type = "float"
-            else:
-                inferred_type = "str"
-
-            if inferred_type not in self.ALLOWED_TYPES:
+            if inferred not in self.ALLOWED_TYPES:
                 raise ValueError(
-                    f"Column '{col_name}' has unsupported type: {inferred_type}"
+                    f"Column '{col_name}' has unsupported type: {inferred}"
                 )
 
-            column_schema.append({"name": col_name, "type": inferred_type})
+            column_schema.append({"name": col_name, "type": inferred})
 
-        for _, row in df.iterrows():
-            record = {}
-            for col_name, schema_col in zip(df.columns, column_schema):
-                val = row[col_name]
-                if pd.isna(val) or val is None:
-                    record[col_name] = None
-                elif schema_col["type"] == "date":
-                    if isinstance(val, datetime):
-                        record[col_name] = val.isoformat()
-                    elif isinstance(val, date):
-                        record[col_name] = val.isoformat()
-                    else:
-                        record[col_name] = str(val)
-                elif schema_col["type"] in ("list", "dict"):
-                    record[col_name] = (
-                        json.dumps(val) if isinstance(val, (list, dict)) else val
-                    )
-                else:
-                    if isinstance(val, (np.integer, np.floating, np.bool_)):
-                        val = val.item()
-                    record[col_name] = val
-            rows.append(record)
+            if inferred in _OBJECT_CHECKS:
+                columns[col_name] = pa.Column(
+                    "object", nullable=True, checks=_OBJECT_CHECKS[inferred]
+                )
+            else:
+                columns[col_name] = pa.Column(inferred, nullable=True)
 
-        for i, col_schema in enumerate(column_schema):
-            col = df.iloc[:, i]
-            non_null = col.dropna()
-            if len(non_null) > 0:
-                sample = non_null.iloc[0]
-                inferred = col_schema["type"]
+        return pa.DataFrameSchema(columns), column_schema
 
-                def check_type(v, t):
-                    if t == "int":
-                        return isinstance(v, int) and not isinstance(v, bool)
-                    if t == "float":
-                        return isinstance(v, float)
-                    if t == "bool":
-                        return isinstance(v, bool)
-                    if t == "str":
-                        return isinstance(v, str)
-                    if t == "date":
-                        return isinstance(v, (datetime, date, str))
-                    if t == "list":
-                        return isinstance(v, list) or (
-                            isinstance(v, str) and v.startswith("[")
-                        )
-                    if t == "dict":
-                        return isinstance(v, dict) or (
-                            isinstance(v, str) and v.startswith("{")
-                        )
-                    return False
+    def _validate_dataframe(
+        self, df: "pd.DataFrame"
+    ) -> tuple["pd.DataFrame", list[dict]]:
+        """Validate DataFrame using pandera.
 
-                for v in non_null:
-                    if not check_type(v, inferred):
-                        raise ValueError(
-                            f"Column '{col_schema['name']}' has mixed types. "
-                            f"Expected {inferred}, got {type(v).__name__}"
-                        )
+        Returns:
+            Tuple of (validated_df, column_schema)
+        """
+        schema, column_schema = self._build_schema(df)
+        try:
+            validated_df = schema.validate(df, lazy=True)
+        except SchemaErrors as e:
+            msgs = []
+            for _, row in e.failure_cases.iterrows():
+                col = row.get("column", "?")
+                msg = row.get("check", "?")
+                msgs.append(f"Column '{col}' {msg}")
+            raise ValueError(f"DataFrame validation failed: {'; '.join(msgs)}")
+        return validated_df, column_schema
 
-        return rows, column_schema
+    def _serialize_rows(self, df: "pd.DataFrame"):
+        """Serialize DataFrame rows as JSON string for API payload."""
+        return df.to_json(orient="records", date_format="iso")
 
     def log(self, df: "pd.DataFrame") -> None:
         """Log a pandas DataFrame to the table.
@@ -273,14 +277,16 @@ class Table:
         """
         client = self._get_client()
 
-        rows, column_schema = self._validate_dataframe(df)
+        validated_df, column_schema = self._validate_dataframe(df)
+        rows_json = self._serialize_rows(validated_df)
+        payload = f'{{"rows":{rows_json},"column_schema":{json.dumps(column_schema)}}}'
 
-        payload = {
-            "rows": rows,
-            "column_schema": column_schema,
-        }
         try:
-            response = client.post(f"/api/tables/{self._db_id}/log", json=payload)
+            response = client.post(
+                f"/api/tables/{self._db_id}/log",
+                content=payload,
+                headers={"Content-Type": "application/json"},
+            )
             response.raise_for_status()
             result = response.json()
             self._version = result["version"]

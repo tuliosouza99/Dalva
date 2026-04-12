@@ -7,10 +7,32 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from pydantic import BaseModel, create_model
 from sqlalchemy import func, text
 
 from dalva.db.connection import get_engine, session_scope
 from dalva.db.schema import DalvaTable, DalvaTableRow, Project
+
+_COLUMN_TYPES: dict[str, type] = {
+    "int": int,
+    "float": float,
+    "bool": bool,
+    "str": str,
+    "date": str,
+    "list": list,
+    "dict": dict,
+}
+
+
+def _build_row_model(
+    column_schema: list[dict[str, str]],
+) -> type[BaseModel]:
+    """Build a Pydantic model from the column schema."""
+    fields = {}
+    for col in column_schema:
+        python_type = _COLUMN_TYPES.get(col["type"], str)
+        fields[col["name"]] = (Optional[python_type], None)
+    return create_model("RowModel", **fields)
 
 
 def _generate_table_abbreviation(project_name: str) -> str:
@@ -131,6 +153,14 @@ def add_table_rows(
     if not rows:
         return current_version or 0, 0
 
+    RowModel = _build_row_model(column_schema)
+    validated_rows = []
+    for i, row in enumerate(rows):
+        try:
+            validated_rows.append(RowModel(**row).model_dump())
+        except Exception as e:
+            raise ValueError(f"Row {i} validation failed: {e}")
+
     with session_scope() as db:
         table = db.query(DalvaTable).filter(DalvaTable.id == table_db_id).first()
         if not table:
@@ -163,7 +193,7 @@ def add_table_rows(
 
         new_version = actual_version + 1
 
-        for row in rows:
+        for row in validated_rows:
             db.add(
                 DalvaTableRow(
                     table_id=table_db_id,

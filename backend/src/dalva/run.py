@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping
+from typing import Mapping
 
 import httpx
 
-if TYPE_CHECKING:
-    from dalva.table import Table
+from dalva.table import Table
 
 
 def _server_error(exc: httpx.HTTPStatusError) -> str:
@@ -172,8 +171,6 @@ class Run:
             run.finish()  # auto-finishes table too
             ```
         """
-        from dalva.table import Table
-
         table = Table(
             project=self.project_name,
             name=name,

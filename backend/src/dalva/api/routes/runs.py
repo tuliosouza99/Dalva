@@ -141,19 +141,22 @@ def get_run_summary(run_id: int, db: Session = Depends(get_db)):
     )
 
     # Build metrics dict
-    metrics_dict = {}
-    for metric in summary_metrics:
-        value = None
-        if metric.float_value is not None:
-            value = metric.float_value
-        elif metric.int_value is not None:
-            value = metric.int_value
-        elif metric.string_value is not None:
-            value = metric.string_value
-        elif metric.bool_value is not None:
-            value = metric.bool_value
-
-        metrics_dict[metric.attribute_path] = value
+    metrics_dict = {
+        metric.attribute_path: next(
+            (
+                v
+                for v in (
+                    metric.float_value,
+                    metric.int_value,
+                    metric.string_value,
+                    metric.bool_value,
+                )
+                if v is not None
+            ),
+            None,
+        )
+        for metric in summary_metrics
+    }
 
     # Get config
     configs = db.query(Config).filter(Config.run_id == run_id).all()
@@ -275,19 +278,20 @@ def log_metrics_remote(
     # Log metrics
     timestamp = request.timestamp or datetime.now(timezone.utc)
     is_series = request.step is not None
+    suffix = "_series" if is_series else ""
 
     for metric_path, value in request.metrics.items():
         if isinstance(value, bool):
-            attr_type = "bool_series" if is_series else "bool"
+            attr_type = f"bool{suffix}"
             value_key = "bool_value"
         elif isinstance(value, int):
-            attr_type = "int_series" if is_series else "int"
+            attr_type = f"int{suffix}"
             value_key = "int_value"
         elif isinstance(value, float):
-            attr_type = "float_series" if is_series else "float"
+            attr_type = f"float{suffix}"
             value_key = "float_value"
         else:
-            attr_type = "string_series" if is_series else "string"
+            attr_type = f"string{suffix}"
             value_key = "string_value"
             value = str(value)
 

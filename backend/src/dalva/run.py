@@ -6,7 +6,7 @@ from typing import TypedDict, Union, overload
 
 import httpx
 
-from .table import Table
+from ._table import Table
 from .types import _T, InputDict
 
 

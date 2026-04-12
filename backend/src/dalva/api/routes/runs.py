@@ -222,7 +222,7 @@ def init_run(request: InitRunRequest):
 @router.patch("/{run_id}/state")
 def update_run_state(
     run_id: int,
-    state: str = Query(..., regex="^(running|completed|failed)$"),
+    state: str = Query(..., pattern="^(running|completed|failed)$"),
     db: Session = Depends(get_db),
 ):
     """

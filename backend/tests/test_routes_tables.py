@@ -286,7 +286,7 @@ class TestLogTableRows:
         assert resp.status_code == 400
 
     def test_log_rows_finished_table_fails(self, api_client, sample_table, db_session):
-        table = db_session.query(DalvaTable).get(sample_table["id"])
+        table = db_session.get(DalvaTable, sample_table["id"])
         table.state = "finished"
         db_session.commit()
 

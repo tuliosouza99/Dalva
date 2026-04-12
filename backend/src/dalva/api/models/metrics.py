@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class MetricBase(BaseModel):
@@ -20,15 +20,14 @@ class MetricCreate(MetricBase):
 
 
 class MetricResponse(MetricBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     run_id: int
     float_value: Optional[float] = None
     int_value: Optional[int] = None
     string_value: Optional[str] = None
     bool_value: Optional[bool] = None
-
-    class Config:
-        from_attributes = True
 
 
 class MetricValue(BaseModel):

@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ColumnSchema(BaseModel):
@@ -54,6 +54,8 @@ class LogTableResponse(BaseModel):
 class TableResponse(BaseModel):
     """Response with full table metadata."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     project_id: int
     table_id: str
@@ -67,9 +69,6 @@ class TableResponse(BaseModel):
     state: str
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class TableListResponse(BaseModel):

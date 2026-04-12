@@ -17,12 +17,13 @@ import json
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from sqlalchemy.orm import Session
 
 from dalva.db.connection import next_id, session_scope
 from dalva.db.schema import Config, Project, Run
+from dalva.types import InputValue
 
 
 def _generate_abbreviation(project_name: str) -> str:
@@ -52,7 +53,7 @@ def _generate_abbreviation(project_name: str) -> str:
 def create_run(
     project_name: str,
     run_name: Optional[str] = None,
-    config: Optional[dict] = None,
+    config: Optional[Mapping[str, InputValue]] = None,
     resume_from: Optional[str] = None,
 ) -> tuple[int, str, Optional[str]]:
     """Create or resume a run.
@@ -131,7 +132,10 @@ def create_run(
 
 
 def _log_config(
-    run_id: int, config: dict, prefix: str = "", session: Optional[Session] = None
+    run_id: int,
+    config: Mapping[str, InputValue],
+    prefix: str = "",
+    session: Optional[Session] = None,
 ) -> None:
     """Recursively persist configuration key-value pairs.
 
@@ -176,7 +180,7 @@ def _log_config(
             _do_log(db)
 
 
-def _flatten_config(d: dict, prefix: str, out: dict) -> None:
+def _flatten_config(d: Mapping[str, InputValue], prefix: str, out: dict) -> None:
     for key, value in d.items():
         full_key = f"{prefix}{key}" if prefix else key
         if isinstance(value, dict):

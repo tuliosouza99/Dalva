@@ -18,6 +18,20 @@ run.log({
 }, step=epoch)
 ```
 
+### Nested Dicts
+
+You can also use nested dicts, which are automatically flattened with `/` as the separator:
+
+```python
+run.log({"train": {"loss": 0.5, "accuracy": 0.85}}, step=0)
+# equivalent to: run.log({"train/loss": 0.5, "train/accuracy": 0.85}, step=0)
+
+run.log({"model": {"encoder": {"loss": 0.3}}}, step=1)
+# equivalent to: run.log({"model/encoder/loss": 0.3}, step=1)
+```
+
+Nested metric values must be scalars (`str`, `bool`, `int`, `float`). Logging a non-scalar leaf (like a list) returns a 422 error.
+
 ## Series vs Scalar Types
 
 The `step` parameter determines whether a metric is stored as a **scalar** or **series**:
@@ -166,6 +180,49 @@ run.remove("loss")              # removes ALL loss entries (all steps)
 run.remove("loss", step=5)       # removes only step 5
 run.remove_config("lr")         # removes the lr config key
 run.log_config({"lr": 0.01})   # log new value after removal
+```
+
+### Getting Metrics and Config
+
+Retrieve a specific metric or config key by name:
+
+```python
+# Get the latest step value for a metric:
+run.get("loss")                  # {"key": "loss", "value": 0.3, "step": 1}
+
+# Get a specific step:
+run.get("loss", step=0)          # {"key": "loss", "value": 0.5, "step": 0}
+
+# Works with nested/flattened keys too:
+run.get("train/loss", step=0)   # {"key": "train/loss", "value": 0.4, "step": 0}
+
+# If the key doesn't exist, returns None (or your default):
+run.get("missing")              # None
+run.get("missing", default=0)   # 0
+
+# Get a config key:
+run.get_config("lr")            # {"key": "lr", "value": 0.001}
+run.get_config("optimizer/lr")  # {"key": "optimizer/lr", "value": 0.001}
+run.get_config("missing", default="unknown")  # "unknown"
+```
+
+### Remove and Re-log Pattern
+
+Since logging is strict (no overwrites), you must remove before re-logging. This works for both flat and nested keys:
+
+```python
+# Overwrite a scalar metric:
+run.remove("best_accuracy")
+run.log({"best_accuracy": 0.97})
+
+# Overwrite a specific step:
+run.log({"train/loss": 0.5}, step=0)
+run.remove("train/loss", step=0)
+run.log({"train/loss": 0.3}, step=0)
+
+# Overwrite a nested config key:
+run.remove_config("optimizer/lr")
+run.log_config({"optimizer": {"lr": 0.01}})
 ```
 
 

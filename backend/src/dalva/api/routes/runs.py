@@ -9,12 +9,14 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from dalva.api.models.runs import (
+    ConfigGetResponse,
     FinishResponse,
     InitRunRequest,
     InitRunResponse,
     LogConfigRequest,
     LogMetricsRequest,
     LogResponse,
+    MetricGetResponse,
     RunResponse,
     RunsListResponse,
     RunSummary,
@@ -22,7 +24,7 @@ from dalva.api.models.runs import (
 from dalva.api.models.tables import TableResponse
 from dalva.db.connection import get_db, next_id
 from dalva.db.schema import Config, Metric, Run
-from dalva.services.logger import _log_config, create_run
+from dalva.services.logger import _flatten_config, _log_config, create_run
 from dalva.services.tables import get_tables_for_run
 
 router = APIRouter()
@@ -285,13 +287,28 @@ def log_metrics_remote(
     run.last_activity_at = datetime.now(timezone.utc)
     run.updated_at = datetime.now(timezone.utc)
 
+    flat_metrics: dict[str, object] = {}
+    _flatten_config(request.metrics, "", flat_metrics)
+
+    non_scalar = [
+        k for k, v in flat_metrics.items() if not isinstance(v, (bool, int, float, str))
+    ]
+    if non_scalar:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Metric values must be scalars (str, bool, int, float)",
+                "invalid_keys": non_scalar,
+            },
+        )
+
     timestamp = request.timestamp or datetime.now(timezone.utc)
     is_series = request.step is not None
     suffix = "_series" if is_series else ""
 
     conflicts = []
 
-    for metric_path, value in request.metrics.items():
+    for metric_path, value in flat_metrics.items():
         if isinstance(value, bool):
             attr_type = f"bool{suffix}"
         elif isinstance(value, int):
@@ -368,7 +385,7 @@ def log_metrics_remote(
         )
 
     # All clear — insert
-    for metric_path, value in request.metrics.items():
+    for metric_path, value in flat_metrics.items():
         if isinstance(value, bool):
             attr_type = f"bool{suffix}"
             value_key = "bool_value"
@@ -458,8 +475,105 @@ def delete_run(run_id: int, db: Session = Depends(get_db)):
     return {"message": "Run deleted successfully"}
 
 
+@router.get(
+    "/{run_id}/metrics/{attribute_path:path}",
+    response_model=MetricGetResponse,
+    responses={404: {"description": "Run or metric not found"}},
+)
+def get_metric(
+    run_id: int,
+    attribute_path: str,
+    step: Optional[int] = Query(
+        None,
+        description=(
+            "Specific step to retrieve. If omitted, returns the value at the "
+            "highest step (or the scalar if no series exist)."
+        ),
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    Get a specific metric from a run.
+
+    - With `step`: returns the metric at that specific step.
+    - Without `step`: returns the metric at the latest step (highest step number),
+      or the scalar value if no series steps exist.
+
+    Returns a dict with ``key``, ``value``, and ``step``.
+    If the metric does not exist, returns 404.
+
+    Args:
+        run_id: Run database ID
+        attribute_path: Metric name/path
+        step: Optional step number
+        db: Database session
+
+    Returns:
+        Dict with key, value, step
+    """
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    if step is not None:
+        metric = (
+            db.query(Metric)
+            .filter(
+                Metric.run_id == run_id,
+                Metric.attribute_path == attribute_path,
+                Metric.step == step,
+            )
+            .first()
+        )
+    else:
+        series_metric = (
+            db.query(Metric)
+            .filter(
+                Metric.run_id == run_id,
+                Metric.attribute_path == attribute_path,
+                Metric.step.isnot(None),
+            )
+            .order_by(Metric.step.desc())
+            .first()
+        )
+        if series_metric:
+            metric = series_metric
+        else:
+            metric = (
+                db.query(Metric)
+                .filter(
+                    Metric.run_id == run_id,
+                    Metric.attribute_path == attribute_path,
+                    Metric.step.is_(None),
+                )
+                .first()
+            )
+
+    if not metric:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Metric '{attribute_path}' not found for this run",
+        )
+
+    value = next(
+        (
+            v
+            for v in (
+                metric.float_value,
+                metric.int_value,
+                metric.string_value,
+                metric.bool_value,
+            )
+            if v is not None
+        ),
+        None,
+    )
+
+    return MetricGetResponse(key=attribute_path, value=value, step=metric.step)
+
+
 @router.delete(
-    "/{run_id}/metrics/{attribute_path}",
+    "/{run_id}/metrics/{attribute_path:path}",
     responses={
         404: {"description": "Metric not found"},
         409: {"description": "Ambiguous request — specify step parameter"},
@@ -525,7 +639,55 @@ def remove_metric(
     }
 
 
-@router.delete("/{run_id}/config/{key}")
+@router.get(
+    "/{run_id}/config/{key:path}",
+    response_model=ConfigGetResponse,
+    responses={404: {"description": "Run or config key not found"}},
+)
+def get_config(
+    run_id: int,
+    key: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Get a specific config key from a run.
+
+    Returns a dict with ``key`` and ``value``.
+    If the key does not exist, returns 404.
+
+    Args:
+        run_id: Run database ID
+        key: Config key name
+        db: Database session
+
+    Returns:
+        Dict with key, value
+    """
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    config = (
+        db.query(Config)
+        .filter(
+            Config.run_id == run_id,
+            Config.key == key,
+        )
+        .first()
+    )
+
+    if not config:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Config key '{key}' not found for this run",
+        )
+
+    value = json.loads(config.value) if config.value else None
+
+    return ConfigGetResponse(key=key, value=value)
+
+
+@router.delete("/{run_id}/config/{key:path}")
 def remove_config(
     run_id: int,
     key: str,

@@ -48,7 +48,7 @@ run = dalva.init(
 
 for step in range(100):
     loss = train_step(step)
-    run.log({"loss": loss}, step=step)
+    run.log({"train": {"loss": loss}}, step=step)
 
 run.finish()
 ```

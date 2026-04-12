@@ -1,16 +1,18 @@
 """API models for table endpoints."""
 
 from datetime import datetime
-from typing import Any, Literal, Optional, Union
+from typing import Literal, Mapping, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from ...types import InputValue, SingleElement
 
 
 class ColumnSchema(BaseModel):
     """Schema for a single column."""
 
     name: str
-    type: str  # int, float, bool, str, date, list, dict
+    type: str
 
 
 class InitTableRequest(BaseModel):
@@ -18,7 +20,7 @@ class InitTableRequest(BaseModel):
 
     project: str
     name: Optional[str] = None
-    config: Optional[dict] = None
+    config: Optional[Mapping[str, InputValue]] = None
     run_id: Optional[int] = None
     log_mode: Optional[str] = Field(
         default="IMMUTABLE", pattern="^(IMMUTABLE|MUTABLE|INCREMENTAL)$"
@@ -39,7 +41,7 @@ class InitTableResponse(BaseModel):
 class LogTableRequest(BaseModel):
     """Request to log rows to a table."""
 
-    rows: list[dict[str, Any]]
+    rows: list[dict[str, InputValue]]
     column_schema: list[ColumnSchema]
 
 
@@ -64,8 +66,8 @@ class TableResponse(BaseModel):
     log_mode: str
     version: int
     row_count: int
-    column_schema: str  # JSON string
-    config: Optional[str]  # JSON string
+    column_schema: str
+    config: Optional[str]
     state: str
     created_at: datetime
     updated_at: datetime
@@ -86,7 +88,7 @@ class ColumnFilter(BaseModel):
     op: Literal["between", "contains", "eq"]
     min: Optional[float] = None
     max: Optional[float] = None
-    value: Optional[Any] = None
+    value: Optional[SingleElement] = None
 
 
 class TableDataRequest(BaseModel):
@@ -103,10 +105,25 @@ class TableDataRequest(BaseModel):
 class TableDataResponse(BaseModel):
     """Response with table data."""
 
-    rows: list[dict[str, Any]]
+    rows: list[dict[str, InputValue]]
     total: int
     column_schema: list[ColumnSchema]
     has_more: bool
+
+
+class Bin(BaseModel):
+    """A histogram bin."""
+
+    start: float
+    end: float
+    count: int
+
+
+class TopValue(BaseModel):
+    """A top value entry."""
+
+    value: str
+    count: int
 
 
 class NumericStats(BaseModel):
@@ -115,7 +132,7 @@ class NumericStats(BaseModel):
     type: Literal["numeric"] = "numeric"
     min: Optional[float] = None
     max: Optional[float] = None
-    bins: list[dict[str, Any]] = []
+    bins: list[Bin] = []
     null_count: int = 0
 
 
@@ -131,7 +148,7 @@ class StringStats(BaseModel):
     """Statistics for string columns."""
 
     type: Literal["string"] = "string"
-    top_values: list[dict[str, Any]] = []
+    top_values: list[TopValue] = []
     unique_count: int = 0
     null_count: int = 0
 

@@ -387,12 +387,27 @@ def session_scope() -> Generator[Session, None, None]:
 def get_db() -> Generator[Session, None, None]:
     """FastAPI dependency that yields a short-lived database session.
 
-    Uses session_scope() so every HTTP request gets a fresh DuckDB connection
-    (no stale snapshots) and releases the write lock immediately after the
-    response is sent.
+    Route handlers are responsible for calling ``db.commit()`` themselves.
+    On exception the session is rolled back; on normal return it is simply
+    closed (with NullPool the underlying DuckDB connection is discarded
+    immediately, releasing the write lock).
+
+    We intentionally do *not* wrap ``session_scope()`` here because route
+    handlers already call ``db.commit()``.  A second commit from
+    ``session_scope.__exit__`` would start a new empty transaction on the
+    same connection, which can cause stale-snapshot issues in DuckDB
+    (subsequent connections may not see the committed changes).
     """
-    with session_scope() as session:
+    engine = get_engine()
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session = SessionLocal()
+    try:
         yield session
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 def next_id(session: Session, table_name: str) -> int:

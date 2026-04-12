@@ -2,12 +2,14 @@
 
 import json
 from datetime import date, datetime
-from typing import Mapping, Optional
+from typing import Optional
 
 import httpx
 import pandas as pd
 import pandera.pandas as pa
 from pandera.errors import SchemaErrors
+
+from .types import InputDict
 
 
 def _is_na(v):
@@ -79,7 +81,7 @@ class Table:
         self,
         project: str,
         name: str | None = None,
-        config: Mapping | None = None,
+        config: InputDict | None = None,
         run_id: str | None = None,
         resume_from: str | None = None,
         server_url: str = "http://localhost:8000",
@@ -117,7 +119,7 @@ class Table:
 
         print(f"Table created: {self.table_id}")
 
-    def _verify_server_connection(self) -> None:
+    def _verify_server_connection(self):
         """Verify server is accessible via health check endpoint."""
         try:
             response = httpx.get(f"{self._server_url}/api/health", timeout=10)
@@ -140,10 +142,10 @@ class Table:
     def _create_table_on_server(
         self,
         name: str | None,
-        config: Mapping | None,
+        config: InputDict | None,
         resume_from: str | None,
         log_mode: str,
-    ) -> None:
+    ):
         """Create the table on the server via API."""
         client = self._get_client()
 
@@ -204,7 +206,7 @@ class Table:
         except Exception:
             return None
 
-    def _infer_type(self, col_name: str, dtype, non_null: "pd.Series") -> str:
+    def _infer_type(self, dtype, non_null: pd.Series) -> str:
         """Infer column type name from pandas dtype and sample."""
         if dtype == "object":
             sample = non_null.iloc[0] if len(non_null) > 0 else None
@@ -224,16 +226,14 @@ class Table:
             return "float"
         return "str"
 
-    def _build_schema(
-        self, df: "pd.DataFrame"
-    ) -> tuple[pa.DataFrameSchema, list[dict]]:
+    def _build_schema(self, df: pd.DataFrame) -> tuple[pa.DataFrameSchema, list[dict]]:
         """Build a pandera DataFrameSchema from the DataFrame."""
         columns = {}
         column_schema = []
 
         for col_name in df.columns:
-            non_null = df[col_name].dropna()
-            inferred = self._infer_type(col_name, df[col_name].dtype, non_null)
+            non_null = df.loc[:, col_name].dropna()
+            inferred = self._infer_type(df[col_name].dtype, non_null)
 
             if inferred not in self.ALLOWED_TYPES:
                 raise ValueError(
@@ -251,9 +251,7 @@ class Table:
 
         return pa.DataFrameSchema(columns), column_schema
 
-    def _validate_dataframe(
-        self, df: "pd.DataFrame"
-    ) -> tuple["pd.DataFrame", list[dict]]:
+    def _validate_dataframe(self, df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
         """Validate DataFrame using pandera.
 
         Returns:
@@ -275,7 +273,7 @@ class Table:
         """Serialize DataFrame rows as JSON string for API payload."""
         return df.to_json(orient="records", date_format="iso")
 
-    def log(self, df: "pd.DataFrame") -> None:
+    def log(self, df: pd.DataFrame) -> None:
         """Log a pandas DataFrame to the table.
 
         Args:

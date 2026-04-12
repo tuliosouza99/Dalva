@@ -236,7 +236,41 @@ def _create_duckdb_tables(engine) -> None:
             )
         )
 
+        _sync_sequences(conn)
+
         conn.commit()
+
+
+_SEQUENCE_MAP = {
+    "projects": "projects_id_seq",
+    "runs": "runs_id_seq",
+    "metrics": "metrics_id_seq",
+    "configs": "configs_id_seq",
+    "files": "files_id_seq",
+    "custom_views": "custom_views_id_seq",
+    "dalva_tables": "dalva_tables_id_seq",
+    "dalva_table_rows": "dalva_table_rows_id_seq",
+}
+
+
+def _sync_sequences(conn) -> None:
+    """Set each sequence to MAX(id)+1 so inserts never collide with existing rows.
+
+    DuckDB lacks setval() and ALTER SEQUENCE RESTART, so we drop and
+    recreate each sequence with the correct start value.  Sequences that
+    already return the right value are left untouched.
+    """
+    for table, seq in _SEQUENCE_MAP.items():
+        max_id = conn.execute(
+            text(f"SELECT COALESCE(MAX(id), 0) FROM {table}")
+        ).scalar()
+        desired = max_id + 1
+        cur = conn.execute(text(f"SELECT nextval('{seq}')")).scalar()
+        conn.rollback()
+        if cur >= desired:
+            continue
+        conn.execute(text(f"DROP SEQUENCE IF EXISTS {seq}"))
+        conn.execute(text(f"CREATE SEQUENCE {seq} START {desired}"))
 
 
 def init_db(db_path: str | None = None) -> None:
@@ -315,6 +349,17 @@ def get_db() -> Generator[Session, None, None]:
     """
     with session_scope() as session:
         yield session
+
+
+def next_id(session: Session, table_name: str) -> int:
+    """Return the next primary-key value for *table_name* by calling its sequence.
+
+    DuckDB tables in Dalva use ``DEFAULT nextval('<table>_id_seq')`` but that
+    column default can be lost after a backup/restore.  Calling the sequence
+    explicitly and setting ``obj.id = next_id(...)`` before ``db.add()`` avoids
+    the ``FlushError: NULL identity key`` that results.
+    """
+    return session.execute(text(f"SELECT nextval('{table_name}_id_seq')")).scalar()
 
 
 def get_session() -> Session:

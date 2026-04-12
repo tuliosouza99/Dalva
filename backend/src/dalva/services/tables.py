@@ -10,7 +10,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, create_model
 from sqlalchemy import func, text
 
-from dalva.db.connection import get_engine, session_scope
+from dalva.db.connection import get_engine, next_id, session_scope
 from dalva.db.schema import DalvaTable, DalvaTableRow, Project
 
 _COLUMN_TYPES: dict[str, type] = {
@@ -77,7 +77,9 @@ def create_table(
         project = db.query(Project).filter(Project.name == project_name).first()
         if not project:
             project_id_str = f"{project_name}_{hashlib.md5(str(time.time()).encode()).hexdigest()[:16]}"
-            project = Project(name=project_name, project_id=project_id_str)
+            project = Project(
+                id=next_id(db, "projects"), name=project_name, project_id=project_id_str
+            )
             db.add(project)
             db.flush()
 
@@ -111,6 +113,7 @@ def create_table(
         table_id_str = f"{abbrev}-T{table_count + 1}"
 
         table = DalvaTable(
+            id=next_id(db, "dalva_tables"),
             project_id=project_db_id,
             table_id=table_id_str,
             name=name,
@@ -196,6 +199,7 @@ def add_table_rows(
         for row in validated_rows:
             db.add(
                 DalvaTableRow(
+                    id=next_id(db, "dalva_table_rows"),
                     table_id=table_db_id,
                     version=new_version,
                     row_data=json.dumps(row),

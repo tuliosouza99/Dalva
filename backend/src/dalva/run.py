@@ -10,6 +10,16 @@ if TYPE_CHECKING:
     from dalva.table import Table
 
 
+def _server_error(exc: httpx.HTTPStatusError) -> str:
+    """Extract server error detail from an HTTPStatusError."""
+    try:
+        body = exc.response.json()
+        detail = body.get("detail", str(exc))
+    except Exception:
+        detail = str(exc)
+    return f"Server error {exc.response.status_code}: {detail}"
+
+
 class Run:
     """Run object for tracking experiments via HTTP.
 
@@ -99,6 +109,8 @@ class Run:
             self._db_id = result["id"]
             self.run_id = result["run_id"]
             self.name = result.get("name")
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to create run on server: {e}")
 
@@ -128,6 +140,8 @@ class Run:
         try:
             response = client.post(f"/api/runs/{self._db_id}/log", json=payload)
             response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to log metrics to server: {e}")
 
@@ -197,6 +211,8 @@ class Run:
             response.raise_for_status()
             result = response.json()
             print(f"[Run] Run finished (state={result['state']})")
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to finish run on server: {e}")
         finally:

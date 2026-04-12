@@ -19,7 +19,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
-from dalva.db.connection import session_scope
+from dalva.db.connection import next_id, session_scope
 from dalva.db.schema import Config, Project, Run
 
 
@@ -62,7 +62,9 @@ def create_run(
         project = db.query(Project).filter(Project.name == project_name).first()
         if not project:
             project_id_str = f"{project_name}_{hashlib.md5(str(time.time()).encode()).hexdigest()[:16]}"
-            project = Project(name=project_name, project_id=project_id_str)
+            project = Project(
+                id=next_id(db, "projects"), name=project_name, project_id=project_id_str
+            )
             db.add(project)
             db.flush()
 
@@ -89,6 +91,7 @@ def create_run(
         run_id_str = f"{abbrev}-{run_count + 1}"
 
         run = Run(
+            id=next_id(db, "runs"),
             project_id=project_db_id,
             run_id=run_id_str,
             name=run_name,
@@ -112,7 +115,14 @@ def _log_config(run_id: int, config: dict, prefix: str = "") -> None:
 
     with session_scope() as db:
         for key, value in flat.items():
-            db.add(Config(run_id=run_id, key=key, value=json.dumps(value)))
+            db.add(
+                Config(
+                    id=next_id(db, "configs"),
+                    run_id=run_id,
+                    key=key,
+                    value=json.dumps(value),
+                )
+            )
 
 
 def _flatten_config(d: dict, prefix: str, out: dict) -> None:

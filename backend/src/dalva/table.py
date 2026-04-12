@@ -45,6 +45,16 @@ _OBJECT_CHECKS = {
 }
 
 
+def _server_error(exc: httpx.HTTPStatusError) -> str:
+    """Extract server error detail from an HTTPStatusError."""
+    try:
+        body = exc.response.json()
+        detail = body.get("detail", str(exc))
+    except Exception:
+        detail = str(exc)
+    return f"Server error {exc.response.status_code}: {detail}"
+
+
 class Table:
     """Table object for tracking tabular data via HTTP.
 
@@ -113,6 +123,8 @@ class Table:
             response = httpx.get(f"{self._server_url}/api/health", timeout=10)
             response.raise_for_status()
             print(f"[Table] Server health check OK: {self._server_url}")
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(
                 f"Cannot connect to Dalva server at {self._server_url}. "
@@ -171,6 +183,8 @@ class Table:
             self.name = result.get("name")
             self._log_mode = result.get("log_mode", log_mode)
             self._version = result.get("version", 0)
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to create table on server: {e}")
 
@@ -290,6 +304,8 @@ class Table:
             response.raise_for_status()
             result = response.json()
             self._version = result["version"]
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to log data to server: {e}")
 
@@ -311,6 +327,8 @@ class Table:
             response.raise_for_status()
             result = response.json()
             print(f"[Table] Table finished (state={result['state']})")
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to finish table on server: {e}")
         finally:

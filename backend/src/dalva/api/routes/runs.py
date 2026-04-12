@@ -19,7 +19,7 @@ from dalva.api.models.runs import (
     RunSummary,
 )
 from dalva.api.models.tables import TableResponse
-from dalva.db.connection import get_db
+from dalva.db.connection import get_db, next_id
 from dalva.db.schema import Config, Metric, Run
 from dalva.services.logger import create_run
 from dalva.services.tables import get_tables_for_run
@@ -293,6 +293,7 @@ def log_metrics_remote(
 
         db.add(
             Metric(
+                id=next_id(db, "metrics"),
                 run_id=run_id,
                 attribute_path=metric_path,
                 attribute_type=attr_type,

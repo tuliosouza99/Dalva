@@ -1,4 +1,4 @@
-from typing import Mapping, TypeAlias, TypeVar, Union
+from typing import Mapping, TypeAlias, TypedDict, TypeVar, Union
 
 SingleElement: TypeAlias = Union[str, bool, int, float, None]
 ConfigValue: TypeAlias = Union[SingleElement, list]
@@ -16,3 +16,9 @@ TableRowValue: TypeAlias = Union[
 ]
 
 _T = TypeVar("_T")
+
+
+class Metric(TypedDict):
+    key: str
+    value: Union[int, float, str, bool, None]
+    step: int | None

@@ -9,7 +9,7 @@ import pandas as pd
 import pandera.pandas as pa
 from pandera.errors import SchemaErrors
 
-from .types import InputDict
+from ..types import InputDict
 
 
 def _is_na(v):

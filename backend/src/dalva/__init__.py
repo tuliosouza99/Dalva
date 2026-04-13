@@ -1,7 +1,7 @@
 """Dalva - Lightweight experiment tracker for deep learning."""
 
-from dalva._table import Table
-from dalva.run import Run
+from dalva.sdk.run import Run
+from dalva.sdk.table import Table
 
 __version__ = "0.1.0"
 

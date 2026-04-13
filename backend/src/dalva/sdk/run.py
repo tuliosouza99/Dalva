@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TypedDict, Union, overload
+from typing import overload
 
 import httpx
 
-from ._table import Table
-from .types import _T, InputDict
-
-
-class Metric(TypedDict):
-    key: str
-    value: Union[int, float, str, bool, None]
-    step: int | None
+from ..types import _T, InputDict, Metric
+from .table import Table
 
 
 def _server_error(exc: httpx.HTTPStatusError) -> str:

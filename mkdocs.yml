@@ -66,9 +66,8 @@ nav:
       - CLI Usage: getting_started/cli_usage.md
   - Architecture: architecture.md
   - API Documentation:
-      - Init Run: api_documentation/init.md
+      - dalva: api_documentation/dalva_module.md
       - Run Class: api_documentation/run_class.md
-      - Init Table: api_documentation/table_init.md
       - Table Class: api_documentation/table_class.md
 
 markdown_extensions:

@@ -23,7 +23,7 @@ class TestRunClient:
 
     def test_run_uses_http_client_when_server_url_provided(self):
         """Test that Run uses HTTP client when server_url is provided."""
-        with patch("dalva.run.httpx.Client") as mock_client_class:
+        with patch("dalva.sdk.run.httpx.Client") as mock_client_class:
             mock_client = MagicMock()
             mock_client.__enter__ = MagicMock(return_value=mock_client)
             mock_client.__exit__ = MagicMock(return_value=None)
@@ -38,9 +38,9 @@ class TestRunClient:
             }
             mock_client.post.return_value = mock_response
 
-            from dalva.run import Run
+            from dalva.sdk.run import Run
 
-            with patch("dalva.run.httpx.get") as mock_get:
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
                 mock_get.return_value = MagicMock(status_code=200)
 
                 run = Run(
@@ -54,7 +54,7 @@ class TestRunClient:
 
     def test_run_default_server_url(self):
         """Test that server_url defaults to http://localhost:8000."""
-        with patch("dalva.run.httpx.Client") as mock_client_class:
+        with patch("dalva.sdk.run.httpx.Client") as mock_client_class:
             mock_client = MagicMock()
             mock_client.__enter__ = MagicMock(return_value=mock_client)
             mock_client.__exit__ = MagicMock(return_value=None)
@@ -69,9 +69,9 @@ class TestRunClient:
             }
             mock_client.post.return_value = mock_response
 
-            from dalva.run import Run
+            from dalva.sdk.run import Run
 
-            with patch("dalva.run.httpx.get") as mock_get:
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
                 mock_get.return_value = MagicMock(status_code=200)
 
                 run = Run(

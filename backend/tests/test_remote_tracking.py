@@ -1,92 +1,389 @@
 """Tests for remote tracking feature (simplified HTTP-based).
 
-This module tests the remote logging functionality where users can
-track runs on a remote machine via SSH port forwarding.
-
-Architecture:
-- User starts dalva server locally (e.g., dalva server start)
-- User SSH to remote machine with: ssh -R 8000:localhost:8000 remote
-- On remote: dalva.init(server_url="http://localhost:8000", ...)
-- All log/finish operations go through HTTP to the local server
-
-The SDK (Run class) is a thin HTTP client - all DB operations happen
-on the server side via API calls.
+The SDK (Run class) is an HTTP client with a background worker thread.
+log() is async (enqueued), finish()/remove()/get() are synchronous.
 """
 
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
+
+from dalva.sdk.run import DalvaError
+
+
+def _mock_response(status_code=200, json_data=None, raise_on_status=True):
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.json.return_value = json_data or {}
+    if raise_on_status and status_code >= 400:
+        resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+            str(status_code), request=MagicMock(), response=resp
+        )
+    else:
+        resp.raise_for_status.return_value = None
+    return resp
+
+
+INIT_RESPONSE = _mock_response(json_data={"id": 1, "run_id": "TEST-1", "name": "test"})
+FINISH_RESPONSE = _mock_response(json_data={"state": "completed"})
+
+
+def _mock_worker(pending=0, errors=None, drain_result=True):
+    w = MagicMock()
+    w.pending = pending
+    w.drain_with_progress.return_value = drain_result
+    w.clear_errors.return_value = errors or []
+    return w
+
+
+def _make_run_mock_client():
+    mock_client = MagicMock()
+    mock_client.post.side_effect = lambda url, **kw: (
+        FINISH_RESPONSE if "finish" in url else INIT_RESPONSE
+    )
+    mock_client.get.return_value = _mock_response(json_data={})
+    mock_client.delete.return_value = _mock_response(json_data={})
+    return mock_client
 
 
 class TestRunClient:
-    """Tests for Run client with server_url."""
-
     def test_run_uses_http_client_when_server_url_provided(self):
-        """Test that Run uses HTTP client when server_url is provided."""
-        with patch("dalva.sdk.run.httpx.Client") as mock_client_class:
-            mock_client = MagicMock()
-            mock_client.__enter__ = MagicMock(return_value=mock_client)
-            mock_client.__exit__ = MagicMock(return_value=None)
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker"),
+        ):
+            mock_client = _make_run_mock_client()
             mock_client_class.return_value = mock_client
-
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {
-                "id": 1,
-                "run_id": "TEST-1",
-                "name": "test",
-            }
-            mock_client.post.return_value = mock_response
 
             from dalva.sdk.run import Run
 
             with patch("dalva.sdk.run.httpx.get") as mock_get:
                 mock_get.return_value = MagicMock(status_code=200)
-
                 run = Run(
                     project="test-project",
                     name="test-run",
                     server_url="http://localhost:8000",
                 )
-
                 assert run._server_url == "http://localhost:8000"
                 mock_get.assert_called_once()
 
     def test_run_default_server_url(self):
-        """Test that server_url defaults to http://localhost:8000."""
-        with patch("dalva.sdk.run.httpx.Client") as mock_client_class:
-            mock_client = MagicMock()
-            mock_client.__enter__ = MagicMock(return_value=mock_client)
-            mock_client.__exit__ = MagicMock(return_value=None)
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker"),
+        ):
+            mock_client = _make_run_mock_client()
             mock_client_class.return_value = mock_client
-
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {
-                "id": 1,
-                "run_id": "TEST-1",
-                "name": "test",
-            }
-            mock_client.post.return_value = mock_response
 
             from dalva.sdk.run import Run
 
             with patch("dalva.sdk.run.httpx.get") as mock_get:
                 mock_get.return_value = MagicMock(status_code=200)
-
-                run = Run(
-                    project="test-project",
-                    name="test-run",
-                )
-
+                run = Run(project="test-project", name="test-run")
                 assert run._server_url == "http://localhost:8000"
 
 
-class TestAPILogEndpoint:
-    """Tests for POST /api/runs/{run_id}/log endpoint."""
+class TestRunAsyncLog:
+    def test_log_enqueues_request(self):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client_class.return_value = _make_run_mock_client()
+            mock_worker = _mock_worker()
+            mock_worker_class.return_value = mock_worker
 
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            run.log({"loss": 0.5}, step=0)
+            mock_worker.enqueue.assert_called_once()
+            req = mock_worker.enqueue.call_args[0][0]
+            assert req.method == "POST"
+            assert req.url == "/api/runs/1/log"
+            assert req.payload == {"metrics": {"loss": 0.5}, "step": 0}
+
+    def test_log_raises_on_finished_run(self):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client_class.return_value = _make_run_mock_client()
+            mock_worker_class.return_value = _mock_worker()
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            run._finished = True
+            with pytest.raises(RuntimeError, match="Cannot log to a finished run"):
+                run.log({"loss": 0.5}, step=0)
+
+
+class TestRunFlush:
+    def test_flush_drains_worker_and_returns_errors(self):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client_class.return_value = _make_run_mock_client()
+            mock_worker = _mock_worker(pending=3)
+            mock_worker_class.return_value = mock_worker
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            errors = run.flush(timeout=30)
+            mock_worker.drain_with_progress.assert_called_once_with(
+                label="Flushing", timeout=30
+            )
+            assert errors == []
+
+
+class TestRunFinish:
+    def test_finish_drains_worker_then_sends_finish(self):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client = _make_run_mock_client()
+            mock_client_class.return_value = mock_client
+            mock_worker = _mock_worker(pending=3)
+            mock_worker_class.return_value = mock_worker
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            run.finish()
+
+            mock_worker.drain_with_progress.assert_called_once_with(
+                label="Finishing run", timeout=120
+            )
+            mock_worker.clear_errors.assert_called_once()
+            mock_worker.stop.assert_called_once()
+            assert run._finished is True
+            assert run._worker is None
+
+    def test_finish_only_sets_finished_on_success(self):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client = _make_run_mock_client()
+            mock_client_class.return_value = mock_client
+            mock_worker = _mock_worker()
+            mock_worker_class.return_value = mock_worker
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            run.finish()
+            assert run._finished is True
+
+    def test_finish_does_not_set_finished_on_failure(self):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client = MagicMock()
+            mock_client_class.return_value = mock_client
+            mock_client.post.side_effect = lambda url, **kw: (
+                INIT_RESPONSE
+                if "init" in url
+                else _mock_response(status_code=500, json_data={"detail": "oops"})
+            )
+            mock_worker = _mock_worker()
+            mock_worker_class.return_value = mock_worker
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            with pytest.raises(ConnectionError):
+                run.finish()
+
+            assert run._finished is False
+            assert run._worker is None
+
+    def test_finish_warns_on_accumulated_errors(self):
+        import warnings
+
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client = _make_run_mock_client()
+            mock_client_class.return_value = mock_client
+
+            from dalva.sdk.worker import PendingRequest
+
+            failed_req = PendingRequest(method="POST", url="/api/runs/1/log")
+            mock_worker = _mock_worker(
+                errors=[(failed_req, httpx.ConnectError("fail"))]
+            )
+            mock_worker_class.return_value = mock_worker
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                run.finish(on_error="warn")
+
+            assert run._finished is True
+            warn_msgs = [
+                str(x.message) for x in w if "Request failed" in str(x.message)
+            ]
+            assert len(warn_msgs) == 1
+
+    def test_finish_raises_dalva_error_on_accumulated_errors(self):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client = _make_run_mock_client()
+            mock_client_class.return_value = mock_client
+
+            from dalva.sdk.worker import PendingRequest
+
+            failed_req = PendingRequest(method="POST", url="/api/runs/1/log")
+            mock_worker = _mock_worker(
+                errors=[(failed_req, httpx.ConnectError("fail"))]
+            )
+            mock_worker_class.return_value = mock_worker
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            with pytest.raises(DalvaError, match="1 request\\(s\\) failed"):
+                run.finish(on_error="raise")
+
+            assert run._finished is True
+
+    def test_finish_retriable_after_network_failure(self):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client = _make_run_mock_client()
+            mock_client_class.return_value = mock_client
+            mock_worker = _mock_worker()
+            mock_worker_class.return_value = mock_worker
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            error_resp = _mock_response(
+                status_code=500, json_data={"detail": "internal error"}
+            )
+            mock_client.post.side_effect = httpx.HTTPStatusError(
+                "500", request=MagicMock(), response=error_resp
+            )
+
+            with pytest.raises(ConnectionError):
+                run.finish()
+
+            assert run._finished is False
+            assert run._worker is None
+
+            mock_client.post.side_effect = lambda url, **kw: FINISH_RESPONSE
+            run.finish()
+            assert run._finished is True
+
+    def test_finish_is_idempotent(self):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client = _make_run_mock_client()
+            mock_client_class.return_value = mock_client
+            mock_worker = _mock_worker()
+            mock_worker_class.return_value = mock_worker
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            run.finish()
+            assert run._finished is True
+
+            init_call_count = mock_worker.drain_with_progress.call_count
+            run.finish()
+            assert mock_worker.drain_with_progress.call_count == init_call_count
+
+
+class TestRunRemove:
+    def test_remove_drains_queue_first(self):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client = _make_run_mock_client()
+            mock_client_class.return_value = mock_client
+            mock_worker = _mock_worker()
+            mock_worker_class.return_value = mock_worker
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            run.remove("loss", step=0)
+            mock_worker.drain.assert_called_once()
+
+
+class TestRunLogConfig:
+    def test_log_config_drains_queue_first(self):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+        ):
+            mock_client = _make_run_mock_client()
+            mock_client_class.return_value = mock_client
+            mock_worker = _mock_worker()
+            mock_worker_class.return_value = mock_worker
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project")
+
+            run.log_config({"lr": 0.01})
+            mock_worker.drain.assert_called_once()
+
+
+class TestAPILogEndpoint:
     def test_log_endpoint_accepts_metrics(self, api_client, sample_run):
-        """Test that log endpoint accepts metrics and updates database."""
         from dalva.db.connection import session_scope
         from dalva.db.schema import Metric
 
@@ -99,18 +396,15 @@ class TestAPILogEndpoint:
         data = response.json()
         assert data["success"] is True
 
-        # Verify metrics were logged
         with session_scope() as session:
             metrics = (
                 session.query(Metric).filter(Metric.run_id == sample_run["id"]).all()
             )
             assert len(metrics) == 2
-
             loss_metric = next(m for m in metrics if m.attribute_path == "loss")
             assert loss_metric.float_value == pytest.approx(0.5)
 
     def test_log_endpoint_updates_last_activity(self, api_client, sample_run):
-        """Test that log endpoint updates last_activity_at."""
         import time
 
         from dalva.db.connection import session_scope
@@ -131,10 +425,7 @@ class TestAPILogEndpoint:
 
 
 class TestAPIFinishEndpoint:
-    """Tests for POST /api/runs/{run_id}/finish endpoint."""
-
     def test_finish_endpoint_marks_run_completed(self, api_client, sample_run):
-        """Test that finish endpoint marks run as completed."""
         response = api_client.post(f"/api/runs/{sample_run['id']}/finish")
 
         assert response.status_code == 200
@@ -143,10 +434,7 @@ class TestAPIFinishEndpoint:
 
 
 class TestAPIInitEndpoint:
-    """Tests for POST /api/runs/init endpoint."""
-
     def test_init_endpoint_creates_run(self, api_client):
-        """Test that init endpoint creates a new run."""
         response = api_client.post(
             "/api/runs/init",
             json={"project": "init-test-project", "name": "init-run"},
@@ -159,7 +447,6 @@ class TestAPIInitEndpoint:
         assert data["name"] == "init-run"
 
     def test_init_endpoint_creates_project(self, api_client):
-        """Test that init endpoint creates project if needed."""
         response = api_client.post(
             "/api/runs/init",
             json={"project": "brand-new-project", "name": "test-run"},
@@ -167,7 +454,6 @@ class TestAPIInitEndpoint:
 
         assert response.status_code == 200
 
-        # Verify project was created
         from dalva.db.connection import session_scope
         from dalva.db.schema import Project
 
@@ -180,7 +466,6 @@ class TestAPIInitEndpoint:
             assert project is not None
 
     def test_init_endpoint_with_config(self, api_client):
-        """Test that init endpoint stores config."""
         response = api_client.post(
             "/api/runs/init",
             json={
@@ -205,16 +490,12 @@ class TestAPIInitEndpoint:
 
 
 class TestSchemaLastActivityAt:
-    """Tests for last_activity_at column in runs table."""
-
     def test_run_has_last_activity_at_column(self, db_session):
-        """Test that the Run model has last_activity_at column."""
         from dalva.db.schema import Run
 
         assert hasattr(Run, "last_activity_at")
 
     def test_run_last_activity_at_defaults_to_none(self, db_session, sample_run):
-        """Test that last_activity_at defaults to None on new runs."""
         from dalva.db.schema import Run
 
         run = db_session.get(Run, sample_run["id"])

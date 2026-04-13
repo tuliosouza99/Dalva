@@ -9,6 +9,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from dalva.api.models.runs import (
+    BatchLogMetricsRequest,
     ConfigGetResponse,
     FinishResponse,
     InitRunRequest,
@@ -424,6 +425,153 @@ def log_metrics_remote(
                 timestamp=timestamp,
                 **{value_key: value},
             )
+        )
+
+    db.commit()
+    return LogResponse(success=True)
+
+
+def _log_single_batch_entry(run_id: int, entry, db: Session) -> list[str]:
+    timestamp = datetime.now(timezone.utc)
+    flat_metrics: dict[str, object] = {}
+    _flatten_config(entry.metrics, "", flat_metrics)
+
+    non_scalar = [
+        k for k, v in flat_metrics.items() if not isinstance(v, (bool, int, float, str))
+    ]
+    if non_scalar:
+        return [f"Non-scalar values for keys: {non_scalar}"]
+
+    is_series = entry.step is not None
+    suffix = "_series" if is_series else ""
+
+    conflicts = []
+
+    for metric_path, value in flat_metrics.items():
+        if isinstance(value, bool):
+            attr_type = f"bool{suffix}"
+        elif isinstance(value, int):
+            attr_type = f"int{suffix}"
+        elif isinstance(value, float):
+            attr_type = f"float{suffix}"
+        else:
+            attr_type = f"string{suffix}"
+
+        step = entry.step
+
+        existing_types = (
+            db.query(Metric.attribute_type)
+            .filter(
+                Metric.run_id == run_id,
+                Metric.attribute_path == metric_path,
+            )
+            .distinct()
+            .all()
+        )
+        existing_types = {et[0] for et in existing_types}
+        if existing_types:
+            base_new = attr_type.replace("_series", "")
+            base_existing = {et.replace("_series", "") for et in existing_types}
+
+            if base_new not in base_existing:
+                conflicts.append(
+                    f"Type conflict for '{metric_path}': "
+                    f"cannot log {attr_type}, existing types are {existing_types}"
+                )
+                continue
+
+            has_scalar = any("_series" not in et for et in existing_types)
+            has_series = any("_series" in et for et in existing_types)
+            if is_series and has_scalar:
+                conflicts.append(
+                    f"Metric '{metric_path}' already has scalar values — "
+                    f"cannot log series at step {step}"
+                )
+                continue
+            elif not is_series and has_series:
+                conflicts.append(
+                    f"Metric '{metric_path}' already has series values — "
+                    f"cannot log scalar"
+                )
+                continue
+
+        existing_exact = (
+            db.query(Metric)
+            .filter(
+                Metric.run_id == run_id,
+                Metric.attribute_path == metric_path,
+                Metric.step == step,
+            )
+            .first()
+        )
+        if existing_exact:
+            conflicts.append(
+                f"Metric '{metric_path}' already exists at "
+                f"{'step ' + str(step) if step is not None else 'summary'}"
+            )
+            continue
+
+        if isinstance(value, bool):
+            value_key = "bool_value"
+        elif isinstance(value, int):
+            value_key = "int_value"
+        elif isinstance(value, float):
+            value_key = "float_value"
+        else:
+            value_key = "string_value"
+            value = str(value)
+
+        db.add(
+            Metric(
+                id=next_id(db, "metrics"),
+                run_id=run_id,
+                attribute_path=metric_path,
+                attribute_type=attr_type,
+                step=step,
+                timestamp=timestamp,
+                **{value_key: value},
+            )
+        )
+
+    return conflicts
+
+
+@router.post("/{run_id}/log/batch", response_model=LogResponse)
+def log_metrics_batch(
+    run_id: int,
+    request: BatchLogMetricsRequest,
+    db: Session = Depends(get_db),
+):
+    """Log multiple metric entries in a single request.
+
+    Each entry has its own ``metrics`` and optional ``step``.
+    All entries are processed in order within a single transaction.
+
+    Returns success if ALL entries were logged. Returns 409 with details
+    of the first conflicting entry if any conflict is found (the entire
+    batch is rolled back).
+    """
+    run = db.query(Run).filter(Run.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    run.last_activity_at = datetime.now(timezone.utc)
+    run.updated_at = datetime.now(timezone.utc)
+
+    all_conflicts = []
+    for i, entry in enumerate(request.entries):
+        conflicts = _log_single_batch_entry(run_id, entry, db)
+        if conflicts:
+            all_conflicts.extend([f"Entry {i}: {c}" for c in conflicts])
+
+    if all_conflicts:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Batch metric logging conflict(s)",
+                "conflicts": all_conflicts,
+            },
         )
 
     db.commit()

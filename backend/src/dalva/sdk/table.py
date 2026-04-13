@@ -1,6 +1,10 @@
 """Table class for tabular data tracking via HTTP."""
 
+from __future__ import annotations
+
+import atexit
 import json
+import warnings
 from datetime import date, datetime
 from typing import Optional
 
@@ -10,6 +14,7 @@ import pandera.pandas as pa
 from pandera.errors import SchemaErrors
 
 from ..types import InputDict
+from .worker import PendingRequest, SyncWorker
 
 
 def _is_na(v):
@@ -48,7 +53,6 @@ _OBJECT_CHECKS = {
 
 
 def _server_error(exc: httpx.HTTPStatusError) -> str:
-    """Extract server error detail from an HTTPStatusError."""
     try:
         body = exc.response.json()
         detail = body.get("detail", str(exc))
@@ -60,8 +64,9 @@ def _server_error(exc: httpx.HTTPStatusError) -> str:
 class Table:
     """Table object for tracking tabular data via HTTP.
 
-    All operations are performed via HTTP requests to the server.
-    No local database operations are performed.
+    ``log()`` calls are asynchronous — they return immediately and are
+    sent to the server in the background. Errors from failed requests are
+    accumulated and reported when ``flush()`` or ``finish()`` is called.
 
     Example:
         ```python
@@ -87,22 +92,11 @@ class Table:
         server_url: str = "http://localhost:8000",
         log_mode: Optional[str] = "IMMUTABLE",
     ):
-        """
-        Initialize a table by creating it on the server.
-
-        Args:
-            project: Project name
-            name: Optional table name (user-defined, for display only)
-            config: Optional configuration dictionary
-            run_id: Optional run_id to link this table to a run
-            resume_from: table_id to resume (omit to create a new table)
-            server_url: Server URL. Defaults to http://localhost:8000
-            log_mode: IMMUTABLE, MUTABLE, or INCREMENTAL
-        """
         self.project_name = project
         self.config = config or {}
         self._server_url = server_url
         self._client: httpx.Client | None = None
+        self._worker: SyncWorker | None = None
         self._log_mode = log_mode or "IMMUTABLE"
         self._run_id = run_id
         self._run_db_id: int | None = None
@@ -117,10 +111,20 @@ class Table:
             log_mode=self._log_mode,
         )
 
+        self._worker = SyncWorker(server_url)
+        atexit.register(self._atexit_handler)
+
         print(f"Table created: {self.table_id}")
 
+    def _atexit_handler(self) -> None:
+        if self._finished:
+            return
+        try:
+            self.finish(timeout=30)
+        except Exception:
+            pass
+
     def _verify_server_connection(self):
-        """Verify server is accessible via health check endpoint."""
         try:
             response = httpx.get(f"{self._server_url}/api/health", timeout=10)
             response.raise_for_status()
@@ -134,7 +138,6 @@ class Table:
             )
 
     def _get_client(self) -> httpx.Client:
-        """Get or create HTTP client."""
         if self._client is None:
             self._client = httpx.Client(base_url=self._server_url, timeout=30)
         return self._client
@@ -146,7 +149,6 @@ class Table:
         resume_from: str | None,
         log_mode: str,
     ):
-        """Create the table on the server via API."""
         client = self._get_client()
 
         run_db_id = None
@@ -191,7 +193,6 @@ class Table:
             raise ConnectionError(f"Failed to create table on server: {e}")
 
     def _resolve_project_id(self) -> int | None:
-        """Resolve project name to project ID."""
         client = self._get_client()
         try:
             response = client.get("/api/projects/")
@@ -207,7 +208,6 @@ class Table:
             return None
 
     def _infer_type(self, dtype, non_null: pd.Series) -> str:
-        """Infer column type name from pandas dtype and sample."""
         if dtype == "object":
             sample = non_null.iloc[0] if len(non_null) > 0 else None
             if sample is None:
@@ -227,7 +227,6 @@ class Table:
         return "str"
 
     def _build_schema(self, df: pd.DataFrame) -> tuple[pa.DataFrameSchema, list[dict]]:
-        """Build a pandera DataFrameSchema from the DataFrame."""
         columns = {}
         column_schema = []
 
@@ -252,11 +251,6 @@ class Table:
         return pa.DataFrameSchema(columns), column_schema
 
     def _validate_dataframe(self, df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
-        """Validate DataFrame using pandera.
-
-        Returns:
-            Tuple of (validated_df, column_schema)
-        """
         schema, column_schema = self._build_schema(df)
         try:
             validated_df = schema.validate(df, lazy=True)
@@ -270,69 +264,114 @@ class Table:
         return validated_df, column_schema
 
     def _serialize_rows(self, df: "pd.DataFrame"):
-        """Serialize DataFrame rows as JSON string for API payload."""
         return df.to_json(orient="records", date_format="iso")
 
     def log(self, df: pd.DataFrame) -> None:
-        """Log a pandas DataFrame to the table.
+        """Log a pandas DataFrame to the table (async — returns immediately).
+
+        Data is validated locally, then enqueued for background delivery.
+        Errors are accumulated and reported by ``flush()`` or ``finish()``.
 
         Args:
             df: pandas DataFrame with columns of type int, float, bool, str, date, list, or dict
 
         Example:
             ```python
-            import pandas as pd
-            table = Table(project="my-project", name="my-table")
             table.log(pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]}))
-            table.finish()
             ```
         """
-        client = self._get_client()
+        if self._finished:
+            raise RuntimeError("Cannot log to a finished table")
 
         validated_df, column_schema = self._validate_dataframe(df)
         rows_json = self._serialize_rows(validated_df)
         payload = f'{{"rows":{rows_json},"column_schema":{json.dumps(column_schema)}}}'
 
-        try:
-            response = client.post(
-                f"/api/tables/{self._db_id}/log",
-                content=payload,
-                headers={"Content-Type": "application/json"},
-            )
-            response.raise_for_status()
-            result = response.json()
-            self._version = result["version"]
-        except httpx.HTTPStatusError as e:
-            raise ConnectionError(_server_error(e))
-        except httpx.HTTPError as e:
-            raise ConnectionError(f"Failed to log data to server: {e}")
+        request = PendingRequest(
+            method="POST",
+            url=f"/api/tables/{self._db_id}/log",
+            payload=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        self._worker.enqueue(request)
 
-    def finish(self) -> None:
+    def flush(self, timeout: float | None = None) -> list[Exception]:
+        """Drain the worker queue and return accumulated errors.
+
+        Args:
+            timeout: Maximum seconds to wait. ``None`` means wait indefinitely.
+
+        Returns:
+            List of exceptions from failed requests.
+        """
+        if self._worker is None:
+            return []
+        if self._worker.pending == 0:
+            return []
+        self._worker.drain_with_progress(label="Flushing", timeout=timeout)
+        return [exc for _, exc in self._worker.clear_errors()]
+
+    def finish(self, on_error: str = "warn", timeout: float = 120) -> None:
         """Finish the table and mark it as completed.
+
+        Args:
+            on_error: How to handle accumulated errors from failed ``log()``
+                calls. ``"warn"`` (default) prints warnings. ``"raise"`` raises
+                a RuntimeError wrapping all accumulated errors.
+            timeout: Maximum seconds to wait for the worker queue to drain.
+
+        Raises:
+            ConnectionError: If the finish request itself fails.
 
         Example:
             ```python
-            table = Table(project="my-project", name="my-table")
             table.log(df)
             table.finish()
             ```
         """
         if self._finished:
             return
-        client = self._get_client()
+
+        errors: list[tuple[PendingRequest, Exception]] = []
+
         try:
+            if self._worker is not None:
+                total = self._worker.pending
+                if total > 0:
+                    self._worker.drain_with_progress(
+                        label="Finishing table", timeout=timeout
+                    )
+                errors = self._worker.clear_errors()
+
+            client = self._get_client()
             response = client.post(f"/api/tables/{self._db_id}/finish")
             response.raise_for_status()
             result = response.json()
             print(f"[Table] Table finished (state={result['state']})")
+            self._finished = True
+
+            if errors:
+                if on_error == "raise":
+                    msgs = [f"  {req.method} {req.url}: {exc}" for req, exc in errors]
+                    raise RuntimeError(
+                        f"{len(errors)} request(s) failed during table:\n"
+                        + "\n".join(msgs)
+                    )
+                else:
+                    for req, exc in errors:
+                        warnings.warn(
+                            f"[Dalva] Request failed: {req.method} {req.url}: {exc}"
+                        )
+
         except httpx.HTTPStatusError as e:
             raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to finish table on server: {e}")
         finally:
+            if self._worker is not None:
+                self._worker.stop()
+                self._worker = None
             self._client = None
-            self._finished = True
 
     def __repr__(self) -> str:
-        """String representation."""
         return f"Table(project='{self.project_name}', name='{self.name}', id={self.table_id}, server={self._server_url})"

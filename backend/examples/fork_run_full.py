@@ -168,7 +168,7 @@ if errors:
     sys.exit(1)
 else:
     print("ALL TESTS PASSED")
-    print(f"\nRuns created:")
+    print("\nRuns created:")
     print(f"  source:   {run1.run_id}")
     print(f"  fork1:    {fork1.run_id}  (basic fork, no tables)")
     print(f"  fork2:    {fork2.run_id}  (fork with tables)")

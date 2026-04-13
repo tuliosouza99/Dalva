@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Mapping, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from ...types import ConfigOutputDict, InputValue, OutputDict, SingleElement
 
 
 class RunBase(BaseModel):
@@ -17,13 +19,14 @@ class RunResponse(RunBase):
 
     id: int
     project_id: int
+    fork_from: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
 
 class RunSummary(RunResponse):
-    metrics: dict[str, Any] = Field(default_factory=dict)
-    config: dict[str, Any] = Field(default_factory=dict)
+    metrics: OutputDict = Field(default_factory=dict)
+    config: ConfigOutputDict = Field(default_factory=dict)
 
 
 class RunsListResponse(BaseModel):
@@ -35,8 +38,10 @@ class RunsListResponse(BaseModel):
 class InitRunRequest(BaseModel):
     project: str
     name: Optional[str] = None
-    config: Optional[dict] = None
+    config: Optional[Mapping[str, InputValue]] = None
     resume_from: Optional[str] = None
+    fork_from: Optional[str] = None
+    copy_tables_on_fork: Union[bool, list[int]] = False
 
 
 class InitRunResponse(BaseModel):
@@ -46,7 +51,7 @@ class InitRunResponse(BaseModel):
 
 
 class LogMetricsRequest(BaseModel):
-    metrics: dict[str, bool | int | float | str]
+    metrics: Mapping[str, InputValue]
     step: Optional[int] = None
     timestamp: Optional[datetime] = None
 
@@ -57,3 +62,18 @@ class LogResponse(BaseModel):
 
 class FinishResponse(BaseModel):
     state: str
+
+
+class MetricGetResponse(BaseModel):
+    key: str
+    value: SingleElement = None
+    step: Optional[int] = None
+
+
+class ConfigGetResponse(BaseModel):
+    key: str
+    value: InputValue = None
+
+
+class LogConfigRequest(BaseModel):
+    config: Mapping[str, InputValue]

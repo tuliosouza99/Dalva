@@ -66,6 +66,56 @@ def _create_duckdb_tables(engine) -> None:
         except Exception:
             pass  # Column already exists
 
+        # Add fork_from column if it doesn't exist (migration for existing databases)
+        try:
+            conn.execute(text("ALTER TABLE runs ADD COLUMN fork_from INTEGER"))
+        except Exception:
+            pass  # Column already exists
+
+        # Migration: deduplicate metrics before adding unique index.
+        # DuckDB treats NULLs as equal in UNIQUE indexes with COALESCE, so we
+        # use COALESCE(step, -999999999) as a sentinel for NULL steps.
+        # We deduplicate by keeping the row with the highest id per group.
+        try:
+            conn.execute(
+                text("""
+                DELETE FROM metrics WHERE id NOT IN (
+                    SELECT MAX(id) FROM metrics
+                    GROUP BY run_id, attribute_path,
+                        COALESCE(step, -999999999)
+                )
+            """)
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            pass  # Table may not exist yet or already deduplicated
+
+        # Replace column-level UNIQUE constraint with expression-based index
+        # that treats NULL steps as a sentinel value, so duplicate scalar metrics
+        # (step=NULL) are actually prevented at the DB level.
+        try:
+            conn.execute(
+                text("ALTER TABLE metrics DROP CONSTRAINT uq_run_metric_attr_step")
+            )
+        except Exception:
+            pass  # Constraint may not exist
+
+        try:
+            conn.execute(text("DROP INDEX IF EXISTS uq_run_metric_attr_step"))
+        except Exception:
+            pass
+
+        try:
+            conn.execute(
+                text("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_run_metric_attr_step
+                ON metrics (run_id, attribute_path, COALESCE(step, -999999999))
+            """)
+            )
+        except Exception:
+            pass
+
         # Create sequence for configs table ID
         conn.execute(text("CREATE SEQUENCE IF NOT EXISTS configs_id_seq START 1"))
 
@@ -236,7 +286,41 @@ def _create_duckdb_tables(engine) -> None:
             )
         )
 
+        _sync_sequences(conn)
+
         conn.commit()
+
+
+_SEQUENCE_MAP = {
+    "projects": "projects_id_seq",
+    "runs": "runs_id_seq",
+    "metrics": "metrics_id_seq",
+    "configs": "configs_id_seq",
+    "files": "files_id_seq",
+    "custom_views": "custom_views_id_seq",
+    "dalva_tables": "dalva_tables_id_seq",
+    "dalva_table_rows": "dalva_table_rows_id_seq",
+}
+
+
+def _sync_sequences(conn) -> None:
+    """Set each sequence to MAX(id)+1 so inserts never collide with existing rows.
+
+    DuckDB lacks setval() and ALTER SEQUENCE RESTART, so we drop and
+    recreate each sequence with the correct start value.  Sequences that
+    already return the right value are left untouched.
+    """
+    for table, seq in _SEQUENCE_MAP.items():
+        max_id = conn.execute(
+            text(f"SELECT COALESCE(MAX(id), 0) FROM {table}")
+        ).scalar()
+        desired = max_id + 1
+        cur = conn.execute(text(f"SELECT nextval('{seq}')")).scalar()
+        conn.rollback()
+        if cur >= desired:
+            continue
+        conn.execute(text(f"DROP SEQUENCE IF EXISTS {seq}"))
+        conn.execute(text(f"CREATE SEQUENCE {seq} START {desired}"))
 
 
 def init_db(db_path: str | None = None) -> None:
@@ -309,12 +393,38 @@ def session_scope() -> Generator[Session, None, None]:
 def get_db() -> Generator[Session, None, None]:
     """FastAPI dependency that yields a short-lived database session.
 
-    Uses session_scope() so every HTTP request gets a fresh DuckDB connection
-    (no stale snapshots) and releases the write lock immediately after the
-    response is sent.
+    Route handlers are responsible for calling ``db.commit()`` themselves.
+    On exception the session is rolled back; on normal return it is simply
+    closed (with NullPool the underlying DuckDB connection is discarded
+    immediately, releasing the write lock).
+
+    We intentionally do *not* wrap ``session_scope()`` here because route
+    handlers already call ``db.commit()``.  A second commit from
+    ``session_scope.__exit__`` would start a new empty transaction on the
+    same connection, which can cause stale-snapshot issues in DuckDB
+    (subsequent connections may not see the committed changes).
     """
-    with session_scope() as session:
+    engine = get_engine()
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session = SessionLocal()
+    try:
         yield session
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def next_id(session: Session, table_name: str) -> int:
+    """Return the next primary-key value for *table_name* by calling its sequence.
+
+    DuckDB tables in Dalva use ``DEFAULT nextval('<table>_id_seq')`` but that
+    column default can be lost after a backup/restore.  Calling the sequence
+    explicitly and setting ``obj.id = next_id(...)`` before ``db.add()`` avoids
+    the ``FlushError: NULL identity key`` that results.
+    """
+    return session.execute(text(f"SELECT nextval('{table_name}_id_seq')")).scalar()
 
 
 def get_session() -> Session:

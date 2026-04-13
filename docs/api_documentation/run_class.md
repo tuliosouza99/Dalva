@@ -10,4 +10,10 @@ Run object for tracking experiments.
       members:
         - __init__
         - log
+        - get
+        - remove
+        - log_config
+        - get_config
+        - remove_config
+        - create_table
         - finish

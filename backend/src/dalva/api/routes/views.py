@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from dalva.api.models.views import CustomViewCreate, CustomViewResponse
-from dalva.db.connection import get_db
+from dalva.db.connection import get_db, next_id
 from dalva.db.schema import CustomView, Project
 
 router = APIRouter()
@@ -68,6 +68,7 @@ def create_custom_view(
         )
 
     db_view = CustomView(
+        id=next_id(db, "custom_views"),
         project_id=project_id,
         name=view.name,
         filters=view.filters,

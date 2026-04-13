@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from dalva.api.models.projects import ProjectCreate, ProjectResponse, ProjectSummary
-from dalva.db.connection import get_db
+from dalva.db.connection import get_db, next_id
 from dalva.db.schema import Metric, Project, Run
 
 router = APIRouter()
@@ -210,7 +210,7 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
             status_code=400, detail="Project with this name or ID already exists"
         )
 
-    db_project = Project(**project.model_dump())
+    db_project = Project(id=next_id(db, "projects"), **project.model_dump())
     db.add(db_project)
     db.commit()
     db.refresh(db_project)

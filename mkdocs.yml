@@ -59,8 +59,10 @@ nav:
   - Getting Started:
       - Quick Start: getting_started/quickstart.md
       - Python SDK: getting_started/python_sdk.md
+      - Runs: getting_started/runs.md
+      - Metrics: getting_started/metrics.md
+      - Tables: getting_started/tables.md
       - Remote Training: getting_started/remote_training.md
-      - Metrics & Value Types: getting_started/metrics_and_types.md
       - CLI Usage: getting_started/cli_usage.md
   - Architecture: architecture.md
   - API Documentation:

@@ -2,13 +2,59 @@
 
 import json
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Mapping, Optional
+from typing import Optional
 
 import httpx
-import numpy as np
+import pandas as pd
+import pandera.pandas as pa
+from pandera.errors import SchemaErrors
 
-if TYPE_CHECKING:
-    import pandas as pd
+from .types import InputDict
+
+
+def _is_na(v):
+    return v is None or (isinstance(v, float) and v != v)
+
+
+def _is_date(s: pd.Series) -> pd.Series:
+    return s.map(lambda v: isinstance(v, (datetime, date)) if not _is_na(v) else True)
+
+
+def _is_list(s: pd.Series) -> pd.Series:
+    return s.map(
+        lambda v: (
+            isinstance(v, list) or (isinstance(v, str) and v.startswith("["))
+            if not _is_na(v)
+            else True
+        )
+    )
+
+
+def _is_dict(s: pd.Series) -> pd.Series:
+    return s.map(
+        lambda v: (
+            isinstance(v, dict) or (isinstance(v, str) and v.startswith("{"))
+            if not _is_na(v)
+            else True
+        )
+    )
+
+
+_OBJECT_CHECKS = {
+    "date": pa.Check(_is_date),
+    "list": pa.Check(_is_list),
+    "dict": pa.Check(_is_dict),
+}
+
+
+def _server_error(exc: httpx.HTTPStatusError) -> str:
+    """Extract server error detail from an HTTPStatusError."""
+    try:
+        body = exc.response.json()
+        detail = body.get("detail", str(exc))
+    except Exception:
+        detail = str(exc)
+    return f"Server error {exc.response.status_code}: {detail}"
 
 
 class Table:
@@ -35,7 +81,7 @@ class Table:
         self,
         project: str,
         name: str | None = None,
-        config: Mapping | None = None,
+        config: InputDict | None = None,
         run_id: str | None = None,
         resume_from: str | None = None,
         server_url: str = "http://localhost:8000",
@@ -73,12 +119,14 @@ class Table:
 
         print(f"Table created: {self.table_id}")
 
-    def _verify_server_connection(self) -> None:
+    def _verify_server_connection(self):
         """Verify server is accessible via health check endpoint."""
         try:
             response = httpx.get(f"{self._server_url}/api/health", timeout=10)
             response.raise_for_status()
             print(f"[Table] Server health check OK: {self._server_url}")
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(
                 f"Cannot connect to Dalva server at {self._server_url}. "
@@ -94,10 +142,10 @@ class Table:
     def _create_table_on_server(
         self,
         name: str | None,
-        config: Mapping | None,
+        config: InputDict | None,
         resume_from: str | None,
         log_mode: str,
-    ) -> None:
+    ):
         """Create the table on the server via API."""
         client = self._get_client()
 
@@ -137,6 +185,8 @@ class Table:
             self.name = result.get("name")
             self._log_mode = result.get("log_mode", log_mode)
             self._version = result.get("version", 0)
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to create table on server: {e}")
 
@@ -156,108 +206,74 @@ class Table:
         except Exception:
             return None
 
-    def _validate_dataframe(self, df) -> tuple[list[dict], list[dict]]:
-        """Validate DataFrame and convert to records.
+    def _infer_type(self, dtype, non_null: pd.Series) -> str:
+        """Infer column type name from pandas dtype and sample."""
+        if dtype == "object":
+            sample = non_null.iloc[0] if len(non_null) > 0 else None
+            if sample is None:
+                return "str"
+            elif isinstance(sample, (list, dict)):
+                return "list" if isinstance(sample, list) else "dict"
+            elif isinstance(sample, date):
+                return "date"
+            else:
+                return "str"
+        elif dtype == "bool" or pd.api.types.is_bool_dtype(dtype):
+            return "bool"
+        elif pd.api.types.is_integer_dtype(dtype):
+            return "int"
+        elif pd.api.types.is_float_dtype(dtype):
+            return "float"
+        return "str"
 
-        Returns:
-            Tuple of (rows, column_schema)
-        """
-        import pandas as pd
-
-        rows = []
+    def _build_schema(self, df: pd.DataFrame) -> tuple[pa.DataFrameSchema, list[dict]]:
+        """Build a pandera DataFrameSchema from the DataFrame."""
+        columns = {}
         column_schema = []
 
         for col_name in df.columns:
-            col = df[col_name]
-            dtype = col.dtype
+            non_null = df.loc[:, col_name].dropna()
+            inferred = self._infer_type(df[col_name].dtype, non_null)
 
-            if dtype == "object":
-                sample = col.dropna().iloc[0] if len(col.dropna()) > 0 else None
-                if isinstance(sample, (list, dict)):
-                    inferred_type = "list" if isinstance(sample, list) else "dict"
-                elif isinstance(
-                    sample, datetime
-                ) or pd.api.types.is_datetime64_any_dtype(dtype):
-                    inferred_type = "date"
-                else:
-                    inferred_type = "str"
-            elif dtype == "bool" or pd.api.types.is_bool_dtype(dtype):
-                inferred_type = "bool"
-            elif pd.api.types.is_integer_dtype(dtype):
-                inferred_type = "int"
-            elif pd.api.types.is_float_dtype(dtype):
-                inferred_type = "float"
-            else:
-                inferred_type = "str"
-
-            if inferred_type not in self.ALLOWED_TYPES:
+            if inferred not in self.ALLOWED_TYPES:
                 raise ValueError(
-                    f"Column '{col_name}' has unsupported type: {inferred_type}"
+                    f"Column '{col_name}' has unsupported type: {inferred}"
                 )
 
-            column_schema.append({"name": col_name, "type": inferred_type})
+            column_schema.append({"name": col_name, "type": inferred})
 
-        for _, row in df.iterrows():
-            record = {}
-            for col_name, schema_col in zip(df.columns, column_schema):
-                val = row[col_name]
-                if pd.isna(val) or val is None:
-                    record[col_name] = None
-                elif schema_col["type"] == "date":
-                    if isinstance(val, datetime):
-                        record[col_name] = val.isoformat()
-                    elif isinstance(val, date):
-                        record[col_name] = val.isoformat()
-                    else:
-                        record[col_name] = str(val)
-                elif schema_col["type"] in ("list", "dict"):
-                    record[col_name] = (
-                        json.dumps(val) if isinstance(val, (list, dict)) else val
-                    )
-                else:
-                    if isinstance(val, (np.integer, np.floating, np.bool_)):
-                        val = val.item()
-                    record[col_name] = val
-            rows.append(record)
+            if inferred in _OBJECT_CHECKS:
+                columns[col_name] = pa.Column(
+                    "object", nullable=True, checks=_OBJECT_CHECKS[inferred]
+                )
+            else:
+                columns[col_name] = pa.Column(inferred, nullable=True)
 
-        for i, col_schema in enumerate(column_schema):
-            col = df.iloc[:, i]
-            non_null = col.dropna()
-            if len(non_null) > 0:
-                sample = non_null.iloc[0]
-                inferred = col_schema["type"]
+        return pa.DataFrameSchema(columns), column_schema
 
-                def check_type(v, t):
-                    if t == "int":
-                        return isinstance(v, int) and not isinstance(v, bool)
-                    if t == "float":
-                        return isinstance(v, float)
-                    if t == "bool":
-                        return isinstance(v, bool)
-                    if t == "str":
-                        return isinstance(v, str)
-                    if t == "date":
-                        return isinstance(v, (datetime, date, str))
-                    if t == "list":
-                        return isinstance(v, list) or (
-                            isinstance(v, str) and v.startswith("[")
-                        )
-                    if t == "dict":
-                        return isinstance(v, dict) or (
-                            isinstance(v, str) and v.startswith("{")
-                        )
-                    return False
+    def _validate_dataframe(self, df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
+        """Validate DataFrame using pandera.
 
-                for v in non_null:
-                    if not check_type(v, inferred):
-                        raise ValueError(
-                            f"Column '{col_schema['name']}' has mixed types. "
-                            f"Expected {inferred}, got {type(v).__name__}"
-                        )
+        Returns:
+            Tuple of (validated_df, column_schema)
+        """
+        schema, column_schema = self._build_schema(df)
+        try:
+            validated_df = schema.validate(df, lazy=True)
+        except SchemaErrors as e:
+            msgs = []
+            for _, row in e.failure_cases.iterrows():
+                col = row.get("column", "?")
+                msg = row.get("check", "?")
+                msgs.append(f"Column '{col}' {msg}")
+            raise ValueError(f"DataFrame validation failed: {'; '.join(msgs)}")
+        return validated_df, column_schema
 
-        return rows, column_schema
+    def _serialize_rows(self, df: "pd.DataFrame"):
+        """Serialize DataFrame rows as JSON string for API payload."""
+        return df.to_json(orient="records", date_format="iso")
 
-    def log(self, df: "pd.DataFrame") -> None:
+    def log(self, df: pd.DataFrame) -> None:
         """Log a pandas DataFrame to the table.
 
         Args:
@@ -273,17 +289,21 @@ class Table:
         """
         client = self._get_client()
 
-        rows, column_schema = self._validate_dataframe(df)
+        validated_df, column_schema = self._validate_dataframe(df)
+        rows_json = self._serialize_rows(validated_df)
+        payload = f'{{"rows":{rows_json},"column_schema":{json.dumps(column_schema)}}}'
 
-        payload = {
-            "rows": rows,
-            "column_schema": column_schema,
-        }
         try:
-            response = client.post(f"/api/tables/{self._db_id}/log", json=payload)
+            response = client.post(
+                f"/api/tables/{self._db_id}/log",
+                content=payload,
+                headers={"Content-Type": "application/json"},
+            )
             response.raise_for_status()
             result = response.json()
             self._version = result["version"]
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to log data to server: {e}")
 
@@ -305,6 +325,8 @@ class Table:
             response.raise_for_status()
             result = response.json()
             print(f"[Table] Table finished (state={result['state']})")
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to finish table on server: {e}")
         finally:

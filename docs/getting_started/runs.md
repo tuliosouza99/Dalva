@@ -19,6 +19,8 @@ run = dalva.init(
 - `name` (optional) - Human-readable run name
 - `config` (optional) - Configuration dictionary
 - `resume_from` (optional) - Run ID to resume an existing run
+- `fork_from` (optional) - Run ID to fork from (creates a copy with config/metrics)
+- `copy_tables_on_fork` (optional) - `False` (default, no tables), `True` (all tables), or a list of table IDs. Only used with `fork_from`.
 - `server_url` (required) - URL of the Dalva server (e.g., `http://localhost:8000`)
 
 ## The Config Parameter
@@ -164,6 +166,99 @@ run2 = dalva.init(
 run2.log({"loss": 0.6}, step=2)
 run2.log({"loss": 0.4}, step=3)
 run2.finish()
+```
+
+## Forking Runs
+
+Pass the `run_id` to `fork_from` to create a **copy** of an existing run. The forked run starts with the same config and metrics as the source, but is an independent run you can continue logging to.
+
+```python
+import dalva
+
+# Create the original run
+run1 = dalva.init(
+    project="my-project",
+    name="baseline",
+    config={"lr": 0.01, "batch_size": 32},
+)
+run1.log({"loss": 1.0}, step=0)
+run1.log({"loss": 0.7}, step=1)
+run1.finish()
+
+# Fork it — creates a new run with copied config + metrics
+run2 = dalva.init(
+    project="my-project",
+    fork_from=run1.run_id,
+)
+# run2 has the same config and metrics as run1, plus a new run_id
+run2.log({"loss": 0.4}, step=2)  # continue logging
+run2.finish()
+```
+
+### Custom Name
+
+By default, the forked run is named `"fork of {source_name}"`. Override with `name`:
+
+```python
+run2 = dalva.init(
+    project="my-project",
+    name="tuned-lr",
+    fork_from=run1.run_id,
+)
+```
+
+### Copying Tables
+
+Use `copy_tables_on_fork` to copy tables from the source run:
+
+```python
+# Copy all tables (including their rows)
+run2 = dalva.init(
+    project="my-project",
+    fork_from=run1.run_id,
+    copy_tables_on_fork=True,
+)
+
+# Copy only specific tables by their database IDs
+run2 = dalva.init(
+    project="my-project",
+    fork_from=run1.run_id,
+    copy_tables_on_fork=[5, 7],
+)
+
+# Don't copy any tables (default)
+run2 = dalva.init(
+    project="my-project",
+    fork_from=run1.run_id,
+    copy_tables_on_fork=False,
+)
+```
+
+### Fork vs Resume
+
+| | `resume_from` | `fork_from` |
+|---|---|---|
+| **Creates new run?** | No — continues the same run | Yes — creates a new independent run |
+| **Config** | Must match existing | Copied from source |
+| **Metrics** | Appended to same history | Copied to new run |
+| **Tables** | Same tables | Optionally copied |
+| **Use case** | Resuming interrupted training | Branching off a new experiment |
+
+### Chained Forks
+
+You can fork a forked run:
+
+```python
+run1 = dalva.init(project="my-project", config={"lr": 0.01})
+run1.log({"loss": 1.0}, step=0)
+run1.finish()
+
+run2 = dalva.init(project="my-project", fork_from=run1.run_id)
+run2.log({"loss": 0.5}, step=1)
+run2.finish()
+
+run3 = dalva.init(project="my-project", fork_from=run2.run_id)
+# run3 inherits all config + metrics from both run1 and run2
 ```
 
 ## Finish the Run

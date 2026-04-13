@@ -4,7 +4,7 @@
 
 Dalva's Python API lets you log experiments:
 
-- `dalva.init()` - Initialize a new run or resume an existing one
+- `dalva.init()` - Initialize a new run, resume, or fork an existing one
 - `run.log()` - Log metrics with steps
 - `run.get()` - Retrieve a specific metric
 - `run.remove()` - Remove a metric (required before overwriting)
@@ -21,7 +21,7 @@ Dalva's Python API lets you log experiments:
 
 | Topic | File |
 |-------|------|
-| [Initialize a Run](runs.md) | `dalva.init()`, `resume_from`, nested config |
+| [Initialize a Run](runs.md) | `dalva.init()`, `resume_from`, `fork_from`, nested config |
 | [Log Metrics](metrics.md) | `run.log()`, nested dicts, series vs. scalar |
 | [Get / Remove / Re-log](metrics.md#getting-metrics-and-config) | `run.get()`, `run.remove()`, `run.get_config()`, `run.remove_config()` |
 | [Tables](tables.md) | `dalva.table()`, log modes, DataFrames |

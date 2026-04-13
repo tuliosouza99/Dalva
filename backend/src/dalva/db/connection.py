@@ -66,6 +66,12 @@ def _create_duckdb_tables(engine) -> None:
         except Exception:
             pass  # Column already exists
 
+        # Add fork_from column if it doesn't exist (migration for existing databases)
+        try:
+            conn.execute(text("ALTER TABLE runs ADD COLUMN fork_from INTEGER"))
+        except Exception:
+            pass  # Column already exists
+
         # Migration: deduplicate metrics before adding unique index.
         # DuckDB treats NULLs as equal in UNIQUE indexes with COALESCE, so we
         # use COALESCE(step, -999999999) as a sentinel for NULL steps.

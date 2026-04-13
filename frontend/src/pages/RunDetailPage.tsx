@@ -20,6 +20,30 @@ function ChartIcon({ className = '', style }: { className?: string; style?: Reac
   );
 }
 
+function ForkIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={{ color: 'var(--accent)' }}
+      aria-label="Forked run"
+    >
+      <circle cx="12" cy="18" r="3"/>
+      <circle cx="6" cy="6" r="3"/>
+      <circle cx="18" cy="6" r="3"/>
+      <path d="M18 9v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9"/>
+      <path d="M12 12v3"/>
+    </svg>
+  );
+}
+
 export default function RunDetailPage() {
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
@@ -28,6 +52,7 @@ export default function RunDetailPage() {
 
   const { data: run, isLoading: runLoading } = useRun(parseInt(runId || '0'));
   const { data: project } = useProject(run?.project_id || 0);
+  const { data: sourceRun } = useRun(run?.fork_from || 0, { enabled: !!run?.fork_from });
   const { data: summary, isLoading: summaryLoading } = useRunSummary(parseInt(runId || '0'));
   const { data: metricNames, isLoading: metricsLoading } = useRunMetrics(parseInt(runId || '0'));
   const { data: linkedTables } = useTablesForRun(parseInt(runId || '0'));
@@ -107,7 +132,10 @@ export default function RunDetailPage() {
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="heading-display">{run.name}</h1>
+            <div className="flex items-center gap-2">
+              {run.fork_from && <ForkIcon />}
+              <h1 className="heading-display">{run.name || run.run_id}</h1>
+            </div>
             <p className="mt-1">
               <span className="mono text-sm" style={{ color: 'var(--accent-hover)' }}>{run.run_id}</span>
               {run.group_name && (
@@ -217,6 +245,20 @@ export default function RunDetailPage() {
                 <dt className="text-small">State</dt>
                 <dd className="text-sm mt-1" style={{ color: 'var(--text-primary)' }}>{run.state}</dd>
               </div>
+              {run.fork_from && (
+                <div>
+                  <dt className="text-small">Forked from</dt>
+                  <dd className="text-sm mt-1">
+                    <button
+                      onClick={() => navigate(`/runs/${run.fork_from}?project=${run.project_id}`)}
+                      className="mono hover:underline"
+                      style={{ color: 'var(--accent-hover)' }}
+                    >
+                      {sourceRun?.run_id || `#${run.fork_from}`}
+                    </button>
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
 

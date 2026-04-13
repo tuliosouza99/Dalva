@@ -104,6 +104,7 @@ def _create_tables(engine) -> None:
                 created_at TIMESTAMP,
                 updated_at TIMESTAMP,
                 last_activity_at TIMESTAMP,
+                fork_from INTEGER,
                 UNIQUE(project_id, run_id)
             )
         """)

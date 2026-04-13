@@ -1,5 +1,245 @@
 """Tests for runs API routes."""
 
+from datetime import datetime, timezone
+
+
+class TestForkRun:
+    """Tests for POST /api/runs/init with fork_from."""
+
+    def test_fork_run_basic(self, api_client, sample_run, sample_project):
+        """Test forking a run with fork_from creates a new run with copied data."""
+        response = api_client.post(
+            "/api/runs/init",
+            json={
+                "project": sample_project["name"],
+                "name": "forked-run",
+                "fork_from": sample_run["run_id"],
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "forked-run"
+        assert data["id"] != sample_run["id"]
+
+        forked_run_id = data["id"]
+        forked_run = api_client.get(f"/api/runs/{forked_run_id}").json()
+        assert forked_run["name"] == "forked-run"
+        assert forked_run["state"] == "running"
+        assert forked_run["fork_from"] == sample_run["id"]
+
+    def test_fork_run_copies_configs(self, api_client, db_session):
+        """Test that forked run has copies of source run's configs."""
+        from dalva.db.schema import Config, Project, Run
+
+        project = Project(name="config-fork-project", project_id="cfg_fork_123")
+        db_session.add(project)
+        db_session.commit()
+
+        source_run = Run(project_id=project.id, run_id="SRC-1", name="Source Run")
+        db_session.add(source_run)
+        db_session.commit()
+
+        db_session.add(Config(run_id=source_run.id, key="lr", value="0.001"))
+        db_session.add(Config(run_id=source_run.id, key="batch_size", value="32"))
+        db_session.commit()
+
+        response = api_client.post(
+            "/api/runs/init",
+            json={"project": "config-fork-project", "fork_from": "SRC-1"},
+        )
+        assert response.status_code == 200
+        forked_id = response.json()["id"]
+
+        configs_response = api_client.get(f"/api/runs/{forked_id}/config")
+        configs = configs_response.json()
+        assert "lr" in configs
+        assert configs["lr"] == 0.001
+        assert "batch_size" in configs
+        assert configs["batch_size"] == 32
+
+    def test_fork_run_copies_metrics(self, api_client, db_session):
+        """Test that forked run has copies of source run's metrics."""
+        from dalva.db.schema import Metric, Project, Run
+
+        project = Project(name="metric-fork-project", project_id="mtr_fork_123")
+        db_session.add(project)
+        db_session.commit()
+
+        source_run = Run(project_id=project.id, run_id="SRC-2", name="Source Run")
+        db_session.add(source_run)
+        db_session.commit()
+
+        db_session.add(
+            Metric(
+                run_id=source_run.id,
+                attribute_path="loss",
+                attribute_type="float",
+                step=None,
+                float_value=0.5,
+                timestamp=datetime.now(timezone.utc),
+            )
+        )
+        db_session.add(
+            Metric(
+                run_id=source_run.id,
+                attribute_path="accuracy",
+                attribute_type="float",
+                step=None,
+                float_value=0.95,
+                timestamp=datetime.now(timezone.utc),
+            )
+        )
+        db_session.commit()
+
+        response = api_client.post(
+            "/api/runs/init",
+            json={"project": "metric-fork-project", "fork_from": "SRC-2"},
+        )
+        assert response.status_code == 200
+        forked_id = response.json()["id"]
+
+        summary = api_client.get(f"/api/runs/{forked_id}/summary").json()
+        assert "loss" in summary["metrics"]
+        assert "accuracy" in summary["metrics"]
+
+    def test_fork_run_with_copy_tables_true(
+        self, api_client, db_session, sample_project
+    ):
+        """Test forking with copy_tables_on_fork=true copies all tables and rows."""
+        from dalva.db.schema import DalvaTable, DalvaTableRow, Run
+
+        source_run = Run(
+            project_id=sample_project["id"], run_id="TBL-1", name="Table Source"
+        )
+        db_session.add(source_run)
+        db_session.commit()
+
+        table = DalvaTable(
+            project_id=sample_project["id"],
+            run_id=source_run.id,
+            table_id="MY-TABLE-1",
+            name="My Table",
+            column_schema='[{"name": "col1", "type": "int"}]',
+        )
+        db_session.add(table)
+        db_session.commit()
+
+        row = DalvaTableRow(table_id=table.id, row_data='{"col1": 100}')
+        db_session.add(row)
+        db_session.commit()
+
+        response = api_client.post(
+            "/api/runs/init",
+            json={
+                "project": sample_project["name"],
+                "name": "table-fork-run",
+                "fork_from": "TBL-1",
+                "copy_tables_on_fork": True,
+            },
+        )
+        assert response.status_code == 200
+        forked_id = response.json()["id"]
+
+        tables = api_client.get(f"/api/runs/{forked_id}/tables").json()
+        assert len(tables) == 1
+        assert tables[0]["name"] == "My Table"
+        assert tables[0]["row_count"] == 1
+
+    def test_fork_run_with_copy_tables_list(
+        self, api_client, db_session, sample_project
+    ):
+        """Test forking with copy_tables_on_fork=[id] copies only specified table."""
+        from dalva.db.schema import DalvaTable, Run
+
+        source_run = Run(
+            project_id=sample_project["id"], run_id="TBL-2", name="Multi Table Source"
+        )
+        db_session.add(source_run)
+        db_session.commit()
+
+        table1 = DalvaTable(
+            project_id=sample_project["id"],
+            run_id=source_run.id,
+            table_id="KEEP-ME",
+            name="Keep Me",
+        )
+        table2 = DalvaTable(
+            project_id=sample_project["id"],
+            run_id=source_run.id,
+            table_id="SKIP-ME",
+            name="Skip Me",
+        )
+        db_session.add(table1)
+        db_session.add(table2)
+        db_session.commit()
+
+        response = api_client.post(
+            "/api/runs/init",
+            json={
+                "project": sample_project["name"],
+                "fork_from": "TBL-2",
+                "copy_tables_on_fork": [table1.id],
+            },
+        )
+        assert response.status_code == 200
+        forked_id = response.json()["id"]
+
+        tables = api_client.get(f"/api/runs/{forked_id}/tables").json()
+        assert len(tables) == 1
+        assert tables[0]["name"] == "Keep Me"
+
+    def test_fork_run_not_found(self, api_client):
+        """Test forking from non-existent run returns 404."""
+        response = api_client.post(
+            "/api/runs/init",
+            json={"project": "ghost-project", "fork_from": "NONEXISTENT-1"},
+        )
+        assert response.status_code == 404
+
+    def test_fork_run_default_name(self, api_client, sample_run, sample_project):
+        """Test that forked run without name gets 'fork of {source_name}'."""
+        response = api_client.post(
+            "/api/runs/init",
+            json={"project": sample_project["name"], "fork_from": sample_run["run_id"]},
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == f"fork of {sample_run['name']}"
+
+    def test_fork_run_no_tables_when_false(
+        self, api_client, db_session, sample_project
+    ):
+        """Test that fork with copy_tables_on_fork=false does not copy tables."""
+        from dalva.db.schema import DalvaTable, Run
+
+        source_run = Run(
+            project_id=sample_project["id"], run_id="NO-TBL", name="No Table Source"
+        )
+        db_session.add(source_run)
+        db_session.commit()
+
+        table = DalvaTable(
+            project_id=sample_project["id"],
+            run_id=source_run.id,
+            table_id="ORPHAN-TABLE",
+            name="Orphan Table",
+        )
+        db_session.add(table)
+        db_session.commit()
+
+        response = api_client.post(
+            "/api/runs/init",
+            json={
+                "project": sample_project["name"],
+                "fork_from": "NO-TBL",
+                "copy_tables_on_fork": False,
+            },
+        )
+        assert response.status_code == 200
+        forked_id = response.json()["id"]
+
+        tables = api_client.get(f"/api/runs/{forked_id}/tables").json()
+        assert len(tables) == 0
+
 
 class TestListRuns:
     """Tests for GET /api/runs endpoint."""

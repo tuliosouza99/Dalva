@@ -10,6 +10,7 @@ All examples can be run from the backend directory:
 uv run python examples/simple_experiment.py
 uv run python examples/context_manager.py
 uv run python examples/resume_run.py
+uv run python examples/fork_run.py
 ```
 
 ## Examples Overview
@@ -57,10 +58,34 @@ dalva.log({"loss": 0.5}, step=1)
 dalva.finish()
 ```
 
+### 3. fork_run.py
+Fork an existing run:
+- Creates a new run with copied configs and metrics
+- Continue logging to the forked run independently
+- Optionally copy tables from the source run
+
+```python
+import dalva
+
+# Original run
+run1 = dalva.init(project="my-project", config={"lr": 0.01})
+run1.log({"loss": 1.0}, step=0)
+run1.finish()
+
+# Fork it
+run2 = dalva.init(
+    project="my-project",
+    fork_from=run1.run_id,
+    copy_tables_on_fork=True,
+)
+run2.log({"loss": 0.5}, step=1)
+run2.finish()
+```
+
 ## API Reference
 
 ### dalva.init()
-Initialize a new run or resume an existing one.
+Initialize a new run or resume/fork an existing one.
 
 **Parameters:**
 - `project` (str): Project name
@@ -68,6 +93,8 @@ Initialize a new run or resume an existing one.
 - `group` (str, optional): Group name for organizing runs
 - `config` (dict, optional): Configuration dictionary
 - `resume` (str): Resume mode - "never" (default), "allow", or "must"
+- `fork_from` (str, optional): run_id to fork from (creates a copy with configs/metrics)
+- `copy_tables_on_fork` (bool | list[int]): False (no tables), True (all tables), or list of table IDs. Only used when fork_from is set.
 
 **Returns:** Run object
 

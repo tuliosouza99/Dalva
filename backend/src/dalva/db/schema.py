@@ -67,6 +67,7 @@ class Run(Base):
     last_activity_at = mapped_column(
         DateTime, nullable=True
     )  # Tracks last log/finish request
+    fork_from = mapped_column(Integer, nullable=True)  # Source run ID for forked runs
 
     # Relationships
     project = relationship("Project", back_populates="runs")

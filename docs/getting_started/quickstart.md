@@ -76,3 +76,5 @@ Open your browser to [http://localhost:8000](http://localhost:8000) to see your 
 ## 5. More Examples
 
 See [`examples/nested_metrics_and_config.py`](https://github.com/tuliosouza99/Dalva/tree/main/examples/nested_metrics_and_config.py) for a complete walkthrough covering nested metrics, get/remove/relog patterns, and nested config.
+
+See [`examples/fork_run.py`](https://github.com/tuliosouza99/Dalva/tree/main/examples/fork_run.py) for forking runs, and [`examples/fork_run_full.py`](https://github.com/tuliosouza99/Dalva/tree/main/examples/fork_run_full.py) for a comprehensive test of all fork features.

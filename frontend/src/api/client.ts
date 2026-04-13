@@ -19,10 +19,11 @@ export interface Run {
   id: number;
   project_id: number;
   run_id: string;
-  name: string;
+  name: string | null;
   group_name: string | null;
   tags: string | null;
   state: 'running' | 'completed' | 'failed';
+  fork_from: number | null;
   created_at: string;
   updated_at: string;
 }

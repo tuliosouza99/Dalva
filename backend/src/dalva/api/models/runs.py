@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Mapping, Optional
+from typing import Mapping, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,6 +19,7 @@ class RunResponse(RunBase):
 
     id: int
     project_id: int
+    fork_from: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
@@ -39,6 +40,8 @@ class InitRunRequest(BaseModel):
     name: Optional[str] = None
     config: Optional[Mapping[str, InputValue]] = None
     resume_from: Optional[str] = None
+    fork_from: Optional[str] = None
+    copy_tables_on_fork: Union[bool, list[int]] = False
 
 
 class InitRunResponse(BaseModel):

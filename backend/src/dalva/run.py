@@ -46,6 +46,8 @@ class Run:
         name: str | None = None,
         config: InputDict | None = None,
         resume_from: str | None = None,
+        fork_from: str | None = None,
+        copy_tables_on_fork: bool | list[int] = False,
         server_url: str = "http://localhost:8000",
     ):
         """
@@ -56,6 +58,9 @@ class Run:
             name: Optional run name (user-defined, for display only)
             config: Optional configuration dictionary
             resume_from: run_id to resume (omit to create a new run)
+            fork_from: run_id to fork from (creates a copy with configs/metrics)
+            copy_tables_on_fork: False (no tables), True (all tables), or list of table IDs.
+                Only used when fork_from is set.
             server_url: Server URL. Defaults to http://localhost:8000
         """
         self.project_name = project
@@ -70,7 +75,11 @@ class Run:
 
         # Create run via API
         self._create_run_on_server(
-            name=name, config=self.config, resume_from=resume_from
+            name=name,
+            config=self.config,
+            resume_from=resume_from,
+            fork_from=fork_from,
+            copy_tables_on_fork=copy_tables_on_fork,
         )
 
         # Print run ID for user convenience
@@ -95,7 +104,12 @@ class Run:
         return self._client
 
     def _create_run_on_server(
-        self, name: str | None, config: InputDict | None, resume_from: str | None
+        self,
+        name: str | None,
+        config: InputDict | None,
+        resume_from: str | None,
+        fork_from: str | None = None,
+        copy_tables_on_fork: bool | list[int] = False,
     ):
         """Create the run on the server via API."""
         client = self._get_client()
@@ -104,6 +118,8 @@ class Run:
             "name": name,
             "config": config,
             "resume_from": resume_from,
+            "fork_from": fork_from,
+            "copy_tables_on_fork": copy_tables_on_fork,
         }
         try:
             response = client.post("/api/runs/init", json=payload)

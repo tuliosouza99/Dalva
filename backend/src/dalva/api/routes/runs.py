@@ -24,7 +24,7 @@ from dalva.api.models.runs import (
 from dalva.api.models.tables import TableResponse
 from dalva.db.connection import get_db, next_id
 from dalva.db.schema import Config, Metric, Run
-from dalva.services.logger import _flatten_config, _log_config, create_run
+from dalva.services.logger import _flatten_config, _log_config, create_run, fork_run
 from dalva.services.tables import get_tables_for_run
 
 router = APIRouter()
@@ -212,18 +212,32 @@ def init_run(request: InitRunRequest):
     This endpoint handles project creation/resumption and run creation
     in one call, providing a simple interface for the SDK.
 
+    When fork_from is set, creates a copy of the source run with configs,
+    metrics, and optionally tables copied to the new run.
+
     Args:
         request: Run initialization data
 
     Returns:
         Created run ID and identifiers
     """
-    db_id, run_id_str, name = create_run(
-        project_name=request.project,
-        run_name=request.name,
-        config=request.config,
-        resume_from=request.resume_from,
-    )
+    if request.fork_from is not None:
+        try:
+            db_id, run_id_str, name = fork_run(
+                fork_from=request.fork_from,
+                project_name=request.project,
+                name=request.name,
+                copy_tables_on_fork=request.copy_tables_on_fork,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+    else:
+        db_id, run_id_str, name = create_run(
+            project_name=request.project,
+            run_name=request.name,
+            config=request.config,
+            resume_from=request.resume_from,
+        )
 
     return InitRunResponse(id=db_id, run_id=run_id_str, name=name)
 

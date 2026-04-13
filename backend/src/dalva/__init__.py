@@ -11,6 +11,8 @@ def init(
     name: str | None = None,
     config: dict | None = None,
     resume_from: str | None = None,
+    fork_from: str | None = None,
+    copy_tables_on_fork: bool | list[int] = False,
     server_url: str = "http://localhost:8000",
 ) -> Run:
     """
@@ -21,6 +23,9 @@ def init(
         name: Optional run name (user-defined, for display purposes only)
         config: Optional configuration dictionary
         resume_from: run_id to resume (omit to create a new run)
+        fork_from: run_id to fork from (creates a copy with configs/metrics)
+        copy_tables_on_fork: False (no tables), True (all tables), or list of table IDs.
+            Only used when fork_from is set.
         server_url: Server URL. Defaults to http://localhost:8000
 
     Returns:
@@ -39,6 +44,8 @@ def init(
         name=name,
         config=config,
         resume_from=resume_from,
+        fork_from=fork_from,
+        copy_tables_on_fork=copy_tables_on_fork,
         server_url=server_url,
     )
 

@@ -276,6 +276,138 @@ class TestSyncWorkerStop:
         worker.stop()
 
 
+class TestSyncWorkerWAL:
+    def test_wal_appended_on_process(self, mock_httpx_client, tmp_path):
+        from dalva.sdk.wal import WALManager
+
+        mock_httpx_client.post.return_value = _ok_response()
+        wal = WALManager("run", 1, outbox_dir=tmp_path / "outbox")
+        worker = SyncWorker("http://localhost:8000", wal_manager=wal)
+
+        worker.enqueue(
+            PendingRequest(
+                method="POST",
+                url="/api/runs/1/log",
+                payload={"metrics": {"loss": 0.5}, "step": 0},
+                batch_key="run:1",
+            )
+        )
+        worker.drain(timeout=5)
+
+        entries = WALManager.read(wal.path)
+        assert len(entries) == 1
+        assert entries[0]["url"] == "/api/runs/1/log"
+        assert entries[0]["payload"] == {"metrics": {"loss": 0.5}, "step": 0}
+        worker.stop()
+
+    def test_wal_appends_all_batch_items(self, mock_httpx_client, tmp_path):
+        from dalva.sdk.wal import WALManager
+
+        mock_httpx_client.post.return_value = _ok_response()
+        wal = WALManager("run", 1, outbox_dir=tmp_path / "outbox")
+        worker = SyncWorker("http://localhost:8000", wal_manager=wal, batch_size=100)
+
+        for i in range(5):
+            worker.enqueue(
+                PendingRequest(
+                    method="POST",
+                    url="/api/runs/1/log",
+                    payload={"metrics": {"loss": float(i)}, "step": i},
+                    batch_key="run:1",
+                )
+            )
+        worker.drain(timeout=5)
+
+        entries = WALManager.read(wal.path)
+        assert len(entries) == 5
+        urls = {e["url"] for e in entries}
+        assert urls == {"/api/runs/1/log"}
+        worker.stop()
+
+    def test_wal_deleted_after_successful_drain(self, mock_httpx_client, tmp_path):
+        from dalva.sdk.wal import WALManager
+
+        mock_httpx_client.post.return_value = _ok_response()
+        wal = WALManager("run", 1, outbox_dir=tmp_path / "outbox")
+        worker = SyncWorker("http://localhost:8000", wal_manager=wal)
+
+        worker.enqueue(
+            PendingRequest(
+                method="POST",
+                url="/api/runs/1/log",
+                payload={"metrics": {"loss": 0.5}},
+                batch_key="run:1",
+            )
+        )
+        worker.drain(timeout=5)
+        worker.wal_delete()
+
+        assert not wal.exists
+        worker.stop()
+
+    def test_dump_remaining_persists_queue(self, mock_httpx_client, tmp_path):
+        import threading
+
+        from dalva.sdk.wal import WALManager
+
+        picked_up = threading.Event()
+        block_release = threading.Event()
+
+        def slow_post(*args, **kwargs):
+            picked_up.set()
+            block_release.wait(timeout=5)
+            return _ok_response()
+
+        mock_httpx_client.post.side_effect = slow_post
+        wal = WALManager("run", 1, outbox_dir=tmp_path / "outbox")
+        worker = SyncWorker("http://localhost:8000", wal_manager=wal)
+
+        worker.enqueue(
+            PendingRequest(
+                method="POST",
+                url="/api/runs/1/log",
+                payload={"loss": 0.1},
+                batch_key="run:1",
+            )
+        )
+        picked_up.wait(timeout=2)
+
+        worker.enqueue(
+            PendingRequest(
+                method="POST",
+                url="/api/runs/1/log",
+                payload={"loss": 0.2},
+                batch_key="run:1",
+            )
+        )
+        worker.enqueue(
+            PendingRequest(
+                method="POST",
+                url="/api/runs/1/log",
+                payload={"loss": 0.3},
+                batch_key="run:1",
+            )
+        )
+
+        count = worker.dump_remaining()
+        assert count == 2
+
+        entries = WALManager.read(wal.path)
+        assert len(entries) >= 2
+
+        block_release.set()
+        worker.stop()
+
+    def test_no_wal_when_wal_manager_is_none(self, mock_httpx_client):
+        mock_httpx_client.post.return_value = _ok_response()
+        worker = SyncWorker("http://localhost:8000", wal_manager=None)
+
+        worker.enqueue(PendingRequest(method="POST", url="/test"))
+        worker.drain(timeout=5)
+        assert worker.errors == []
+        worker.stop()
+
+
 class TestSyncWorkerSendMethods:
     def test_post_with_custom_headers(self, mock_httpx_client):
         mock_httpx_client.post.return_value = _ok_response()

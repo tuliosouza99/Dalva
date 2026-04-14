@@ -5,6 +5,7 @@ import click
 from dalva.cli.config import config
 from dalva.cli.database import db
 from dalva.cli.server import server
+from dalva.cli.sync import sync
 
 
 @click.group()
@@ -18,6 +19,7 @@ def cli():
 cli.add_command(server)
 cli.add_command(db)
 cli.add_command(config)
+cli.add_command(sync)
 
 
 if __name__ == "__main__":

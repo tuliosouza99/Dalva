@@ -1,5 +1,7 @@
 """Dalva - Lightweight experiment tracker for deep learning."""
 
+from pathlib import Path
+
 from dalva.sdk.run import Run
 from dalva.sdk.table import Table
 
@@ -14,6 +16,7 @@ def init(
     fork_from: str | None = None,
     copy_tables_on_fork: bool | list[int] = False,
     server_url: str = "http://localhost:8000",
+    outbox_dir: Path | None = None,
 ) -> Run:
     """
     Initialize a new run.
@@ -27,6 +30,7 @@ def init(
         copy_tables_on_fork: False (no tables), True (all tables), or list of table IDs.
             Only used when fork_from is set.
         server_url: Server URL. Defaults to http://localhost:8000
+        outbox_dir: Directory for WAL files. Defaults to ~/.dalva/outbox/
 
     Returns:
         Run object
@@ -47,6 +51,7 @@ def init(
         fork_from=fork_from,
         copy_tables_on_fork=copy_tables_on_fork,
         server_url=server_url,
+        outbox_dir=outbox_dir,
     )
 
 
@@ -58,6 +63,7 @@ def table(
     resume_from: str | None = None,
     server_url: str = "http://localhost:8000",
     log_mode: str | None = "IMMUTABLE",
+    outbox_dir: Path | None = None,
 ) -> Table:
     """
     Initialize a new table.
@@ -70,6 +76,7 @@ def table(
         resume_from: table_id to resume (omit to create a new table)
         server_url: Server URL. Defaults to http://localhost:8000
         log_mode: IMMUTABLE, MUTABLE, or INCREMENTAL
+        outbox_dir: Directory for WAL files. Defaults to ~/.dalva/outbox/
 
     Returns:
         Table object
@@ -91,4 +98,5 @@ def table(
         resume_from=resume_from,
         server_url=server_url,
         log_mode=log_mode,
+        outbox_dir=outbox_dir,
     )

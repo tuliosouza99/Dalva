@@ -13,23 +13,23 @@ Dalva is a full-stack application with:
 ```mermaid
 graph TB
 subgraph SDK["Python SDK"]
-sdk_run[Run Class]
-sdk_table[Table Class]
+    sdk_run[Run Class]
+    sdk_table[Table Class]
 end
 sdk_run -->|HTTP POST| api[REST API]
 sdk_table -->|HTTP POST| api
 subgraph FE["Frontend - React"]
-fe_proj[Projects Page]
-fe_runs[Runs Page]
-fe_tables[Tables Page]
-fe_metrics[Metrics Charts]
-fe_compare[Compare Runs Page]
+    fe_proj[Projects Page]
+    fe_runs[Runs Page]
+    fe_tables[Tables Page]
+    fe_metrics[Metrics Charts]
+    fe_compare[Compare Runs Page]
 end
 FE --> rq[React Query Cache]
 rq --> api
 subgraph BE["Backend - FastAPI"]
-routes[API Routes]
-logger[Logger Functions]
+    routes[API Routes]
+    logger[Logger Functions]
 end
 api --> routes
 routes --> logger
@@ -41,6 +41,61 @@ db --> tbl_configs[configs]
 db --> tbl_dalva_tables[dalva_tables]
 db --> tbl_dalva_rows[dalva_table_rows]
 ```
+
+## SDK Worker + WAL Architecture
+
+The SDK's `log()` is **async** — it enqueues operations to a background `SyncWorker` thread. The worker batches HTTP requests, retries on transient failures, and persists unsent operations to a **write-ahead log (WAL)** for crash recovery.
+
+### Data Flow
+
+```mermaid
+graph LR
+    TL[Training Loop] -->|run.log| Q[In-Memory Queue]
+    Q --> WT[SyncWorker Thread]
+    WT -->|append| WAL[WAL File ~/.dalva/outbox/]
+    WT -->|send| HTTP[HTTP POST to Server]
+    HTTP -->|success| DEL[WAL deleted on finish]
+    HTTP -->|timeout| DUMP[Dump remaining to WAL]
+    HTTP -->|crash| SURVIVE[WAL survives on disk]
+    SURVIVE -->|dalva sync| REPLAY[Replay later]
+```
+
+### Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `SyncWorker` | `sdk/worker.py` | Daemon thread: queue → batch → HTTP with retry |
+| `WALManager` | `sdk/wal.py` | Append/read/rewrite/delete JSONL files in `~/.dalva/outbox/` |
+| `Run` | `sdk/run.py` | Creates `WALManager("run", db_id)`, passes to worker |
+| `Table` | `sdk/table.py` | Creates `WALManager("table", db_id)`, passes to worker |
+| `dalva sync` | `cli/sync.py` | Replays WAL files: batch, handle 409, partial failure |
+
+### WAL Behavior
+
+- **Normal operation**: Worker appends each item to WAL before sending. On successful `finish()`, WAL is deleted.
+- **Timeout**: If `finish()` or `flush()` times out, remaining queue items are dumped to WAL. User sees: `"[Dalva] N operation(s) saved to disk. Run 'dalva sync' to replay."`
+- **Crash**: If the process crashes (SIGKILL, OOM), items already appended to WAL survive. Items still in the in-memory queue but not yet picked up by the worker are lost (~0.2s window).
+- **`dalva sync`**: Groups batchable entries by `batch_key`, sends as batch requests. Handles 409 Conflict (already applied) as success. On partial failure, rewrites WAL with only failed entries.
+
+### WAL File Format
+
+Stored at `~/.dalva/outbox/{type}_{db_id}.jsonl` (e.g., `run_42.jsonl`, `table_7.jsonl`):
+
+```jsonl
+{"seq":1,"method":"POST","url":"/api/runs/1/log","payload":{"metrics":{"loss":0.5},"step":0},"batch_key":"run:1","batch_count":0}
+{"seq":2,"method":"POST","url":"/api/runs/1/log","payload":{"metrics":{"loss":0.3},"step":1},"batch_key":"run:1","batch_count":0}
+{"seq":3,"method":"POST","url":"/api/runs/1/finish","payload":null,"batch_key":null,"batch_count":0}
+```
+
+### Key Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `batch_size` | 50 | Max items per batch HTTP request |
+| `flush_interval` | 0.2s | How often worker checks the queue |
+| `max_retries` | 5 | Retry count for 5xx/network errors |
+| `base_backoff` | 1.0s | Exponential backoff base (2^n) |
+| `outbox_dir` | `~/.dalva/outbox/` | WAL file storage location |
 
 ## Backend Architecture
 

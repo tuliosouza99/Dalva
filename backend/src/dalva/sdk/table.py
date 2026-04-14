@@ -6,6 +6,7 @@ import atexit
 import json
 import warnings
 from datetime import date, datetime
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -14,6 +15,7 @@ import pandera.pandas as pa
 from pandera.errors import SchemaErrors
 
 from ..types import InputDict
+from .wal import WALManager
 from .worker import PendingRequest, SyncWorker
 
 
@@ -91,6 +93,7 @@ class Table:
         resume_from: str | None = None,
         server_url: str = "http://localhost:8000",
         log_mode: Optional[str] = "IMMUTABLE",
+        outbox_dir: Path | None = None,
     ):
         self.project_name = project
         self.config = config or {}
@@ -111,7 +114,8 @@ class Table:
             log_mode=self._log_mode,
         )
 
-        self._worker = SyncWorker(server_url)
+        self._wal = WALManager("table", self._db_id, outbox_dir=outbox_dir)
+        self._worker = SyncWorker(server_url, wal_manager=self._wal)
         atexit.register(self._atexit_handler)
 
         print(f"Table created: {self.table_id}")
@@ -296,19 +300,18 @@ class Table:
         self._worker.enqueue(request)
 
     def flush(self, timeout: float | None = None) -> list[Exception]:
-        """Drain the worker queue and return accumulated errors.
-
-        Args:
-            timeout: Maximum seconds to wait. ``None`` means wait indefinitely.
-
-        Returns:
-            List of exceptions from failed requests.
-        """
         if self._worker is None:
             return []
         if self._worker.pending == 0:
             return []
-        self._worker.drain_with_progress(label="Flushing", timeout=timeout)
+        drained = self._worker.drain_with_progress(label="Flushing", timeout=timeout)
+        if not drained:
+            count = self._worker.dump_remaining()
+            if count > 0:
+                print(
+                    f"\n[Dalva] {count} operation(s) saved to disk. "
+                    f"Run 'dalva sync' to replay."
+                )
         return [exc for _, exc in self._worker.clear_errors()]
 
     def finish(self, on_error: str = "warn", timeout: float = 120) -> None:
@@ -333,14 +336,23 @@ class Table:
             return
 
         errors: list[tuple[PendingRequest, Exception]] = []
+        drained_ok = True
 
         try:
             if self._worker is not None:
                 total = self._worker.pending
                 if total > 0:
-                    self._worker.drain_with_progress(
+                    drained_ok = self._worker.drain_with_progress(
                         label="Finishing table", timeout=timeout
                     )
+                if not drained_ok:
+                    count = self._worker.dump_remaining()
+                    if count > 0:
+                        print(
+                            f"\n[Dalva] {count} operation(s) saved to disk. "
+                            f"Run 'dalva sync' to replay."
+                        )
+                    return
                 errors = self._worker.clear_errors()
 
             client = self._get_client()
@@ -349,6 +361,9 @@ class Table:
             result = response.json()
             print(f"[Table] Table finished (state={result['state']})")
             self._finished = True
+
+            if self._worker is not None:
+                self._worker.wal_delete()
 
             if errors:
                 if on_error == "raise":

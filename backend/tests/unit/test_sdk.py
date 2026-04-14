@@ -1,8 +1,4 @@
-"""Tests for remote tracking feature (simplified HTTP-based).
-
-The SDK (Run class) is an HTTP client with a background worker thread.
-log() is async (enqueued), finish()/remove()/get() are synchronous.
-"""
+"""Unit tests for SDK Run/Table classes — mocked HTTP, no DB."""
 
 from unittest.mock import MagicMock, patch
 
@@ -47,6 +43,7 @@ def _make_run_mock_client():
     return mock_client
 
 
+@pytest.mark.unit
 class TestRunClient:
     def test_run_uses_http_client_when_server_url_provided(self):
         with (
@@ -84,6 +81,7 @@ class TestRunClient:
                 assert run._server_url == "http://localhost:8000"
 
 
+@pytest.mark.unit
 class TestRunAsyncLog:
     def test_log_enqueues_request(self):
         with (
@@ -126,6 +124,7 @@ class TestRunAsyncLog:
                 run.log({"loss": 0.5}, step=0)
 
 
+@pytest.mark.unit
 class TestRunFlush:
     def test_flush_drains_worker_and_returns_errors(self):
         with (
@@ -149,6 +148,7 @@ class TestRunFlush:
             assert errors == []
 
 
+@pytest.mark.unit
 class TestRunFinish:
     def test_finish_drains_worker_then_sends_finish(self):
         with (
@@ -340,6 +340,7 @@ class TestRunFinish:
             assert mock_worker.drain_with_progress.call_count == init_call_count
 
 
+@pytest.mark.unit
 class TestRunRemove:
     def test_remove_drains_queue_first(self):
         with (
@@ -361,6 +362,7 @@ class TestRunRemove:
             mock_worker.drain.assert_called_once()
 
 
+@pytest.mark.unit
 class TestRunLogConfig:
     def test_log_config_drains_queue_first(self):
         with (
@@ -382,121 +384,219 @@ class TestRunLogConfig:
             mock_worker.drain.assert_called_once()
 
 
-class TestAPILogEndpoint:
-    def test_log_endpoint_accepts_metrics(self, api_client, sample_run):
-        from dalva.db.connection import session_scope
-        from dalva.db.schema import Metric
+@pytest.mark.unit
+class TestRunWALUnit:
+    def test_run_creates_wal_manager(self, tmp_path):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+            patch("dalva.sdk.run.WALManager") as mock_wal_class,
+        ):
+            mock_client_class.return_value = _make_run_mock_client()
+            mock_worker_class.return_value = _mock_worker()
+            mock_wal = MagicMock()
+            mock_wal_class.return_value = mock_wal
 
-        response = api_client.post(
-            f"/api/runs/{sample_run['id']}/log",
-            json={"metrics": {"loss": 0.5, "accuracy": 0.95}, "step": 0},
-        )
+            from dalva.sdk.run import Run
 
-        assert response.status_code == 200
-        data = response.json()
-        assert data["success"] is True
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                Run(project="test-project", outbox_dir=tmp_path / "outbox")
 
-        with session_scope() as session:
-            metrics = (
-                session.query(Metric).filter(Metric.run_id == sample_run["id"]).all()
+            mock_wal_class.assert_called_once_with(
+                "run", 1, outbox_dir=tmp_path / "outbox"
             )
-            assert len(metrics) == 2
-            loss_metric = next(m for m in metrics if m.attribute_path == "loss")
-            assert loss_metric.float_value == pytest.approx(0.5)
+            mock_worker_class.assert_called_once()
+            assert mock_worker_class.call_args.kwargs.get("wal_manager") is mock_wal
 
-    def test_log_endpoint_updates_last_activity(self, api_client, sample_run):
-        import time
+    def test_finish_deletes_wal_on_success(self, tmp_path):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+            patch("dalva.sdk.run.WALManager") as mock_wal_class,
+        ):
+            mock_client_class.return_value = _make_run_mock_client()
+            mock_worker = _mock_worker()
+            mock_worker_class.return_value = mock_worker
+            mock_wal = MagicMock()
+            mock_wal_class.return_value = mock_wal
 
-        from dalva.db.connection import session_scope
-        from dalva.db.schema import Run
+            from dalva.sdk.run import Run
 
-        time.sleep(0.01)
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project", outbox_dir=tmp_path / "outbox")
 
-        response = api_client.post(
-            f"/api/runs/{sample_run['id']}/log",
-            json={"metrics": {"loss": 0.5}},
-        )
+            run.finish()
 
-        assert response.status_code == 200
+            mock_worker.wal_delete.assert_called_once()
 
-        with session_scope() as session:
-            run_after = session.get(Run, sample_run["id"])
-            assert run_after.last_activity_at is not None
+    def test_finish_dumps_remaining_on_timeout(self, tmp_path):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+            patch("dalva.sdk.run.WALManager") as mock_wal_class,
+        ):
+            mock_client = _make_run_mock_client()
+            mock_client_class.return_value = mock_client
+            mock_worker = _mock_worker(pending=10)
+            mock_worker.drain_with_progress.return_value = False
+            mock_worker.dump_remaining.return_value = 7
+            mock_worker_class.return_value = mock_worker
+            mock_wal = MagicMock()
+            mock_wal_class.return_value = mock_wal
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project", outbox_dir=tmp_path / "outbox")
+
+            run.finish(timeout=5)
+
+            mock_worker.dump_remaining.assert_called_once()
+            mock_wal.delete.assert_not_called()
+            assert run._finished is False
+
+    def test_flush_dumps_remaining_on_timeout(self, tmp_path):
+        with (
+            patch("dalva.sdk.run.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.run.SyncWorker") as mock_worker_class,
+            patch("dalva.sdk.run.WALManager") as mock_wal_class,
+        ):
+            mock_client_class.return_value = _make_run_mock_client()
+            mock_worker = _mock_worker(pending=5)
+            mock_worker.drain_with_progress.return_value = False
+            mock_worker.dump_remaining.return_value = 3
+            mock_worker_class.return_value = mock_worker
+            mock_wal = MagicMock()
+            mock_wal_class.return_value = mock_wal
+
+            from dalva.sdk.run import Run
+
+            with patch("dalva.sdk.run.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                run = Run(project="test-project", outbox_dir=tmp_path / "outbox")
+
+            run.flush(timeout=5)
+            mock_worker.dump_remaining.assert_called_once()
 
 
-class TestAPIFinishEndpoint:
-    def test_finish_endpoint_marks_run_completed(self, api_client, sample_run):
-        response = api_client.post(f"/api/runs/{sample_run['id']}/finish")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["state"] == "completed"
-
-
-class TestAPIInitEndpoint:
-    def test_init_endpoint_creates_run(self, api_client):
-        response = api_client.post(
-            "/api/runs/init",
-            json={"project": "init-test-project", "name": "init-run"},
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "id" in data
-        assert "run_id" in data
-        assert data["name"] == "init-run"
-
-    def test_init_endpoint_creates_project(self, api_client):
-        response = api_client.post(
-            "/api/runs/init",
-            json={"project": "brand-new-project", "name": "test-run"},
-        )
-
-        assert response.status_code == 200
-
-        from dalva.db.connection import session_scope
-        from dalva.db.schema import Project
-
-        with session_scope() as session:
-            project = (
-                session.query(Project)
-                .filter(Project.name == "brand-new-project")
-                .first()
+@pytest.mark.unit
+class TestTableWALUnit:
+    def test_table_creates_wal_manager(self, tmp_path):
+        with (
+            patch("dalva.sdk.table.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.table.SyncWorker") as mock_worker_class,
+            patch("dalva.sdk.table.WALManager") as mock_wal_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.get.side_effect = lambda url, **kw: (
+                _mock_response(status_code=200)
+                if "health" in url
+                else _mock_response(json_data=[])
             )
-            assert project is not None
-
-    def test_init_endpoint_with_config(self, api_client):
-        response = api_client.post(
-            "/api/runs/init",
-            json={
-                "project": "config-init-project",
-                "name": "config-run",
-                "config": {"lr": 0.001, "batch_size": 32},
-            },
-        )
-
-        assert response.status_code == 200
-
-        from dalva.db.connection import session_scope
-        from dalva.db.schema import Config
-
-        with session_scope() as session:
-            configs = (
-                session.query(Config)
-                .filter(Config.run_id == response.json()["id"])
-                .all()
+            mock_client.post.return_value = _mock_response(
+                json_data={
+                    "id": 7,
+                    "table_id": "T-1",
+                    "name": "test",
+                    "log_mode": "IMMUTABLE",
+                    "version": 0,
+                }
             )
-            assert len(configs) == 2
+            mock_client_class.return_value = mock_client
+            mock_worker_class.return_value = MagicMock()
+            mock_wal = MagicMock()
+            mock_wal_class.return_value = mock_wal
 
+            from dalva.sdk.table import Table
 
-class TestSchemaLastActivityAt:
-    def test_run_has_last_activity_at_column(self, db_session):
-        from dalva.db.schema import Run
+            with patch("dalva.sdk.table.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                Table(project="test-project", outbox_dir=tmp_path / "outbox")
 
-        assert hasattr(Run, "last_activity_at")
+            mock_wal_class.assert_called_once_with(
+                "table", 7, outbox_dir=tmp_path / "outbox"
+            )
 
-    def test_run_last_activity_at_defaults_to_none(self, db_session, sample_run):
-        from dalva.db.schema import Run
+    def test_finish_deletes_wal_on_success(self, tmp_path):
+        with (
+            patch("dalva.sdk.table.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.table.SyncWorker") as mock_worker_class,
+            patch("dalva.sdk.table.WALManager") as mock_wal_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.get.side_effect = lambda url, **kw: _mock_response(
+                status_code=200
+            )
+            mock_client.post.side_effect = lambda url, **kw: (
+                _mock_response(
+                    json_data={
+                        "id": 7,
+                        "table_id": "T-1",
+                        "name": "test",
+                        "log_mode": "IMMUTABLE",
+                        "version": 0,
+                    }
+                )
+                if "init" in url
+                else _mock_response(json_data={"state": "finished"})
+            )
+            mock_client_class.return_value = mock_client
+            mock_worker = _mock_worker()
+            mock_worker_class.return_value = mock_worker
+            mock_wal = MagicMock()
+            mock_wal_class.return_value = mock_wal
 
-        run = db_session.get(Run, sample_run["id"])
-        assert run.last_activity_at is None
+            from dalva.sdk.table import Table
+
+            with patch("dalva.sdk.table.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                table = Table(project="test-project", outbox_dir=tmp_path / "outbox")
+
+            table.finish()
+
+            mock_worker.wal_delete.assert_called_once()
+
+    def test_finish_dumps_remaining_on_timeout(self, tmp_path):
+        with (
+            patch("dalva.sdk.table.httpx.Client") as mock_client_class,
+            patch("dalva.sdk.table.SyncWorker") as mock_worker_class,
+            patch("dalva.sdk.table.WALManager") as mock_wal_class,
+        ):
+            mock_client = MagicMock()
+            mock_client.get.side_effect = lambda url, **kw: _mock_response(
+                status_code=200
+            )
+            mock_client.post.side_effect = lambda url, **kw: (
+                _mock_response(
+                    json_data={
+                        "id": 7,
+                        "table_id": "T-1",
+                        "name": "test",
+                        "log_mode": "IMMUTABLE",
+                        "version": 0,
+                    }
+                )
+                if "init" in url
+                else _mock_response(json_data={"state": "finished"})
+            )
+            mock_client_class.return_value = mock_client
+            mock_worker = _mock_worker(pending=10)
+            mock_worker.drain_with_progress.return_value = False
+            mock_worker.dump_remaining.return_value = 5
+            mock_worker_class.return_value = mock_worker
+            mock_wal = MagicMock()
+            mock_wal_class.return_value = mock_wal
+
+            from dalva.sdk.table import Table
+
+            with patch("dalva.sdk.table.httpx.get") as mock_get:
+                mock_get.return_value = MagicMock(status_code=200)
+                table = Table(project="test-project", outbox_dir=tmp_path / "outbox")
+
+            table.finish(timeout=5)
+
+            mock_worker.dump_remaining.assert_called_once()
+            mock_wal.delete.assert_not_called()

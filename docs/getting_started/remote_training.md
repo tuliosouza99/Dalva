@@ -79,6 +79,82 @@ run = dalva.init(
 )
 ```
 
+## Crash Recovery
+
+When training on a remote machine, network issues or process crashes can cause metric data to be lost. Dalva provides automatic crash recovery via a **write-ahead log (WAL)**.
+
+### How It Works
+
+Every `run.log()` call is enqueued to a background worker thread. Before the worker sends each operation to the server, it appends it to a WAL file on disk (`~/.dalva/outbox/`).
+
+```
+run.log() → queue → worker appends to WAL → sends HTTP
+                              ↓
+  finish() times out  → dump remaining → WAL persists on disk
+  finish() succeeds   → WAL deleted
+  process crashes     → WAL survives   → dalva sync replays later
+```
+
+### Automatic Timeout Handling
+
+If `finish()` or `flush()` times out (e.g., the server is unreachable), unsent operations are automatically saved to disk:
+
+```
+[Dalva] 7 operation(s) saved to disk. Run 'dalva sync' to replay.
+```
+
+### Manual Recovery with `dalva sync`
+
+After a crash or timeout, use the CLI to replay pending operations:
+
+```bash
+dalva sync             # Replay all pending operations
+dalva sync --status    # Show what's pending without sending
+dalva sync --dry-run   # Preview what would be sent
+```
+
+Example output:
+
+```
+$ dalva sync --status
+Pending operations:
+
+  run_42.jsonl: 15 operation(s)
+  table_7.jsonl: 3 operation(s)
+
+  Total: 18 operation(s) across 2 file(s)
+
+$ dalva sync
+  run_42.jsonl: Synced 15/15 ✓
+  table_7.jsonl: Synced 3/3 ✓
+
+Done: synced 18.
+```
+
+### Example: Simulated Crash and Recovery
+
+```python
+import dalva
+
+# Phase 1: Normal training — server is up
+run = dalva.init(project="crash-demo", name="experiment-1")
+
+for step in range(10):
+    loss = train_step(step)
+    run.log({"loss": loss}, step=step)
+
+run.flush()  # Ensure metrics are sent
+
+# Phase 2: Server goes down / network drops
+# ... run.log() continues to enqueue, WAL persists to disk ...
+# ... process crashes or finish() times out ...
+
+# Phase 3: Server is back — recover from disk
+# Run on the same machine where training happened:
+#   $ dalva sync
+# All pending metrics are replayed to the server.
+```
+
 ## Troubleshooting
 
 ### Connection Refused

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import atexit
 import warnings
+from pathlib import Path
 from typing import overload
 
 import httpx
 
 from ..types import _T, InputDict, Metric
 from .table import Table
+from .wal import WALManager
 from .worker import PendingRequest, SyncWorker
 
 
@@ -57,6 +59,7 @@ class Run:
         fork_from: str | None = None,
         copy_tables_on_fork: bool | list[int] = False,
         server_url: str = "http://localhost:8000",
+        outbox_dir: Path | None = None,
     ):
         self.project_name = project
         self.config = config or {}
@@ -76,7 +79,8 @@ class Run:
             copy_tables_on_fork=copy_tables_on_fork,
         )
 
-        self._worker = SyncWorker(server_url)
+        self._wal = WALManager("run", self._db_id, outbox_dir=outbox_dir)
+        self._worker = SyncWorker(server_url, wal_manager=self._wal)
         atexit.register(self._atexit_handler)
 
         print(f"Run created: {self.run_id}")
@@ -163,22 +167,18 @@ class Run:
         self._worker.enqueue(request)
 
     def flush(self, timeout: float | None = None) -> list[Exception]:
-        """Drain the worker queue and return accumulated errors.
-
-        Blocks until all pending requests have been processed (or timeout).
-        Prints progress if there are pending requests.
-
-        Args:
-            timeout: Maximum seconds to wait. ``None`` means wait indefinitely.
-
-        Returns:
-            List of exceptions from failed requests.
-        """
         if self._worker is None:
             return []
         if self._worker.pending == 0:
             return []
-        self._worker.drain_with_progress(label="Flushing", timeout=timeout)
+        drained = self._worker.drain_with_progress(label="Flushing", timeout=timeout)
+        if not drained:
+            count = self._worker.dump_remaining()
+            if count > 0:
+                print(
+                    f"\n[Dalva] {count} operation(s) saved to disk. "
+                    f"Run 'dalva sync' to replay."
+                )
         return [exc for _, exc in self._worker.clear_errors()]
 
     def remove(self, metric: str, step: int | None = None):
@@ -435,14 +435,23 @@ class Run:
             return
 
         errors: list[tuple[PendingRequest, Exception]] = []
+        drained_ok = True
 
         try:
             if self._worker is not None:
                 total = self._worker.pending
                 if total > 0:
-                    self._worker.drain_with_progress(
+                    drained_ok = self._worker.drain_with_progress(
                         label="Finishing run", timeout=timeout
                     )
+                if not drained_ok:
+                    count = self._worker.dump_remaining()
+                    if count > 0:
+                        print(
+                            f"\n[Dalva] {count} operation(s) saved to disk. "
+                            f"Run 'dalva sync' to replay."
+                        )
+                    return
                 errors = self._worker.clear_errors()
 
             for table in self._tables:
@@ -458,6 +467,9 @@ class Run:
             result = response.json()
             print(f"[Run] Run finished (state={result['state']})")
             self._finished = True
+
+            if self._worker is not None:
+                self._worker.wal_delete()
 
             if errors:
                 if on_error == "raise":

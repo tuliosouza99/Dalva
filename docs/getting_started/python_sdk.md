@@ -5,7 +5,8 @@
 Dalva's Python API lets you log experiments:
 
 - `dalva.init()` - Initialize a new run, resume, or fork an existing one
-- `run.log()` - Log metrics with steps
+- `run.log()` - Log metrics with steps (**async** — enqueued to background worker)
+- `run.flush()` - Drain pending operations to the server (blocking)
 - `run.get()` - Retrieve a specific metric
 - `run.remove()` - Remove a metric (required before overwriting)
 - `run.log_config()` - Add config keys after init
@@ -14,8 +15,29 @@ Dalva's Python API lets you log experiments:
 - `run.create_table()` - Create a table linked to the run
 - `run.finish()` - Complete the run and all linked tables
 - `dalva.table()` - Initialize a standalone table (not linked to a run)
-- `table.log()` - Log a DataFrame to the table
+- `table.log()` - Log a DataFrame to the table (**async**)
 - `table.finish()` - Complete the table
+
+### Async Logging
+
+`run.log()` and `table.log()` are **asynchronous** — they enqueue operations to a background worker thread and return immediately. This means your training loop is never blocked by network I/O.
+
+The background worker:
+
+- Batches up to 50 operations per HTTP request
+- Retries on transient failures (5xx, network errors) with exponential backoff
+- Persists unsent operations to a write-ahead log (WAL) for crash recovery
+
+```python
+for step in range(1000):
+    loss = train_step(step)
+    run.log({"loss": loss}, step=step)  # Returns immediately
+
+# Ensure all metrics are sent before finishing
+run.finish(timeout=120)  # Drains queue, sends finish, marks complete
+```
+
+If `finish()` times out or the process crashes, pending operations are saved to disk. Run `dalva sync` to recover them later. See [Remote Training](remote_training.md#crash-recovery) for details.
 
 ## Quick Index
 

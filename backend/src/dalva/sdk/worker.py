@@ -11,6 +11,8 @@ from typing import Any
 
 import httpx
 
+from .wal import WALManager
+
 
 @dataclass
 class PendingRequest:
@@ -39,12 +41,14 @@ class SyncWorker:
         max_backoff: float = 30.0,
         batch_size: int = 50,
         flush_interval: float = 0.2,
+        wal_manager: WALManager | None = None,
     ) -> None:
         self._max_retries = max_retries
         self._base_backoff = base_backoff
         self._max_backoff = max_backoff
         self._batch_size = batch_size
         self._flush_interval = flush_interval
+        self._wal = wal_manager
         self._queue: queue.Queue = queue.Queue(maxsize=max_queue_size)
         self._stop_event = threading.Event()
         self._errors: list[tuple[PendingRequest, Exception]] = []
@@ -126,6 +130,15 @@ class SyncWorker:
             print(f"\r[Dalva] {label}: {total}/{total} ✓")
             return True
 
+    def dump_remaining(self) -> int:
+        if self._wal is None:
+            return 0
+        return self._wal.dump_queue(self._queue)
+
+    def wal_delete(self) -> None:
+        if self._wal is not None:
+            self._wal.delete()
+
     def stop(self, timeout: float | None = None) -> None:
         self._stop_event.set()
         try:
@@ -148,6 +161,8 @@ class SyncWorker:
                 continue
             if item is None:
                 break
+            if self._wal is not None:
+                self._wal.append(item)
             if item.batch_key is not None:
                 self._collect_and_send_batch(item)
             else:
@@ -167,6 +182,8 @@ class SyncWorker:
                 self._queue.put(None)
                 break
             if item.batch_key == batch_key:
+                if self._wal is not None:
+                    self._wal.append(item)
                 items.append(item)
             else:
                 self._process_request(item)

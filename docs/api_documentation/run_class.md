@@ -1,7 +1,3 @@
-# Run Class
-
-Run object for tracking experiments.
-
 ::: dalva.Run
     options:
       show_root_heading: true
@@ -10,6 +6,7 @@ Run object for tracking experiments.
       members:
         - __init__
         - log
+        - flush
         - get
         - remove
         - log_config

@@ -1,4 +1,4 @@
-# 🌠 Dalva
+# Dalva
 
 > A lightweight, self-hosted experiment tracker for deep learning
 
@@ -11,9 +11,11 @@ For more information on using Dalva, please refer to the [documentation](https:/
 - **Simple Python API** - Easy-to-use Python interface
 - **Self-Hosted** - All data stored locally in DuckDB
 - **Flexible Metrics** - Log any metrics without predefined schemas
+- **Tabular Data** - Track structured rows alongside runs with `DalvaSchema` + `dalva.table()`
 - **Real-time Visualization** - Interactive charts with Plotly.js
 - **Run Comparison** - Compare metrics across multiple experiments
 - **Resume Support** - Continue logging to existing runs
+- **Crash Recovery** - Automatic WAL persistence + `dalva sync` for replaying lost operations
 - **Lightweight** - No complex setup or external dependencies
 - **Project Organization** - Group experiments by project and tags
 
@@ -99,6 +101,30 @@ for epoch in range(100):
 run.finish()
 ```
 
+### Tabular Data
+
+Define a schema and log structured rows:
+
+```python
+import dalva
+
+class PredictionSchema(dalva.DalvaSchema):
+    sample_id: int
+    label: str
+    confidence: float
+
+run = dalva.init(project="image-classification", name="resnet-eval")
+table = run.create_table(schema=PredictionSchema, name="predictions")
+
+table.log_row({"sample_id": 1, "label": "cat", "confidence": 0.95})
+table.log_rows([
+    {"sample_id": 2, "label": "dog", "confidence": 0.87},
+    {"sample_id": 3, "label": "bird", "confidence": 0.72},
+])
+
+run.finish()  # auto-finishes the table
+```
+
 ### Resuming Runs
 
 ```python
@@ -125,6 +151,7 @@ The Dalva web interface provides:
 - **Metric Charts** - Interactive visualizations with zoom, pan, and hover
 - **Categorical Charts** - Stacked area charts for bool and string series
 - **Run Comparison** - Side-by-side comparison of multiple experiments
+- **Tables View** - Browse tabular data linked to runs with a "Load to Python" code snippet
 
 ## Development
 
@@ -156,7 +183,7 @@ uv run pytest
 **Frontend:**
 ```bash
 cd frontend
-npm test
+npm run build:check  # TypeScript type-check (no test runner)
 ```
 
 ### Project Structure
@@ -165,13 +192,20 @@ npm test
 Dalva/
 ├── backend/
 │   ├── src/dalva/
-│   │   ├── __init__.py       # Public Python API
-│   │   ├── run.py            # Run class
-│   │   ├── api/              # FastAPI routes
+│   │   ├── __init__.py       # Public Python API (init, table, DalvaSchema)
+│   │   ├── api/              # FastAPI routes + Pydantic models
+│   │   ├── cli/              # Click CLI commands
 │   │   ├── db/               # Database schema & connection
-│   │   └── services/         # Business logic
+│   │   ├── sdk/              # Client SDK
+│   │   │   ├── run.py        # Run class
+│   │   │   ├── table.py      # Table class
+│   │   │   ├── schema.py     # DalvaSchema base class
+│   │   │   ├── worker.py     # Background SyncWorker thread
+│   │   │   └── wal.py        # Write-ahead log manager
+│   │   ├── services/         # Business logic
+│   │   └── static/           # Frontend build output
 │   ├── examples/             # Example scripts
-│   └── scripts/              # Utility scripts
+│   └── tests/                # Unit + integration tests
 └── frontend/
     ├── src/
     │   ├── api/              # API client & hooks
@@ -194,6 +228,15 @@ uv run python backend/examples/resume_run.py
 
 # Categorical metrics example (bool & string series)
 uv run python backend/examples/categorical_demo.py
+
+# Tabular data with DalvaSchema
+uv run python backend/examples/linked_table.py
+
+# Fork runs with tables
+uv run python backend/examples/fork_run_full.py
+
+# Crash recovery with WAL
+uv run python backend/examples/crash_recovery.py
 ```
 
 ## Contributing

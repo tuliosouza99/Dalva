@@ -382,15 +382,6 @@ export default function RunDetailPage() {
                         <span className="mono text-sm font-medium" style={{ color: 'var(--accent-hover)' }}>
                           {table.table_id}
                         </span>
-                        <span className={`badge text-xs ${
-                          table.log_mode === 'IMMUTABLE'
-                            ? 'badge-completed'
-                            : table.log_mode === 'MUTABLE'
-                            ? 'badge-running'
-                            : 'badge-failed'
-                        }`}>
-                          {table.log_mode}
-                        </span>
                         <span className={`badge ${
                           table.state === 'active'
                             ? 'badge-running'

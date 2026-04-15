@@ -2,16 +2,55 @@
 
 Tables let you track **tabular data** alongside your runs. While metrics are time-series values (loss over steps), tables store structured rows like predictions, evaluation results, or dataset statistics.
 
-## Initialize a Table
+## Define a Schema
+
+Tables require a `DalvaSchema` subclass that defines columns and types:
 
 ```python
 import dalva
-import pandas as pd
 
+class PredictionSchema(dalva.DalvaSchema):
+    sample_id: int
+    label: str
+    confidence: float
+    correct: bool
+```
+
+### Supported Column Types
+
+| Type | Python Type | Example |
+|------|-------------|---------|
+| `int` | `int` | `42` |
+| `float` | `float` | `0.95` |
+| `bool` | `bool` | `True` |
+| `str` | `str` | `"cat"` |
+| `list` | `list` | `[1, 2, 3]` |
+| `dict` | `dict` | `{"key": "val"}` |
+| `null` | `None` | `None` (via `Optional[X]`) |
+
+### Optional Fields
+
+Use `Optional[X]` or `X | None` for nullable columns:
+
+```python
+from typing import Optional
+
+class EvalSchema(dalva.DalvaSchema):
+    sample_id: int
+    label: str
+    score: float
+    notes: str | None = None
+```
+
+## Initialize a Table
+
+### Standalone Table
+
+```python
 table = dalva.table(
     project="my-project",
+    schema=PredictionSchema,
     name="predictions",
-    log_mode="IMMUTABLE",
     server_url="http://localhost:8000"
 )
 ```
@@ -19,92 +58,87 @@ table = dalva.table(
 **Parameters:**
 
 - `project` (required) - Project name
+- `schema` (required for new tables) - A `DalvaSchema` subclass defining the table columns
 - `name` (optional) - Human-readable table name
 - `config` (optional) - Configuration dictionary
 - `run_id` (optional) - Run ID string to link this table to a run
-- `resume_from` (optional) - Table ID to resume an existing table
+- `resume_from` (optional) - Table ID to resume an existing table (schema not needed)
 - `server_url` (required) - URL of the Dalva server
-- `log_mode` (optional) - One of `IMMUTABLE`, `MUTABLE`, or `INCREMENTAL` (default: `IMMUTABLE`)
 
-## Log a DataFrame
+### Linked to a Run
 
-```python
-df = pd.DataFrame({
-    "sample_id": [1, 2, 3],
-    "label": ["cat", "dog", "bird"],
-    "confidence": [0.95, 0.87, 0.72],
-    "correct": [True, True, False],
-})
-
-table.log(df)
-```
-
-## Supported Column Types
-
-| Type | Python/pandas dtype | Example |
-|------|---------------------|---------|
-| `int` | `int64`, `int32`, `Int64`, etc. | `42` |
-| `float` | `float64`, `float32` | `0.95` |
-| `bool` | `bool` | `True` |
-| `str` | `object` (string) | `"cat"` |
-| `date` | `datetime64` | `"2025-01-15"` |
-| `list` | list values | `[1, 2, 3]` |
-| `dict` | dict values | `{"key": "val"}` |
-
-Mixed types within a single column are not allowed. All values in a column must be the same type.
-
-## Log Modes
-
-| Mode | Behavior | Use Case |
-|------|----------|----------|
-| `IMMUTABLE` | Log exactly once. Re-logging raises an error. | Final evaluation results |
-| `MUTABLE` | Each log creates a new version. Only latest shown. | Updating predictions over epochs |
-| `INCREMENTAL` | Each log appends rows. Column types must match. | Streaming predictions batch by batch |
-
-```python
-# IMMUTABLE - log once
-table = dalva.table(project="my-project", name="final-results", log_mode="IMMUTABLE")
-table.log(df)
-table.finish()
-
-# MUTABLE - re-log creates new version
-table = dalva.table(project="my-project", name="epoch-predictions", log_mode="MUTABLE")
-table.log(df_epoch_1)  # version 1
-table.log(df_epoch_2)  # version 2 (replaces v1 in UI)
-table.finish()
-
-# INCREMENTAL - appends rows
-table = dalva.table(project="my-project", name="all-predictions", log_mode="INCREMENTAL")
-table.log(df_batch_1)  # rows appended
-table.log(df_batch_2)  # more rows appended
-table.finish()
-```
-
-## Link a Table to a Run
-
-The recommended way to link a table to a run is `run.create_table()`. The table is automatically associated with the same project and run, and `run.finish()` will finish the table too.
+The recommended way to link a table to a run is `run.create_table()`:
 
 ```python
 run = dalva.init(project="my-project", name="training-run")
-# ... log metrics to run ...
 
-table = run.create_table(name="predictions", log_mode="IMMUTABLE")
-table.log(predictions_df)
+table = run.create_table(schema=PredictionSchema, name="predictions")
+table.log_row({"sample_id": 1, "label": "cat", "confidence": 0.95, "correct": True})
 
 run.finish()  # auto-finishes the table too
 ```
 
-You can also use `dalva.table()` with an explicit `run_id` for standalone tables:
+## Log Rows
+
+### Single Row
 
 ```python
-table = dalva.table(
-    project="my-project",
-    name="predictions",
-    run_id=run.run_id,
-)
-table.log(predictions_df)
-table.finish()
-run.finish()
+table.log_row({
+    "sample_id": 1,
+    "label": "cat",
+    "confidence": 0.95,
+    "correct": True,
+})
+```
+
+`log_row()` is **async** — it enqueues the row and returns immediately.
+
+### Multiple Rows
+
+```python
+table.log_rows([
+    {"sample_id": 1, "label": "cat", "confidence": 0.95, "correct": True},
+    {"sample_id": 2, "label": "dog", "confidence": 0.87, "correct": True},
+    {"sample_id": 3, "label": "bird", "confidence": 0.72, "correct": False},
+])
+```
+
+`log_rows()` is also **async** and batches rows into a single HTTP request.
+
+### Validation
+
+Rows are validated against the schema before enqueueing. Extra fields or wrong types raise a `ValueError`:
+
+```python
+table.log_row({"sample_id": 1, "label": "cat", "confidence": "high"})
+# ValueError: Input should be a valid number, unable to parse string as a number
+```
+
+## Get Table Data
+
+Retrieve all rows from the server:
+
+```python
+rows = table.get_table()
+for row in rows:
+    print(row)
+```
+
+For large tables, use streaming to avoid loading all rows into memory:
+
+```python
+for row in table.get_table(stream=True):
+    process(row)
+```
+
+`get_table()` is **synchronous** — it drains the worker queue first to ensure all pending rows are sent.
+
+## Remove All Rows
+
+Remove all rows while keeping the table metadata and schema:
+
+```python
+table.remove_table()
 ```
 
 ## Finish a Table
@@ -116,6 +150,14 @@ table.finish()
 ```
 
 Calling `finish()` multiple times is safe — it's a no-op after the first call.
+
+### Error Handling
+
+```python
+table.finish(on_error="raise")  # raise DalvaError on accumulated errors
+table.finish(on_error="warn")   # print warnings (default)
+table.finish(timeout=60)        # custom timeout in seconds
+```
 
 ## Table Object
 
@@ -129,14 +171,43 @@ See the [Table Class API documentation](../api_documentation/table_class.md) for
 
 ## Resuming Tables
 
-MUTABLE and INCREMENTAL tables can be resumed. IMMUTABLE tables cannot.
+Resume an existing table by passing `resume_from` with the table ID. No schema is needed — it's loaded from the server:
 
 ```python
-# Resume a MUTABLE or INCREMENTAL table
 table = dalva.table(
     project="my-project",
     resume_from="ABC-T1"
 )
-table.log(new_data)
+table.log_rows(new_data)
 table.finish()
+```
+
+## Complete Example
+
+```python
+import dalva
+
+class PredictionSchema(dalva.DalvaSchema):
+    sample_id: int
+    label: str
+    confidence: float
+    correct: bool
+
+run = dalva.init(project="image-classification", name="resnet-eval")
+
+table = run.create_table(schema=PredictionSchema, name="predictions")
+
+for batch in eval_dataloader:
+    for sample_id, pred, label in evaluate(batch):
+        table.log_row({
+            "sample_id": sample_id,
+            "label": pred,
+            "confidence": pred.confidence,
+            "correct": pred == label,
+        })
+
+run.finish()
+
+rows = table.get_table()
+print(f"Accuracy: {sum(r['correct'] for r in rows) / len(rows):.2%}")
 ```

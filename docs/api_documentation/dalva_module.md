@@ -11,3 +11,9 @@
       show_root_heading: true
       show_source: true
       heading_level: 2
+
+::: dalva.DalvaError
+    options:
+      show_root_heading: true
+      show_source: true
+      heading_level: 2

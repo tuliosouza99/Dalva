@@ -10,17 +10,11 @@ from typing import overload
 import httpx
 
 from ..types import _T, InputDict, Metric
+from .errors import DalvaError
+from .schema import DalvaSchema
 from .table import Table
 from .wal import WALManager
 from .worker import PendingRequest, SyncWorker
-
-
-class DalvaError(Exception):
-    def __init__(
-        self, message: str, errors: list[tuple[PendingRequest, Exception]] | None = None
-    ) -> None:
-        super().__init__(message)
-        self.errors: list[tuple[PendingRequest, Exception]] = errors or []
 
 
 def _server_error(exc: httpx.HTTPStatusError) -> str:
@@ -371,9 +365,9 @@ class Run:
 
     def create_table(
         self,
+        schema: type[DalvaSchema],
         name: str | None = None,
         config: InputDict | None = None,
-        log_mode: str | None = "IMMUTABLE",
     ) -> Table:
         """Create a table linked to this run.
 
@@ -381,30 +375,30 @@ class Run:
         When run.finish() is called, all linked tables will be finished first.
 
         Args:
+            schema: A DalvaSchema subclass defining the table columns
             name: Optional table name (user-defined, for display only)
             config: Optional configuration dictionary
-            log_mode: IMMUTABLE, MUTABLE, or INCREMENTAL
 
         Returns:
             Table object linked to this run
 
         Example:
             ```python
-            table = run.create_table(name="predictions", log_mode="IMMUTABLE")
-            table.log(df)
+            table = run.create_table(schema=MySchema, name="predictions")
+            table.log_row({"name": "test", "score": 0.5})
             run.finish()
             ```
         """
-        table = Table(
+        t = Table(
             project=self.project_name,
+            schema=schema,
             name=name,
             config=config,
             run_id=self.run_id,
             server_url=self._server_url,
-            log_mode=log_mode,
         )
-        self._tables.append(table)
-        return table
+        self._tables.append(t)
+        return t
 
     def finish(self, on_error: str = "warn", timeout: float = 120):
         """Finish the run and mark it as completed.

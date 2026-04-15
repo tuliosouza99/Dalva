@@ -2,7 +2,8 @@
 Example: Linked run and table.
 
 Creates a run and a table linked to it via run.create_table(),
-logs data to both, then finishes with a single run.finish() call.
+logs rows using the new DalvaSchema system, then finishes with
+a single run.finish() call. Demonstrates streaming data back.
 
 Usage:
     dalva server start
@@ -10,11 +11,19 @@ Usage:
 """
 
 import dalva
-import pandas as pd
+from dalva import DalvaSchema
 import random
 import sys
 
 server_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
+
+
+class PredictionSchema(DalvaSchema):
+    sample_id: int
+    label: str
+    confidence: float
+    correct: bool
+
 
 run = dalva.init(
     project="link-test",
@@ -33,7 +42,7 @@ for step in range(10):
         {"train/loss": loss, "train/accuracy": min(0.99, 0.5 + step * 0.05)}, step=step
     )
 
-table = run.create_table(name="Predictions", log_mode="IMMUTABLE")
+table = run.create_table(schema=PredictionSchema, name="Predictions")
 
 labels = [
     "cat",
@@ -63,20 +72,25 @@ labels = [
     "rabbit",
 ]
 
-df = pd.DataFrame(
-    {
-        "sample_id": range(25),
-        "label": labels,
-        "confidence": [
-            round(0.5 + i * 0.02 + random.uniform(-0.05, 0.05), 3) for i in range(25)
-        ],
-        "score": [round(random.uniform(0, 100), 1) for _ in range(25)],
-        "correct": [random.random() > 0.3 for _ in range(25)],
-    }
-)
-table.log(df)
+for i, label in enumerate(labels):
+    table.log_row(
+        {
+            "sample_id": i,
+            "label": label,
+            "confidence": round(0.5 + i * 0.02 + random.uniform(-0.05, 0.05), 3),
+            "correct": random.random() > 0.3,
+        }
+    )
+
+table.flush()
+print(f"[Dalva] Logged {len(labels)} rows to table {table.table_id}")
 
 run.finish()
 
 print(f"\nRun: {run.run_id}  |  Table: {table.table_id}")
-print(f"View at: {server_url}")
+
+print("Streaming rows back from table:")
+for row in table.get_table(stream=True):
+    print(f"  {row}")
+
+print(f"\nView at: {server_url}")

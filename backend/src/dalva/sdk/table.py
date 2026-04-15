@@ -5,53 +5,16 @@ from __future__ import annotations
 import atexit
 import json
 import warnings
-from datetime import date, datetime
 from pathlib import Path
-from typing import Optional
+from typing import Generator, Iterable, Mapping
 
 import httpx
-import pandas as pd
-import pandera.pandas as pa
-from pandera.errors import SchemaErrors
 
 from ..types import InputDict
+from .errors import DalvaError
+from .schema import DalvaSchema
 from .wal import WALManager
 from .worker import PendingRequest, SyncWorker
-
-
-def _is_na(v):
-    return v is None or (isinstance(v, float) and v != v)
-
-
-def _is_date(s: pd.Series) -> pd.Series:
-    return s.map(lambda v: isinstance(v, (datetime, date)) if not _is_na(v) else True)
-
-
-def _is_list(s: pd.Series) -> pd.Series:
-    return s.map(
-        lambda v: (
-            isinstance(v, list) or (isinstance(v, str) and v.startswith("["))
-            if not _is_na(v)
-            else True
-        )
-    )
-
-
-def _is_dict(s: pd.Series) -> pd.Series:
-    return s.map(
-        lambda v: (
-            isinstance(v, dict) or (isinstance(v, str) and v.startswith("{"))
-            if not _is_na(v)
-            else True
-        )
-    )
-
-
-_OBJECT_CHECKS = {
-    "date": pa.Check(_is_date),
-    "list": pa.Check(_is_list),
-    "dict": pa.Check(_is_dict),
-}
 
 
 def _server_error(exc: httpx.HTTPStatusError) -> str:
@@ -66,41 +29,53 @@ def _server_error(exc: httpx.HTTPStatusError) -> str:
 class Table:
     """Table object for tracking tabular data via HTTP.
 
-    ``log()`` calls are asynchronous — they return immediately and are
-    sent to the server in the background. Errors from failed requests are
-    accumulated and reported when ``flush()`` or ``finish()`` is called.
+    ``log_row()`` and ``log_rows()`` are asynchronous — they return immediately
+    and are sent to the server in the background. Errors from failed requests
+    are accumulated and reported when ``flush()`` or ``finish()`` is called.
 
     Example:
         ```python
-        import pandas as pd
-        import dalva
+        from dalva import table, DalvaSchema
 
-        table = dalva.table(project="my-project", name="my-table")
-        df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
-        table.log(df)
-        table.finish()
+        class MySchema(DalvaSchema):
+            name: str
+            score: float
+
+        t = table(project="my-project", schema=MySchema)
+        t.log_row({"name": "test", "score": 0.5})
+        t.log_rows([{"name": "a", "score": 0.9}, {"name": "b", "score": 0.3}])
+        t.finish()
         ```
     """
-
-    ALLOWED_TYPES = {"int", "float", "bool", "str", "date", "list", "dict"}
 
     def __init__(
         self,
         project: str,
+        schema: type[DalvaSchema] | None = None,
         name: str | None = None,
         config: InputDict | None = None,
         run_id: str | None = None,
         resume_from: str | None = None,
         server_url: str = "http://localhost:8000",
-        log_mode: Optional[str] = "IMMUTABLE",
         outbox_dir: Path | None = None,
     ):
+        if resume_from is None:
+            if schema is None:
+                raise TypeError(
+                    "schema is required when creating a new table. "
+                    "For resuming an existing table, pass resume_from."
+                )
+            if not isinstance(schema, type) or not issubclass(schema, DalvaSchema):
+                raise TypeError(
+                    f"schema must be a DalvaSchema subclass, got {type(schema)}"
+                )
+
         self.project_name = project
+        self._schema_cls = schema
         self.config = config or {}
         self._server_url = server_url
         self._client: httpx.Client | None = None
         self._worker: SyncWorker | None = None
-        self._log_mode = log_mode or "IMMUTABLE"
         self._run_id = run_id
         self._run_db_id: int | None = None
         self._finished: bool = False
@@ -111,7 +86,6 @@ class Table:
             name=name,
             config=self.config,
             resume_from=resume_from,
-            log_mode=self._log_mode,
         )
 
         self._wal = WALManager("table", self._db_id, outbox_dir=outbox_dir)
@@ -151,7 +125,6 @@ class Table:
         name: str | None,
         config: InputDict | None,
         resume_from: str | None,
-        log_mode: str,
     ):
         client = self._get_client()
 
@@ -174,12 +147,16 @@ class Table:
             run_db_id = matched["id"]
             self._run_db_id = run_db_id
 
+        column_schema = (
+            self._schema_cls.to_column_schema() if self._schema_cls else None
+        )
+
         payload = {
             "project": self.project_name,
             "name": name,
             "config": config,
             "run_id": run_db_id,
-            "log_mode": log_mode,
+            "column_schema": column_schema,
             "resume_from": resume_from,
         }
         try:
@@ -189,7 +166,6 @@ class Table:
             self._db_id = result["id"]
             self.table_id = result["table_id"]
             self.name = result.get("name")
-            self._log_mode = result.get("log_mode", log_mode)
             self._version = result.get("version", 0)
         except httpx.HTTPStatusError as e:
             raise ConnectionError(_server_error(e))
@@ -211,93 +187,123 @@ class Table:
         except Exception:
             return None
 
-    def _infer_type(self, dtype, non_null: pd.Series) -> str:
-        if dtype == "object":
-            sample = non_null.iloc[0] if len(non_null) > 0 else None
-            if sample is None:
-                return "str"
-            elif isinstance(sample, (list, dict)):
-                return "list" if isinstance(sample, list) else "dict"
-            elif isinstance(sample, date):
-                return "date"
-            else:
-                return "str"
-        elif dtype == "bool" or pd.api.types.is_bool_dtype(dtype):
-            return "bool"
-        elif pd.api.types.is_integer_dtype(dtype):
-            return "int"
-        elif pd.api.types.is_float_dtype(dtype):
-            return "float"
-        return "str"
-
-    def _build_schema(self, df: pd.DataFrame) -> tuple[pa.DataFrameSchema, list[dict]]:
-        columns = {}
-        column_schema = []
-
-        for col_name in df.columns:
-            non_null = df.loc[:, col_name].dropna()
-            inferred = self._infer_type(df[col_name].dtype, non_null)
-
-            if inferred not in self.ALLOWED_TYPES:
-                raise ValueError(
-                    f"Column '{col_name}' has unsupported type: {inferred}"
-                )
-
-            column_schema.append({"name": col_name, "type": inferred})
-
-            if inferred in _OBJECT_CHECKS:
-                columns[col_name] = pa.Column(
-                    "object", nullable=True, checks=_OBJECT_CHECKS[inferred]
-                )
-            else:
-                columns[col_name] = pa.Column(inferred, nullable=True)
-
-        return pa.DataFrameSchema(columns), column_schema
-
-    def _validate_dataframe(self, df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
-        schema, column_schema = self._build_schema(df)
-        try:
-            validated_df = schema.validate(df, lazy=True)
-        except SchemaErrors as e:
-            msgs = []
-            for _, row in e.failure_cases.iterrows():
-                col = row.get("column", "?")
-                msg = row.get("check", "?")
-                msgs.append(f"Column '{col}' {msg}")
-            raise ValueError(f"DataFrame validation failed: {'; '.join(msgs)}")
-        return validated_df, column_schema
-
-    def _serialize_rows(self, df: "pd.DataFrame"):
-        return df.to_json(orient="records", date_format="iso")
-
-    def log(self, df: pd.DataFrame) -> None:
-        """Log a pandas DataFrame to the table (async — returns immediately).
-
-        Data is validated locally, then enqueued for background delivery.
-        Errors are accumulated and reported by ``flush()`` or ``finish()``.
+    def log_row(self, row: Mapping[str, object]) -> None:
+        """Log a single row to the table (async — returns immediately).
 
         Args:
-            df: pandas DataFrame with columns of type int, float, bool, str, date, list, or dict
+            row: Dictionary matching the table schema.
 
-        Example:
-            ```python
-            table.log(pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]}))
-            ```
+        Raises:
+            RuntimeError: If the table is already finished or has no schema.
+            ValueError: If the row doesn't match the schema.
         """
         if self._finished:
             raise RuntimeError("Cannot log to a finished table")
+        if self._schema_cls is None:
+            raise RuntimeError(
+                "Cannot log to a table without a schema. "
+                "Pass a DalvaSchema when creating or resuming the table."
+            )
 
-        validated_df, column_schema = self._validate_dataframe(df)
-        rows_json = self._serialize_rows(validated_df)
-        payload = f'{{"rows":{rows_json},"column_schema":{json.dumps(column_schema)}}}'
+        validated = self._schema_cls.validate_row(dict(row))
 
         request = PendingRequest(
             method="POST",
             url=f"/api/tables/{self._db_id}/log",
-            payload=payload,
+            payload=json.dumps({"rows": [validated]}),
             headers={"Content-Type": "application/json"},
+            batch_key=f"table:{self._db_id}",
         )
         self._worker.enqueue(request)
+
+    def log_rows(self, rows: Iterable[Mapping[str, object]]) -> None:
+        """Log multiple rows to the table (async — returns immediately).
+
+        Args:
+            rows: Iterable of dictionaries matching the table schema.
+
+        Raises:
+            RuntimeError: If the table is already finished or has no schema.
+            ValueError: If any row doesn't match the schema.
+        """
+        if self._finished:
+            raise RuntimeError("Cannot log to a finished table")
+        if self._schema_cls is None:
+            raise RuntimeError(
+                "Cannot log to a table without a schema. "
+                "Pass a DalvaSchema when creating or resuming the table."
+            )
+
+        validated = [self._schema_cls.validate_row(dict(r)) for r in rows]
+
+        request = PendingRequest(
+            method="POST",
+            url=f"/api/tables/{self._db_id}/log",
+            payload=json.dumps({"rows": validated}),
+            headers={"Content-Type": "application/json"},
+            batch_key=f"table:{self._db_id}",
+        )
+        self._worker.enqueue(request)
+
+    def get_table(
+        self, stream: bool = False
+    ) -> list[dict] | Generator[dict, None, None]:
+        """Get all rows from the table (synchronous — drains worker first).
+
+        Args:
+            stream: If True, returns a generator yielding dicts via NDJSON streaming.
+
+        Returns:
+            List of row dicts, or a generator of row dicts if stream=True.
+        """
+        if self._worker is not None:
+            self._worker.drain()
+
+        client = self._get_client()
+
+        if stream:
+            return self._stream_rows(client)
+
+        all_rows = []
+        limit = 1000
+        offset = 0
+        while True:
+            response = client.get(
+                f"/api/tables/{self._db_id}/data",
+                params={"limit": limit, "offset": offset},
+            )
+            response.raise_for_status()
+            data = response.json()
+            all_rows.extend(data["rows"])
+            if not data.get("has_more", False):
+                break
+            offset += limit
+        return all_rows
+
+    def _stream_rows(self, client: httpx.Client) -> Generator[dict, None, None]:
+        with client.stream(
+            "GET", f"/api/tables/{self._db_id}/data", params={"stream": "true"}
+        ) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if line.strip():
+                    yield json.loads(line)
+
+    def remove_table(self) -> None:
+        """Remove all rows from the table (synchronous — drains worker first).
+
+        Keeps table metadata and schema intact.
+        """
+        if self._worker is not None:
+            self._worker.drain()
+        client = self._get_client()
+        try:
+            response = client.delete(f"/api/tables/{self._db_id}/rows")
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise ConnectionError(_server_error(e))
+        except httpx.HTTPError as e:
+            raise ConnectionError(f"Failed to remove table rows: {e}")
 
     def flush(self, timeout: float | None = None) -> list[Exception]:
         if self._worker is None:
@@ -318,19 +324,10 @@ class Table:
         """Finish the table and mark it as completed.
 
         Args:
-            on_error: How to handle accumulated errors from failed ``log()``
+            on_error: How to handle accumulated errors from failed ``log_row()``
                 calls. ``"warn"`` (default) prints warnings. ``"raise"`` raises
-                a RuntimeError wrapping all accumulated errors.
+                a DalvaError wrapping all accumulated errors.
             timeout: Maximum seconds to wait for the worker queue to drain.
-
-        Raises:
-            ConnectionError: If the finish request itself fails.
-
-        Example:
-            ```python
-            table.log(df)
-            table.finish()
-            ```
         """
         if self._finished:
             return
@@ -368,9 +365,10 @@ class Table:
             if errors:
                 if on_error == "raise":
                     msgs = [f"  {req.method} {req.url}: {exc}" for req, exc in errors]
-                    raise RuntimeError(
+                    raise DalvaError(
                         f"{len(errors)} request(s) failed during table:\n"
-                        + "\n".join(msgs)
+                        + "\n".join(msgs),
+                        errors=errors,
                     )
                 else:
                     for req, exc in errors:

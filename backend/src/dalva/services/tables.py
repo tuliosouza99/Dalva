@@ -18,7 +18,6 @@ _COLUMN_TYPES: dict[str, type] = {
     "float": float,
     "bool": bool,
     "str": str,
-    "date": str,
     "list": list,
     "dict": dict,
 }
@@ -54,25 +53,26 @@ def _generate_table_abbreviation(project_name: str) -> str:
 
 def create_table(
     project_name: str,
+    column_schema: Optional[list[dict[str, str]]] = None,
     name: Optional[str] = None,
     config: Optional[dict] = None,
     run_id: Optional[int] = None,
-    log_mode: str = "IMMUTABLE",
     resume_from: Optional[str] = None,
-) -> tuple[int, str, Optional[str], str]:
+) -> tuple[int, str, Optional[str]]:
     """Create or resume a table.
 
     Args:
         project_name: Project name
+        column_schema: Column schema from DalvaSchema.to_column_schema()
         name: Optional table name (user-defined, for display only)
         config: Optional configuration dictionary
         run_id: Optional run ID to link this table to
-        log_mode: IMMUTABLE, MUTABLE, or INCREMENTAL
         resume_from: table_id to resume (omit to create a new table)
 
     Returns:
-        Tuple of (internal_db_id, table_id_string, descriptive_name, log_mode)
+        Tuple of (internal_db_id, table_id_string, descriptive_name)
     """
+
     with session_scope() as db:
         project = db.query(Project).filter(Project.name == project_name).first()
         if not project:
@@ -98,13 +98,9 @@ def create_table(
                 raise ValueError(
                     f"Table '{resume_from}' not found in project '{project_name}'"
                 )
-            if existing.log_mode not in ("MUTABLE", "INCREMENTAL"):
-                raise ValueError(
-                    f"Table '{resume_from}' is not resumable (log_mode={existing.log_mode})"
-                )
             existing.updated_at = datetime.now(timezone.utc)
             db.flush()
-            return existing.id, existing.table_id, existing.name, existing.log_mode
+            return existing.id, existing.table_id, existing.name
 
         abbrev = _generate_table_abbreviation(project_name)
         table_count = (
@@ -118,10 +114,9 @@ def create_table(
             table_id=table_id_str,
             name=name,
             run_id=run_id,
-            log_mode=log_mode,
             version=0,
             row_count=0,
-            column_schema="[]",
+            column_schema=json.dumps(column_schema) if column_schema else "[]",
             config=json.dumps(config) if config else None,
             state="active",
             created_at=datetime.now(timezone.utc),
@@ -131,46 +126,29 @@ def create_table(
         db.flush()
         table_db_id = table.id
 
-    return table_db_id, table_id_str, name, log_mode
-
-
-def _validate_incremental_schema(
-    table: DalvaTable, column_schema: list[dict[str, str]]
-) -> None:
-    existing_schema = json.loads(table.column_schema) if table.column_schema else []
-    if existing_schema:
-        if len(existing_schema) != len(column_schema):
-            raise ValueError(
-                f"Column count mismatch: expected {len(existing_schema)}, got {len(column_schema)}"
-            )
-        for i, col in enumerate(existing_schema):
-            if col != column_schema[i]:
-                raise ValueError(
-                    f"Column type mismatch at index {i}: expected {col}, got {column_schema[i]}"
-                )
+    return table_db_id, table_id_str, name
 
 
 def add_table_rows(
     table_db_id: int,
     rows: list[dict[str, Any]],
     column_schema: list[dict[str, str]],
-    log_mode: str,
-    current_version: Optional[int] = None,
 ) -> tuple[int, int]:
     """Add rows to a table.
 
     Args:
         table_db_id: Internal table ID
         rows: List of row dictionaries
-        column_schema: Column schema from validated DataFrame
-        log_mode: IMMUTABLE, MUTABLE, or INCREMENTAL
-        current_version: Hint for expected version; actual version is read inside session
+        column_schema: Column schema for validation
 
     Returns:
         Tuple of (new_version, rows_added)
     """
     if not rows:
-        return current_version or 0, 0
+        return 0, 0
+
+    if not column_schema:
+        raise ValueError("Cannot log rows to a table with no column schema")
 
     RowModel = _build_row_model(column_schema)
     validated_rows = []
@@ -188,17 +166,7 @@ def add_table_rows(
         if table.state == "finished":
             raise ValueError(f"Table {table.table_id} is already finished")
 
-        actual_version = table.version
-
-        if log_mode == "IMMUTABLE" and actual_version > 0:
-            raise ValueError(
-                f"Table {table.table_id} is IMMUTABLE and already has data"
-            )
-
-        if log_mode == "INCREMENTAL":
-            _validate_incremental_schema(table, column_schema)
-
-        new_version = actual_version + 1
+        new_version = table.version + 1
 
         for row in validated_rows:
             db.add(
@@ -211,17 +179,30 @@ def add_table_rows(
             )
 
         table.version = new_version
+        table.row_count = (table.row_count or 0) + len(rows)
         table.updated_at = datetime.now(timezone.utc)
-        if log_mode == "MUTABLE":
-            table.row_count = len(rows)
-            table.column_schema = json.dumps(column_schema)
-        else:
-            table.row_count = (table.row_count or 0) + len(rows)
-            if not table.column_schema or table.column_schema == "[]":
-                table.column_schema = json.dumps(column_schema)
         db.flush()
 
         return new_version, len(rows)
+
+
+def remove_all_rows(table_db_id: int) -> None:
+    """Remove all rows from a table, reset version and row_count.
+
+    Args:
+        table_db_id: Internal table ID
+    """
+    with session_scope() as db:
+        table = db.query(DalvaTable).filter(DalvaTable.id == table_db_id).first()
+        if not table:
+            raise ValueError(f"Table {table_db_id} not found")
+
+        db.query(DalvaTableRow).filter(DalvaTableRow.table_id == table_db_id).delete()
+
+        table.version = 0
+        table.row_count = 0
+        table.updated_at = datetime.now(timezone.utc)
+        db.flush()
 
 
 def get_table_data(
@@ -232,19 +213,17 @@ def get_table_data(
     sort_by: Optional[str] = None,
     sort_order: str = "asc",
     filters: Optional[list[dict[str, Any]]] = None,
-    log_mode: Optional[str] = None,
 ) -> tuple[list[dict[str, Any]], int, list[dict[str, str]]]:
     """Get table data with pagination, sorting, and filtering.
 
     Args:
         table_db_id: Internal table ID
-        version: Specific version to fetch (None for latest)
+        version: Specific version to fetch (None for all rows)
         limit: Maximum rows to return
         offset: Number of rows to skip
         sort_by: Column name to sort by
         sort_order: 'asc' or 'desc'
         filters: List of filter dicts with column/op/value keys
-        log_mode: Table log mode (INCREMENTAL returns all rows, others use version filter)
 
     Returns:
         Tuple of (rows, total_count, column_schema)
@@ -260,7 +239,12 @@ def get_table_data(
 
         column_schema = json.loads(table[0]) if table[0] else []
 
-        ver_where, ver_params = _get_version_filter(table_db_id, version, log_mode)
+        if version is not None:
+            ver_where = "table_id = :tid AND version = :ver"
+            ver_params: dict[str, Any] = {"tid": table_db_id, "ver": version}
+        else:
+            ver_where = "table_id = :tid"
+            ver_params = {"tid": table_db_id}
 
         filter_clause = ""
         filter_params: dict[str, Any] = {}
@@ -324,16 +308,7 @@ def get_tables_for_project(
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[list[DalvaTable], int]:
-    """Get all tables for a project.
-
-    Args:
-        project_db_id: Project internal ID
-        limit: Maximum tables to return
-        offset: Number of tables to skip
-
-    Returns:
-        Tuple of (tables, total_count)
-    """
+    """Get all tables for a project."""
     with session_scope() as db:
         query = db.query(DalvaTable).filter(DalvaTable.project_id == project_db_id)
         total = query.count()
@@ -355,14 +330,7 @@ def get_tables_for_project(
 
 
 def get_tables_for_run(run_db_id: int) -> list[DalvaTable]:
-    """Get all tables linked to a run.
-
-    Args:
-        run_db_id: Run internal ID
-
-    Returns:
-        List of linked tables
-    """
+    """Get all tables linked to a run."""
     with session_scope() as db:
         tables = db.query(DalvaTable).filter(DalvaTable.run_id == run_db_id).all()
         for t in tables:
@@ -377,11 +345,7 @@ def get_tables_for_run(run_db_id: int) -> list[DalvaTable]:
 
 
 def delete_table(table_db_id: int) -> None:
-    """Delete a table and all its rows.
-
-    Args:
-        table_db_id: Internal table ID
-    """
+    """Delete a table and all its rows."""
     with session_scope() as db:
         table = db.query(DalvaTable).filter(DalvaTable.id == table_db_id).first()
         if not table:
@@ -429,15 +393,7 @@ _FILTER_CLAUSE_BUILDERS: dict[str, Callable] = {
 def _build_filter_sql(
     filters: list[dict[str, Any]], param_offset: int = 0
 ) -> tuple[str, dict[str, Any]]:
-    """Build SQL WHERE clauses from filter definitions.
-
-    Args:
-        filters: List of filter dicts with column/op/value keys
-        param_offset: Starting index for named parameters (avoids collisions)
-
-    Returns:
-        Tuple of (sql_fragment, params_dict)
-    """
+    """Build SQL WHERE clauses from filter definitions."""
     clauses = []
     params: dict[str, Any] = {}
     for i, f in enumerate(filters):
@@ -453,42 +409,6 @@ def _build_filter_sql(
 
     where = " AND ".join(clauses)
     return where, params
-
-
-def _get_version_filter(
-    table_db_id: int, version: Optional[int] = None, log_mode: Optional[str] = None
-) -> tuple[str, dict[str, Any]]:
-    """Get version filter SQL for table rows.
-
-    Args:
-        table_db_id: Internal table ID
-        version: Specific version to fetch (None for latest)
-        log_mode: Table log mode - INCREMENTAL returns all rows when version is None
-
-    Returns:
-        Tuple of (where_clause, params_dict)
-    """
-    if version is not None:
-        return "table_id = :tid AND version = :ver", {
-            "tid": table_db_id,
-            "ver": version,
-        }
-
-    if log_mode == "INCREMENTAL":
-        return "table_id = :tid", {"tid": table_db_id}
-
-    engine = get_engine()
-    with engine.connect() as conn:
-        result = conn.execute(
-            text("SELECT MAX(version) FROM dalva_table_rows WHERE table_id = :tid"),
-            {"tid": table_db_id},
-        ).fetchone()
-    if result and result[0] is not None:
-        return "table_id = :tid AND version = :ver", {
-            "tid": table_db_id,
-            "ver": result[0],
-        }
-    return "table_id = :tid AND version = -1", {"tid": table_db_id}
 
 
 def _compute_numeric_stats(
@@ -682,19 +602,8 @@ def get_table_stats(
     table_db_id: int,
     version: Optional[int] = None,
     filters: Optional[list[dict[str, Any]]] = None,
-    log_mode: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Compute per-column statistics for a table using DuckDB SQL.
-
-    Args:
-        table_db_id: Internal table ID
-        version: Specific version to analyze (None for latest)
-        filters: Optional list of filter dicts to apply before computing stats
-        log_mode: Table log mode - INCREMENTAL returns all rows when version is None
-
-    Returns:
-        Dict mapping column name -> stats dict
-    """
+    """Compute per-column statistics for a table using DuckDB SQL."""
     engine = get_engine()
     with engine.connect() as conn:
         table = conn.execute(
@@ -708,7 +617,15 @@ def get_table_stats(
         if not column_schema:
             return {}
 
-        ver_where, ver_params = _get_version_filter(table_db_id, version, log_mode)
+        if version is not None:
+            ver_where = "table_id = :tid AND version = :ver"
+            ver_params: dict[str, Any] = {
+                "tid": table_db_id,
+                "ver": version,
+            }
+        else:
+            ver_where = "table_id = :tid"
+            ver_params = {"tid": table_db_id}
 
         filter_clause = ""
         filter_params: dict[str, Any] = {}

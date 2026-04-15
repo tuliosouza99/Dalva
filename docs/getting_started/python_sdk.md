@@ -12,15 +12,19 @@ Dalva's Python API lets you log experiments:
 - `run.log_config()` - Add config keys after init
 - `run.get_config()` - Retrieve a config key
 - `run.remove_config()` - Remove a config key
-- `run.create_table()` - Create a table linked to the run
+- `run.create_table()` - Create a table linked to the run (requires a `DalvaSchema`)
 - `run.finish()` - Complete the run and all linked tables
 - `dalva.table()` - Initialize a standalone table (not linked to a run)
-- `table.log()` - Log a DataFrame to the table (**async**)
+- `dalva.DalvaSchema` - Base class for defining table column schemas
+- `table.log_row()` - Log a single row to the table (**async**)
+- `table.log_rows()` - Log multiple rows to the table (**async**)
+- `table.get_table()` - Retrieve all rows (synchronous, with optional streaming)
+- `table.remove_table()` - Remove all rows from the table
 - `table.finish()` - Complete the table
 
 ### Async Logging
 
-`run.log()` and `table.log()` are **asynchronous** — they enqueue operations to a background worker thread and return immediately. This means your training loop is never blocked by network I/O.
+`run.log()`, `table.log_row()`, and `table.log_rows()` are **asynchronous** — they enqueue operations to a background worker thread and return immediately. This means your training loop is never blocked by network I/O.
 
 The background worker:
 
@@ -46,7 +50,7 @@ If `finish()` times out or the process crashes, pending operations are saved to 
 | [Initialize a Run](runs.md) | `dalva.init()`, `resume_from`, `fork_from`, nested config |
 | [Log Metrics](metrics.md) | `run.log()`, nested dicts, series vs. scalar |
 | [Get / Remove / Re-log](metrics.md#getting-metrics-and-config) | `run.get()`, `run.remove()`, `run.get_config()`, `run.remove_config()` |
-| [Tables](tables.md) | `dalva.table()`, log modes, DataFrames |
+| [Tables](tables.md) | `DalvaSchema`, `dalva.table()`, `log_row`, `log_rows` |
 | [Config vs Metrics](metrics.md#when-to-use-config-vs-metrics) | When to use each |
 
 ## Examples

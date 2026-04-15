@@ -67,8 +67,8 @@ nav:
   - Architecture: architecture.md
   - API Documentation:
       - dalva: api_documentation/dalva_module.md
-      - Run Class: api_documentation/run_class.md
-      - Table Class: api_documentation/table_class.md
+      - Run: api_documentation/run_class.md
+      - Table: api_documentation/table_class.md
 
 markdown_extensions:
   - pymdownx.highlight:

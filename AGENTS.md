@@ -40,9 +40,10 @@ backend/src/dalva/    # Python package (hatch builds from here)
   cli/                # Click CLI (entry: dalva.cli.main:cli)
     sync.py           # dalva sync — WAL replay command
   db/                 # SQLAlchemy schema + connection
-  sdk/                # Client SDK (Run, Table, Worker, WAL)
+  sdk/                # Client SDK (Run, Table, DalvaSchema, Worker, WAL)
     run.py            # Run class — async log(), sync finish()/get()/remove()
-    table.py          # Table class — async log(), sync finish()
+    table.py          # Table class — async log_row()/log_rows(), sync get_table()/remove_table()/finish()
+    schema.py         # DalvaSchema — Pydantic base class for table column schemas
     worker.py         # SyncWorker — background thread with batching + retry
     wal.py            # WALManager — write-ahead log for crash resilience
   services/           # Business logic (logger.py, tables.py)
@@ -104,7 +105,7 @@ Test fixtures in `conftest.py`: `db_engine`, `db_session`, `api_client` (TestCli
 - **Frontend dev proxy:** Vite proxies `/api` to `VITE_BACKEND_URL` (default `http://localhost:8000`).
 - **SPA serving:** In production, FastAPI serves built frontend from `static/`. A catch-all route returns `index.html` for non-`/api` paths.
 - **Publishing:** `hatch_build.py` copies `static/` into `backend/src/dalva/static/` before wheel build. Frontend must be pre-built (`npm run build`).
-- **Tables feature:** `DalvaTable` / `DalvaTableRow` support tabular data alongside metrics. Has its own API routes (`/api/tables`), service (`services/tables.py`), and frontend pages (`TablesPage`, `TableDetailPage`).
+- **Tables feature:** `DalvaTable` / `DalvaTableRow` support tabular data alongside metrics. Tables require a `DalvaSchema` subclass (Pydantic-based) that defines columns and validates rows. Has its own API routes (`/api/tables`), service (`services/tables.py`), and frontend pages (`TablesPage`, `TableDetailPage`).
 
 ## SDK Worker + WAL Architecture
 

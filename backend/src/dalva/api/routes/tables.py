@@ -5,10 +5,12 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from dalva.api.models.tables import (
+    BatchLogTableRequest,
     ColumnSchema,
     ColumnFilter,
     FinishTableResponse,
@@ -32,6 +34,7 @@ from dalva.services.tables import (
     get_table_stats,
     get_tables_for_project,
     get_tables_for_run,
+    remove_all_rows,
 )
 
 router = APIRouter()
@@ -96,9 +99,13 @@ def get_table_data_endpoint(
     sort_by: Optional[str] = None,
     sort_order: str = "asc",
     filters: Optional[str] = None,
+    stream: bool = False,
     db: Session = Depends(get_db),
 ):
-    """Get table data with pagination, sorting, and filtering."""
+    """Get table data with pagination, sorting, and filtering.
+
+    Set stream=true for NDJSON streaming response.
+    """
     table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
     if not table:
         raise HTTPException(status_code=404, detail="Table not found")
@@ -112,8 +119,12 @@ def get_table_data_endpoint(
         except (json.JSONDecodeError, ValueError) as e:
             raise HTTPException(status_code=400, detail=f"Invalid filters: {e}")
 
+    if stream:
+        column_schema = json.loads(table.column_schema) if table.column_schema else []
+        return _stream_table_data(table_id, column_schema, version, parsed_filters)
+
     try:
-        rows, total, column_schema = get_table_data(
+        rows, total, col_schema = get_table_data(
             table_db_id=table_id,
             version=version,
             limit=limit,
@@ -121,7 +132,6 @@ def get_table_data_endpoint(
             sort_by=sort_by,
             sort_order=sort_order,
             filters=parsed_filters,
-            log_mode=table.log_mode,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -130,8 +140,39 @@ def get_table_data_endpoint(
     return TableDataResponse(
         rows=rows,
         total=total,
-        column_schema=[ColumnSchema(**c) for c in column_schema],
+        column_schema=[ColumnSchema(**c) for c in col_schema],
         has_more=has_more,
+    )
+
+
+def _stream_table_data(
+    table_id: int,
+    column_schema: list[dict],
+    version: Optional[int],
+    filters: Optional[list[dict]],
+):
+    """Stream all table rows as NDJSON."""
+
+    def generate():
+        PAGE_SIZE = 1000
+        offset = 0
+        while True:
+            rows, total, _ = get_table_data(
+                table_db_id=table_id,
+                version=version,
+                limit=PAGE_SIZE,
+                offset=offset,
+                filters=filters,
+            )
+            for row in rows:
+                yield json.dumps(row) + "\n"
+            offset += PAGE_SIZE
+            if offset >= total:
+                break
+
+    return StreamingResponse(
+        generate(),
+        media_type="application/x-ndjson",
     )
 
 
@@ -161,7 +202,6 @@ def get_table_stats_endpoint(
             table_db_id=table_id,
             version=version,
             filters=parsed_filters,
-            log_mode=table.log_mode,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -173,12 +213,14 @@ def get_table_stats_endpoint(
 def init_table(request: InitTableRequest):
     """Initialize a new table."""
     try:
-        db_id, table_id, name, log_mode = create_table(
+        db_id, table_id, name = create_table(
             project_name=request.project,
+            column_schema=[c.model_dump() for c in request.column_schema]
+            if request.column_schema is not None
+            else None,
             name=request.name,
             config=request.config,
             run_id=request.run_id,
-            log_mode=request.log_mode or "IMMUTABLE",
             resume_from=request.resume_from,
         )
     except ValueError as e:
@@ -188,7 +230,6 @@ def init_table(request: InitTableRequest):
         id=db_id,
         table_id=table_id,
         name=name,
-        log_mode=log_mode,
         version=0,
     )
 
@@ -207,16 +248,56 @@ def log_table_rows(
     if table.state == "finished":
         raise HTTPException(status_code=400, detail="Table is already finished")
 
-    current_version = table.version
-    log_mode = table.log_mode
+    column_schema = json.loads(table.column_schema) if table.column_schema else []
 
     try:
         new_version, rows_added = add_table_rows(
             table_db_id=table_id,
             rows=request.rows,
-            column_schema=[c.model_dump() for c in request.column_schema],
-            log_mode=log_mode,
-            current_version=current_version,
+            column_schema=column_schema,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return LogTableResponse(
+        success=True,
+        version=new_version,
+        rows_added=rows_added,
+    )
+
+
+@router.post("/{table_id}/log/batch", response_model=LogTableResponse)
+def batch_log_table_rows(
+    table_id: int,
+    request: BatchLogTableRequest,
+    db: Session = Depends(get_db),
+):
+    """Batch log rows to a table (merges entries into a single insert)."""
+    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+
+    if table.state == "finished":
+        raise HTTPException(status_code=400, detail="Table is already finished")
+
+    column_schema = json.loads(table.column_schema) if table.column_schema else []
+
+    all_rows = []
+    for entry in request.entries:
+        all_rows.extend(entry.rows)
+
+    if not all_rows:
+        return LogTableResponse(
+            success=True,
+            version=table.version,
+            rows_added=0,
+        )
+
+    try:
+        new_version, rows_added = add_table_rows(
+            table_db_id=table_id,
+            rows=all_rows,
+            column_schema=column_schema,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -258,6 +339,21 @@ def update_table_state(
     table.updated_at = datetime.now(timezone.utc)
     db.commit()
     return FinishTableResponse(state=state)
+
+
+@router.delete("/{table_id}/rows")
+def remove_table_rows(table_id: int, db: Session = Depends(get_db)):
+    """Remove all rows from a table (keeps table metadata/schema)."""
+    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
+    if not table:
+        raise HTTPException(status_code=404, detail="Table not found")
+
+    try:
+        remove_all_rows(table_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {"message": "All rows removed successfully"}
 
 
 @router.delete("/{table_id}")

@@ -40,7 +40,6 @@ class TestListTables:
             table_id="TST-T2",
             name="Linked Table",
             run_id=sample_run["id"],
-            log_mode="IMMUTABLE",
             version=0,
             row_count=0,
             column_schema="[]",
@@ -61,7 +60,6 @@ class TestListTables:
                 project_id=sample_project["id"],
                 table_id=f"TST-T{i + 1}",
                 name=f"Table {i + 1}",
-                log_mode="IMMUTABLE",
                 version=0,
                 row_count=0,
                 column_schema="[]",
@@ -94,7 +92,6 @@ class TestGetTable:
         data = response.json()
         assert data["table_id"] == "TST-T1"
         assert data["name"] == "Test Table"
-        assert data["log_mode"] == "IMMUTABLE"
         assert data["state"] == "active"
 
     def test_get_table_not_found(self, api_client):
@@ -108,32 +105,40 @@ class TestInitTable:
     def test_init_table_minimal(self, api_client):
         response = api_client.post(
             "/api/tables/init",
-            json={"project": "new-project", "log_mode": "IMMUTABLE"},
+            json={
+                "project": "new-project",
+                "column_schema": [{"name": "x", "type": "int"}],
+            },
         )
         assert response.status_code == 200
         data = response.json()
         assert data["table_id"] is not None
-        assert data["log_mode"] == "IMMUTABLE"
         assert data["version"] == 0
 
     def test_init_table_with_name(self, api_client):
         response = api_client.post(
             "/api/tables/init",
-            json={"project": "new-project", "name": "My Table", "log_mode": "MUTABLE"},
+            json={
+                "project": "new-project",
+                "name": "My Table",
+                "column_schema": [{"name": "x", "type": "str"}],
+            },
         )
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "My Table"
-        assert data["log_mode"] == "MUTABLE"
 
     def test_init_table_default_log_mode(self, api_client):
         response = api_client.post(
             "/api/tables/init",
-            json={"project": "new-project"},
+            json={
+                "project": "new-project",
+                "column_schema": [{"name": "x", "type": "int"}],
+            },
         )
         assert response.status_code == 200
         data = response.json()
-        assert data["log_mode"] == "IMMUTABLE"
+        assert data["version"] == 0
 
     def test_init_table_with_run_id(self, api_client, sample_run):
         response = api_client.post(
@@ -142,17 +147,21 @@ class TestInitTable:
                 "project": "test-project",
                 "name": "Run Table",
                 "run_id": sample_run["id"],
-                "log_mode": "INCREMENTAL",
+                "column_schema": [{"name": "x", "type": "int"}],
             },
         )
         assert response.status_code == 200
         data = response.json()
         assert data["table_id"] is not None
 
-    def test_init_table_resume_mutable(self, api_client):
+    def test_init_table_resume(self, api_client):
         init_resp = api_client.post(
             "/api/tables/init",
-            json={"project": "resume-proj", "name": "T1", "log_mode": "MUTABLE"},
+            json={
+                "project": "resume-proj",
+                "name": "T1",
+                "column_schema": [{"name": "x", "type": "int"}],
+            },
         )
         table_id = init_resp.json()["table_id"]
 
@@ -162,19 +171,6 @@ class TestInitTable:
         )
         assert resume_resp.status_code == 200
         assert resume_resp.json()["table_id"] == table_id
-
-    def test_init_table_resume_immutable_fails(self, api_client):
-        init_resp = api_client.post(
-            "/api/tables/init",
-            json={"project": "resume-proj", "name": "T1", "log_mode": "IMMUTABLE"},
-        )
-        table_id = init_resp.json()["table_id"]
-
-        resume_resp = api_client.post(
-            "/api/tables/init",
-            json={"project": "resume-proj", "resume_from": table_id},
-        )
-        assert resume_resp.status_code == 400
 
 
 class TestLogTableRows:
@@ -188,10 +184,6 @@ class TestLogTableRows:
                     {"col1": 1, "col2": "a"},
                     {"col1": 2, "col2": "b"},
                 ],
-                "column_schema": [
-                    {"name": "col1", "type": "int"},
-                    {"name": "col2", "type": "str"},
-                ],
             },
         )
         assert response.status_code == 200
@@ -199,91 +191,6 @@ class TestLogTableRows:
         assert data["success"] is True
         assert data["rows_added"] == 2
         assert data["version"] == 1
-
-    def test_log_rows_immutable_twice_fails(self, api_client, sample_table):
-        api_client.post(
-            f"/api/tables/{sample_table['id']}/log",
-            json={
-                "rows": [{"col1": 1}],
-                "column_schema": [{"name": "col1", "type": "int"}],
-            },
-        )
-        response = api_client.post(
-            f"/api/tables/{sample_table['id']}/log",
-            json={
-                "rows": [{"col1": 2}],
-                "column_schema": [{"name": "col1", "type": "int"}],
-            },
-        )
-        assert response.status_code == 400
-
-    def test_log_rows_mutable(self, api_client):
-        init_resp = api_client.post(
-            "/api/tables/init",
-            json={"project": "mutable-proj", "name": "M1", "log_mode": "MUTABLE"},
-        )
-        table_id = init_resp.json()["id"]
-
-        for i in range(3):
-            resp = api_client.post(
-                f"/api/tables/{table_id}/log",
-                json={
-                    "rows": [{"x": i}],
-                    "column_schema": [{"name": "x", "type": "int"}],
-                },
-            )
-            assert resp.status_code == 200
-            assert resp.json()["version"] == i + 1
-
-    def test_log_rows_incremental(self, api_client):
-        init_resp = api_client.post(
-            "/api/tables/init",
-            json={"project": "inc-proj", "name": "I1", "log_mode": "INCREMENTAL"},
-        )
-        table_id = init_resp.json()["id"]
-
-        resp1 = api_client.post(
-            f"/api/tables/{table_id}/log",
-            json={
-                "rows": [{"x": 1}],
-                "column_schema": [{"name": "x", "type": "int"}],
-            },
-        )
-        assert resp1.status_code == 200
-
-        resp2 = api_client.post(
-            f"/api/tables/{table_id}/log",
-            json={
-                "rows": [{"x": 2}],
-                "column_schema": [{"name": "x", "type": "int"}],
-            },
-        )
-        assert resp2.status_code == 200
-        assert resp2.json()["rows_added"] == 1
-
-    def test_log_rows_incremental_schema_mismatch(self, api_client):
-        init_resp = api_client.post(
-            "/api/tables/init",
-            json={"project": "inc-proj2", "name": "I2", "log_mode": "INCREMENTAL"},
-        )
-        table_id = init_resp.json()["id"]
-
-        api_client.post(
-            f"/api/tables/{table_id}/log",
-            json={
-                "rows": [{"x": 1}],
-                "column_schema": [{"name": "x", "type": "int"}],
-            },
-        )
-
-        resp = api_client.post(
-            f"/api/tables/{table_id}/log",
-            json={
-                "rows": [{"x": "hi"}],
-                "column_schema": [{"name": "x", "type": "str"}],
-            },
-        )
-        assert resp.status_code == 400
 
     def test_log_rows_finished_table_fails(self, api_client, sample_table, db_session):
         table = db_session.get(DalvaTable, sample_table["id"])
@@ -294,7 +201,6 @@ class TestLogTableRows:
             f"/api/tables/{sample_table['id']}/log",
             json={
                 "rows": [{"col1": 1}],
-                "column_schema": [{"name": "col1", "type": "int"}],
             },
         )
         assert response.status_code == 400
@@ -304,7 +210,6 @@ class TestLogTableRows:
             "/api/tables/99999/log",
             json={
                 "rows": [{"col1": 1}],
-                "column_schema": [{"name": "col1", "type": "int"}],
             },
         )
         assert response.status_code == 404
@@ -316,7 +221,14 @@ class TestGetTableData:
     def _create_table_with_data(self, api_client, project="data-proj"):
         init_resp = api_client.post(
             "/api/tables/init",
-            json={"project": project, "name": "D1", "log_mode": "IMMUTABLE"},
+            json={
+                "project": project,
+                "name": "D1",
+                "column_schema": [
+                    {"name": "name", "type": "str"},
+                    {"name": "score", "type": "int"},
+                ],
+            },
         )
         table_id = init_resp.json()["id"]
 
@@ -327,10 +239,6 @@ class TestGetTableData:
                     {"name": "alice", "score": 95},
                     {"name": "bob", "score": 80},
                     {"name": "charlie", "score": 90},
-                ],
-                "column_schema": [
-                    {"name": "name", "type": "str"},
-                    {"name": "score", "type": "int"},
                 ],
             },
         )
@@ -418,7 +326,16 @@ class TestGetTableStats:
     def _create_table_with_mixed_types(self, api_client, project="stats-proj"):
         init_resp = api_client.post(
             "/api/tables/init",
-            json={"project": project, "name": "S1", "log_mode": "IMMUTABLE"},
+            json={
+                "project": project,
+                "name": "S1",
+                "column_schema": [
+                    {"name": "name", "type": "str"},
+                    {"name": "score", "type": "int"},
+                    {"name": "active", "type": "bool"},
+                    {"name": "gpa", "type": "float"},
+                ],
+            },
         )
         table_id = init_resp.json()["id"]
 
@@ -432,12 +349,6 @@ class TestGetTableStats:
                     {"name": "diana", "score": 70, "active": False, "gpa": 2.8},
                     {"name": "eve", "score": 85, "active": True, "gpa": 3.5},
                     {"name": "frank", "score": None, "active": None, "gpa": None},
-                ],
-                "column_schema": [
-                    {"name": "name", "type": "str"},
-                    {"name": "score", "type": "int"},
-                    {"name": "active", "type": "bool"},
-                    {"name": "gpa", "type": "float"},
                 ],
             },
         )
@@ -487,19 +398,17 @@ class TestGetTableStats:
         assert len(name_stats["top_values"]) <= 5
         assert all("value" in v and "count" in v for v in name_stats["top_values"])
 
-    def test_stats_skips_dict_list_date(self, api_client, db_session, sample_project):
+    def test_stats_skips_dict_list(self, api_client, db_session, sample_project):
         table = DalvaTable(
             project_id=sample_project["id"],
             table_id="TST-SKIP",
             name="Skip Stats",
-            log_mode="IMMUTABLE",
             version=1,
             row_count=1,
             column_schema=json.dumps(
                 [
                     {"name": "meta", "type": "dict"},
                     {"name": "tags", "type": "list"},
-                    {"name": "created", "type": "date"},
                 ]
             ),
             state="active",
@@ -513,9 +422,7 @@ class TestGetTableStats:
             DalvaTableRow(
                 table_id=table.id,
                 version=1,
-                row_data=json.dumps(
-                    {"meta": {"k": "v"}, "tags": [1, 2], "created": "2025-01-01"}
-                ),
+                row_data=json.dumps({"meta": {"k": "v"}, "tags": [1, 2]}),
             )
         )
         db_session.commit()
@@ -527,13 +434,15 @@ class TestGetTableStats:
         assert data["columns"]["meta"]["type"] == "dict"
         assert "bins" not in data["columns"]["meta"]
         assert data["columns"]["tags"]["type"] == "list"
-        assert data["columns"]["created"]["type"] == "date"
 
     def test_stats_empty_table(self, api_client, sample_table):
         response = api_client.get(f"/api/tables/{sample_table['id']}/stats")
         assert response.status_code == 200
         data = response.json()
-        assert data["columns"] == {}
+        assert "col1" in data["columns"]
+        assert data["columns"]["col1"]["type"] == "numeric"
+        assert "col2" in data["columns"]
+        assert data["columns"]["col2"]["type"] == "string"
 
     def test_stats_not_found(self, api_client):
         response = api_client.get("/api/tables/99999/stats")
@@ -561,7 +470,16 @@ class TestTableDataFilters:
     def _create_table_with_data(self, api_client, project="filter-proj"):
         init_resp = api_client.post(
             "/api/tables/init",
-            json={"project": project, "name": "F1", "log_mode": "IMMUTABLE"},
+            json={
+                "project": project,
+                "name": "F1",
+                "column_schema": [
+                    {"name": "name", "type": "str"},
+                    {"name": "score", "type": "int"},
+                    {"name": "active", "type": "bool"},
+                    {"name": "gpa", "type": "float"},
+                ],
+            },
         )
         table_id = init_resp.json()["id"]
 
@@ -574,12 +492,6 @@ class TestTableDataFilters:
                     {"name": "charlie", "score": 90, "active": True, "gpa": 3.7},
                     {"name": "diana", "score": 70, "active": False, "gpa": 2.8},
                     {"name": "eve", "score": 85, "active": True, "gpa": 3.5},
-                ],
-                "column_schema": [
-                    {"name": "name", "type": "str"},
-                    {"name": "score", "type": "int"},
-                    {"name": "active", "type": "bool"},
-                    {"name": "gpa", "type": "float"},
                 ],
             },
         )
@@ -727,7 +639,6 @@ class TestGetRunTables:
             table_id="TST-RT1",
             name="Run Table",
             run_id=sample_run["id"],
-            log_mode="IMMUTABLE",
             version=0,
             row_count=0,
             column_schema="[]",

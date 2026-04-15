@@ -14,13 +14,23 @@ Usage:
     python examples/fork_run_full.py [server_url]
 """
 
-import dalva
-import pandas as pd
 import sys
+
+import dalva
+from dalva import DalvaSchema
 
 server_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
 project = "fork-demo"
 errors = []
+
+
+class PredictionSchema(DalvaSchema):
+    input: int
+    output: float
+
+
+class EmbeddingSchema(DalvaSchema):
+    vec: list
 
 
 def check(label, condition, detail=""):
@@ -46,11 +56,21 @@ run1.log({"loss": 1.0, "accuracy": 0.1}, step=0)
 run1.log({"loss": 0.7, "accuracy": 0.4}, step=1)
 run1.log({"loss": 0.5, "accuracy": 0.6}, step=2)
 
-t1 = run1.create_table(name="predictions", log_mode="IMMUTABLE")
-t1.log(pd.DataFrame({"input": [1, 2], "output": [0.9, 0.8]}))
+t1 = run1.create_table(name="predictions", schema=PredictionSchema)
+t1.log_rows(
+    [
+        {"input": 1, "output": 0.9},
+        {"input": 2, "output": 0.8},
+    ]
+)
 
-t2 = run1.create_table(name="embeddings", log_mode="IMMUTABLE")
-t2.log(pd.DataFrame({"vec": [[0.1, 0.2], [0.3, 0.4]]}))
+t2 = run1.create_table(name="embeddings", schema=EmbeddingSchema)
+t2.log_rows(
+    [
+        {"vec": [0.1, 0.2]},
+        {"vec": [0.3, 0.4]},
+    ]
+)
 
 run1.finish()
 print(f"Source run: {run1.run_id} (name={run1.name})\n")
@@ -125,6 +145,7 @@ fork4 = dalva.init(
 )
 fork4.log({"loss": 0.3, "accuracy": 0.8}, step=3)
 fork4.log({"loss": 0.1, "accuracy": 0.95}, step=4)
+fork4.flush()
 
 metric_step3 = fork4.get("loss", step=3)
 metric_step0 = fork4.get("loss", step=0)

@@ -2,10 +2,13 @@
 
 from pathlib import Path
 
+from dalva.sdk.errors import DalvaError
 from dalva.sdk.run import Run
+from dalva.sdk.schema import DalvaSchema
 from dalva.sdk.table import Table
 
 __version__ = "0.1.0"
+__all__ = ["DalvaError", "DalvaSchema", "Run", "Table", "init", "table"]
 
 
 def init(
@@ -57,25 +60,26 @@ def init(
 
 def table(
     project: str,
+    schema: type[DalvaSchema] | None = None,
     name: str | None = None,
     config: dict | None = None,
     run_id: str | None = None,
     resume_from: str | None = None,
     server_url: str = "http://localhost:8000",
-    log_mode: str | None = "IMMUTABLE",
     outbox_dir: Path | None = None,
 ) -> Table:
     """
-    Initialize a new table.
+    Initialize a new table or resume an existing one.
 
     Args:
         project: Project name
+        schema: A DalvaSchema subclass defining the table columns. Required unless
+            resuming an existing table via ``resume_from``.
         name: Optional table name (user-defined, for display purposes only)
         config: Optional configuration dictionary
         run_id: Optional run_id to link this table to a run
         resume_from: table_id to resume (omit to create a new table)
         server_url: Server URL. Defaults to http://localhost:8000
-        log_mode: IMMUTABLE, MUTABLE, or INCREMENTAL
         outbox_dir: Directory for WAL files. Defaults to ~/.dalva/outbox/
 
     Returns:
@@ -84,19 +88,23 @@ def table(
     Example:
         ```python
         import dalva
-        import pandas as pd
-        table = dalva.table(project="my-project", name="my-table")
-        table.log(pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]}))
-        table.finish()
+
+        class MySchema(dalva.DalvaSchema):
+            name: str
+            score: float
+
+        t = dalva.table(project="my-project", schema=MySchema)
+        t.log_row({"name": "test", "score": 0.5})
+        t.finish()
         ```
     """
     return Table(
         project=project,
+        schema=schema,
         name=name,
         config=config,
         run_id=run_id,
         resume_from=resume_from,
         server_url=server_url,
-        log_mode=log_mode,
         outbox_dir=outbox_dir,
     )

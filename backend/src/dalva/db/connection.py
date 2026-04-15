@@ -201,7 +201,6 @@ def _create_duckdb_tables(engine) -> None:
                 table_id VARCHAR NOT NULL,
                 name VARCHAR,
                 run_id INTEGER,
-                log_mode VARCHAR DEFAULT 'IMMUTABLE',
                 version INTEGER DEFAULT 0,
                 row_count INTEGER DEFAULT 0,
                 column_schema VARCHAR,
@@ -230,6 +229,12 @@ def _create_duckdb_tables(engine) -> None:
             )
         """)
         )
+
+        # Migration: drop log_mode column from dalva_tables
+        try:
+            conn.execute(text("ALTER TABLE dalva_tables DROP COLUMN log_mode"))
+        except Exception:
+            pass
 
         # Create indexes
         conn.execute(

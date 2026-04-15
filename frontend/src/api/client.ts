@@ -96,11 +96,10 @@ export interface DalvaTable {
   table_id: string;
   name: string | null;
   run_id: number | null;
-  log_mode: 'IMMUTABLE' | 'MUTABLE' | 'INCREMENTAL';
   version: number;
   row_count: number;
-  column_schema: string;  // JSON string
-  config: string | null;  // JSON string
+  column_schema: string;
+  config: string | null;
   state: 'active' | 'finished';
   created_at: string;
   updated_at: string;
@@ -325,6 +324,11 @@ export const api = {
 
   deleteTable: async (tableId: number): Promise<void> => {
     await apiClient.delete(`/tables/${tableId}`);
+  },
+
+  removeAllRows: async (tableId: number): Promise<{ success: boolean; rows_deleted: number }> => {
+    const { data } = await apiClient.delete(`/tables/${tableId}/rows`);
+    return data;
   },
 
   updateTableState: async (tableId: number, state: string): Promise<{ state: string }> => {
@@ -563,6 +567,17 @@ export function useDeleteTable() {
     mutationFn: (tableId: number) => api.deleteTable(tableId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tables'] });
+    },
+  });
+}
+
+export function useRemoveAllRows() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (tableId: number) => api.removeAllRows(tableId),
+    onSuccess: (_data, tableId) => {
+      queryClient.invalidateQueries({ queryKey: ['tables', tableId] });
+      queryClient.invalidateQueries({ queryKey: ['tables', tableId, 'data'] });
     },
   });
 }

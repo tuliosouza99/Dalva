@@ -193,10 +193,10 @@ erDiagram
         string table_id
         string name
         int run_id FK
-        string log_mode
         int version
         int row_count
         string column_schema
+        string config
         string state
         datetime created_at
         datetime updated_at

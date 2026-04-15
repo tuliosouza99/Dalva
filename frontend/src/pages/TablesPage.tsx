@@ -136,15 +136,6 @@ export default function TablesPage() {
               </th>
               <th
                 className="px-4 py-3 text-left cursor-pointer hover:text-[var(--text-primary)] transition-colors"
-                onClick={() => handleSort('log_mode')}
-              >
-                <div className="flex items-center gap-2">
-                  Mode
-                  <SortIcon column="log_mode" sortBy={sortBy} sortOrder={sortOrder} />
-                </div>
-              </th>
-              <th
-                className="px-4 py-3 text-left cursor-pointer hover:text-[var(--text-primary)] transition-colors"
                 onClick={() => handleSort('row_count')}
               >
                 <div className="flex items-center gap-2">
@@ -176,7 +167,7 @@ export default function TablesPage() {
           <tbody>
             {filteredTables.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-16 text-center">
+                <td colSpan={6} className="px-4 py-16 text-center">
                   <Table2 size={32} className="mx-auto mb-3" style={{ color: 'var(--text-tertiary)' }} />
                   <p className="text-body">No tables found</p>
                 </td>
@@ -193,17 +184,6 @@ export default function TablesPage() {
                   </td>
                   <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>
                     {table.name || '-'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`badge text-xs ${
-                      table.log_mode === 'IMMUTABLE'
-                        ? 'badge-completed'
-                        : table.log_mode === 'MUTABLE'
-                        ? 'badge-running'
-                        : 'badge-failed'
-                    }`}>
-                      {table.log_mode}
-                    </span>
                   </td>
                   <td className="px-4 py-3 text-sm mono" style={{ color: 'var(--text-primary)' }}>
                     {table.row_count.toLocaleString()}

@@ -197,9 +197,6 @@ class DalvaTable(Base):
     run_id = mapped_column(
         Integer, ForeignKey("runs.id", ondelete="SET NULL"), nullable=True
     )
-    log_mode = mapped_column(
-        String, default="IMMUTABLE"
-    )  # IMMUTABLE, MUTABLE, INCREMENTAL
     version = mapped_column(Integer, default=0)
     row_count = mapped_column(Integer, default=0)
     column_schema = mapped_column(Text)  # JSON: [{"name": "col1", "type": "int"}, ...]

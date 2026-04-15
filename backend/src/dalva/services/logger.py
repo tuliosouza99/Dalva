@@ -241,7 +241,6 @@ def fork_run(
                     table_id=f"{source_table.table_id}_fork_{new_run_db_id}",
                     name=source_table.name,
                     run_id=new_run_db_id,
-                    log_mode=source_table.log_mode,
                     version=0,
                     row_count=source_table.row_count,
                     column_schema=source_table.column_schema or "[]",

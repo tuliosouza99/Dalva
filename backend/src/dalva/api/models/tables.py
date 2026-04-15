@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Literal, Mapping, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from ...types import InputValue, SingleElement
 
@@ -22,9 +22,7 @@ class InitTableRequest(BaseModel):
     name: Optional[str] = None
     config: Optional[Mapping[str, InputValue]] = None
     run_id: Optional[int] = None
-    log_mode: Optional[str] = Field(
-        default="IMMUTABLE", pattern="^(IMMUTABLE|MUTABLE|INCREMENTAL)$"
-    )
+    column_schema: Optional[list[ColumnSchema]] = None
     resume_from: Optional[str] = None
 
 
@@ -34,7 +32,6 @@ class InitTableResponse(BaseModel):
     id: int
     table_id: str
     name: Optional[str]
-    log_mode: str
     version: int = 0
 
 
@@ -42,7 +39,12 @@ class LogTableRequest(BaseModel):
     """Request to log rows to a table."""
 
     rows: list[dict[str, InputValue]]
-    column_schema: list[ColumnSchema]
+
+
+class BatchLogTableRequest(BaseModel):
+    """Request to batch-log rows to a table."""
+
+    entries: list[LogTableRequest]
 
 
 class LogTableResponse(BaseModel):
@@ -63,7 +65,6 @@ class TableResponse(BaseModel):
     table_id: str
     name: Optional[str]
     run_id: Optional[int]
-    log_mode: str
     version: int
     row_count: int
     column_schema: str
@@ -154,7 +155,7 @@ class StringStats(BaseModel):
 
 
 class SkippedStats(BaseModel):
-    """Placeholder stats for date/list/dict columns."""
+    """Placeholder stats for list/dict columns."""
 
     type: str
     null_count: int = 0

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import queue
 import threading
 import time
@@ -188,7 +189,12 @@ class SyncWorker:
             else:
                 self._process_request(item)
 
-        entries = [it.payload for it in items]
+        entries = []
+        for it in items:
+            entry = (
+                json.loads(it.payload) if isinstance(it.payload, str) else it.payload
+            )
+            entries.append(entry)
         batch_payload = {"entries": entries}
 
         batch_req = PendingRequest(

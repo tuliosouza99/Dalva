@@ -5,7 +5,12 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from dalva.sdk.run import DalvaError
+from dalva.sdk.errors import DalvaError
+from dalva.sdk.schema import DalvaSchema
+
+
+class _TestSchema(DalvaSchema):
+    x: int
 
 
 def _mock_response(status_code=200, json_data=None, raise_on_status=True):
@@ -501,7 +506,6 @@ class TestTableWALUnit:
                     "id": 7,
                     "table_id": "T-1",
                     "name": "test",
-                    "log_mode": "IMMUTABLE",
                     "version": 0,
                 }
             )
@@ -514,7 +518,11 @@ class TestTableWALUnit:
 
             with patch("dalva.sdk.table.httpx.get") as mock_get:
                 mock_get.return_value = MagicMock(status_code=200)
-                Table(project="test-project", outbox_dir=tmp_path / "outbox")
+                Table(
+                    project="test-project",
+                    schema=_TestSchema,
+                    outbox_dir=tmp_path / "outbox",
+                )
 
             mock_wal_class.assert_called_once_with(
                 "table", 7, outbox_dir=tmp_path / "outbox"
@@ -536,7 +544,6 @@ class TestTableWALUnit:
                         "id": 7,
                         "table_id": "T-1",
                         "name": "test",
-                        "log_mode": "IMMUTABLE",
                         "version": 0,
                     }
                 )
@@ -553,7 +560,11 @@ class TestTableWALUnit:
 
             with patch("dalva.sdk.table.httpx.get") as mock_get:
                 mock_get.return_value = MagicMock(status_code=200)
-                table = Table(project="test-project", outbox_dir=tmp_path / "outbox")
+                table = Table(
+                    project="test-project",
+                    schema=_TestSchema,
+                    outbox_dir=tmp_path / "outbox",
+                )
 
             table.finish()
 
@@ -575,7 +586,6 @@ class TestTableWALUnit:
                         "id": 7,
                         "table_id": "T-1",
                         "name": "test",
-                        "log_mode": "IMMUTABLE",
                         "version": 0,
                     }
                 )
@@ -594,7 +604,11 @@ class TestTableWALUnit:
 
             with patch("dalva.sdk.table.httpx.get") as mock_get:
                 mock_get.return_value = MagicMock(status_code=200)
-                table = Table(project="test-project", outbox_dir=tmp_path / "outbox")
+                table = Table(
+                    project="test-project",
+                    schema=_TestSchema,
+                    outbox_dir=tmp_path / "outbox",
+                )
 
             table.finish(timeout=5)
 

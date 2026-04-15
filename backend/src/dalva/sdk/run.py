@@ -2,16 +2,28 @@
 
 from __future__ import annotations
 
+import atexit
+import warnings
+from pathlib import Path
 from typing import overload
 
 import httpx
 
 from ..types import _T, InputDict, Metric
 from .table import Table
+from .wal import WALManager
+from .worker import PendingRequest, SyncWorker
+
+
+class DalvaError(Exception):
+    def __init__(
+        self, message: str, errors: list[tuple[PendingRequest, Exception]] | None = None
+    ) -> None:
+        super().__init__(message)
+        self.errors: list[tuple[PendingRequest, Exception]] = errors or []
 
 
 def _server_error(exc: httpx.HTTPStatusError) -> str:
-    """Extract server error detail from an HTTPStatusError."""
     try:
         body = exc.response.json()
         detail = body.get("detail", str(exc))
@@ -23,8 +35,12 @@ def _server_error(exc: httpx.HTTPStatusError) -> str:
 class Run:
     """Run object for tracking experiments via HTTP.
 
-    All operations are performed via HTTP requests to the server.
-    No local database operations are performed.
+    ``log()`` calls are asynchronous — they return immediately and are sent
+    to the server in the background. Errors from failed requests are
+    accumulated and reported when ``flush()`` or ``finish()`` is called.
+
+    Synchronous operations (``get``, ``remove``, ``log_config``, etc.) drain
+    the worker queue first to preserve ordering.
 
     Example:
         ```python
@@ -43,31 +59,18 @@ class Run:
         fork_from: str | None = None,
         copy_tables_on_fork: bool | list[int] = False,
         server_url: str = "http://localhost:8000",
+        outbox_dir: Path | None = None,
     ):
-        """
-        Initialize a run by creating it on the server.
-
-        Args:
-            project: Project name
-            name: Optional run name (user-defined, for display only)
-            config: Optional configuration dictionary
-            resume_from: run_id to resume (omit to create a new run)
-            fork_from: run_id to fork from (creates a copy with configs/metrics)
-            copy_tables_on_fork: False (no tables), True (all tables), or list of table IDs.
-                Only used when fork_from is set.
-            server_url: Server URL. Defaults to http://localhost:8000
-        """
         self.project_name = project
         self.config = config or {}
         self._server_url = server_url
         self._client: httpx.Client | None = None
+        self._worker: SyncWorker | None = None
         self._tables: list[Table] = []
         self._finished: bool = False
 
-        # Verify server is accessible
         self._verify_server_connection()
 
-        # Create run via API
         self._create_run_on_server(
             name=name,
             config=self.config,
@@ -76,11 +79,21 @@ class Run:
             copy_tables_on_fork=copy_tables_on_fork,
         )
 
-        # Print run ID for user convenience
+        self._wal = WALManager("run", self._db_id, outbox_dir=outbox_dir)
+        self._worker = SyncWorker(server_url, wal_manager=self._wal)
+        atexit.register(self._atexit_handler)
+
         print(f"Run created: {self.run_id}")
 
+    def _atexit_handler(self) -> None:
+        if self._finished:
+            return
+        try:
+            self.finish(timeout=30)
+        except Exception:
+            pass
+
     def _verify_server_connection(self):
-        """Verify server is accessible via health check endpoint."""
         try:
             response = httpx.get(f"{self._server_url}/api/health", timeout=10)
             response.raise_for_status()
@@ -92,7 +105,6 @@ class Run:
             )
 
     def _get_client(self) -> httpx.Client:
-        """Get or create HTTP client."""
         if self._client is None:
             self._client = httpx.Client(base_url=self._server_url, timeout=30)
         return self._client
@@ -105,7 +117,6 @@ class Run:
         fork_from: str | None = None,
         copy_tables_on_fork: bool | list[int] = False,
     ):
-        """Create the run on the server via API."""
         client = self._get_client()
         payload = {
             "project": self.project_name,
@@ -128,45 +139,50 @@ class Run:
             raise ConnectionError(f"Failed to create run on server: {e}")
 
     def log(self, metrics: InputDict, step: int | None = None):
-        """Log metrics to the run.
+        """Log metrics to the run (async — returns immediately).
+
+        Metrics are enqueued and sent in the background. Errors are
+        accumulated and reported by ``flush()`` or ``finish()``.
 
         Args:
             metrics: Dictionary of metric name -> value
             step: Optional step number for series values
 
-        Raises:
-            ConnectionError: On server errors (including 409 Conflict if a metric
-                with the same key already exists — use remove() first to overwrite)
-
         Example:
             ```python
-            run = Run(project="my-project", config={"lr": 0.001})
             run.log({"accuracy": 0.85})
             for step in range(100):
                 run.log({"loss": 0.5, "accuracy": 0.5}, step=step)
-            # Nested dicts are flattened with '/' separator:
             run.log({"train": {"loss": 0.3, "acc": 0.9}}, step=0)
-            # equivalent to: run.log({"train/loss": 0.3, "train/acc": 0.9}, step=0)
-            run.finish()
             ```
         """
-        client = self._get_client()
-        payload = {
-            "metrics": metrics,
-            "step": step,
-        }
-        try:
-            response = client.post(f"/api/runs/{self._db_id}/log", json=payload)
-            response.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 409:
-                raise ValueError(_server_error(e))
-            raise ConnectionError(_server_error(e))
-        except httpx.HTTPError as e:
-            raise ConnectionError(f"Failed to log metrics to server: {e}")
+        if self._finished:
+            raise RuntimeError("Cannot log to a finished run")
+        request = PendingRequest(
+            method="POST",
+            url=f"/api/runs/{self._db_id}/log",
+            payload={"metrics": metrics, "step": step},
+            batch_key=f"run:{self._db_id}",
+        )
+        self._worker.enqueue(request)
+
+    def flush(self, timeout: float | None = None) -> list[Exception]:
+        if self._worker is None:
+            return []
+        if self._worker.pending == 0:
+            return []
+        drained = self._worker.drain_with_progress(label="Flushing", timeout=timeout)
+        if not drained:
+            count = self._worker.dump_remaining()
+            if count > 0:
+                print(
+                    f"\n[Dalva] {count} operation(s) saved to disk. "
+                    f"Run 'dalva sync' to replay."
+                )
+        return [exc for _, exc in self._worker.clear_errors()]
 
     def remove(self, metric: str, step: int | None = None):
-        """Remove a metric from the run.
+        """Remove a metric from the run (synchronous — drains queue first).
 
         Args:
             metric: Metric name/path to remove
@@ -178,19 +194,14 @@ class Run:
 
         Example:
             ```python
-            run = dalva.init(project="my-project")
             run.log({"loss": 0.5}, step=0)
-            # To overwrite:
             run.remove("loss", step=0)
             run.log({"loss": 0.3}, step=0)
-            # To remove all entries for a metric:
             run.remove("loss")
-            # Works with nested/flattened keys too:
-            run.log({"train": {"loss": 0.5}}, step=0)
-            run.remove("train/loss", step=0)
-            run.log({"train": {"loss": 0.3}}, step=0)
             ```
         """
+        if self._worker is not None:
+            self._worker.drain()
         client = self._get_client()
         params = {}
         if step is not None:
@@ -222,10 +233,6 @@ class Run:
         Returns a dict with ``key``, ``value``, and ``step``.
         If the metric does not exist, returns ``default`` (which defaults to ``None``).
 
-        - With ``step``: returns the metric at that specific step.
-        - Without ``step``: returns the metric at the latest step (highest step
-          number), or the scalar value if no series steps exist.
-
         Args:
             key: Metric name/path to retrieve
             default: Value to return if the metric does not exist. Defaults to None.
@@ -236,16 +243,8 @@ class Run:
 
         Example:
             ```python
-            run = dalva.init(project="my-project")
-            run.log({"loss": 0.5}, step=0)
-            run.log({"loss": 0.3}, step=1)
             run.get("loss")               # {"key": "loss", "value": 0.3, "step": 1}
-            run.get("loss", step=0)       # {"key": "loss", "value": 0.5, "step": 0}
-            run.get("missing")            # None
             run.get("missing", default=0) # 0
-            # Works with nested/flattened keys too:
-            run.log({"train": {"loss": 0.4}}, step=0)
-            run.get("train/loss", step=0) # {"key": "train/loss", "value": 0.4, "step": 0}
             ```
         """
         client = self._get_client()
@@ -269,28 +268,26 @@ class Run:
     def log_config(self, config: InputDict):
         """Add config key-value pairs to the run (strict insert — no overwrites).
 
+        This is synchronous and drains the worker queue first to preserve ordering.
+
         Raises ``ValueError`` on 409 Conflict if any key already exists.
         Use ``remove_config(key)`` first to overwrite.
 
         Args:
             config: Dictionary of config key -> value. Nested dicts are flattened
-                with '/' as separator (e.g. ``{"optimizer": {"lr": 0.001}}`` becomes
-                ``{"optimizer/lr": 0.001}``).
+                with '/' as separator.
 
         Raises:
             ConnectionError: On server errors
 
         Example:
             ```python
-            run = dalva.init(project="my-project")
             run.log_config({"lr": 0.001, "batch_size": 32})
-            # To add more config later:
-            run.log_config({"epochs": 100})  # succeeds if keys don't exist
-            run.log_config({"lr": 0.01})     # raises ValueError — key exists
-            run.remove_config("lr")
-            run.log_config({"lr": 0.01})     # now succeeds
+            run.log_config({"epochs": 100})
             ```
         """
+        if self._worker is not None:
+            self._worker.drain()
         client = self._get_client()
         try:
             response = client.post(
@@ -312,14 +309,12 @@ class Run:
             key: Config key name to remove
 
         Raises:
-            ConnectionError: On server errors (including 404 if key not found)
+            ConnectionError: On server errors
 
         Example:
             ```python
-            run = dalva.init(project="my-project", config={"lr": 0.001})
-            # To overwrite config:
             run.remove_config("lr")
-            run.log_config({"lr": 0.01})  # succeeds after removal
+            run.log_config({"lr": 0.01})
             ```
         """
         client = self._get_client()
@@ -358,9 +353,7 @@ class Run:
 
         Example:
             ```python
-            run = dalva.init(project="my-project", config={"lr": 0.001})
             run.get_config("lr")               # {"key": "lr", "value": 0.001}
-            run.get_config("missing")          # None
             run.get_config("missing", default=0) # 0
             ```
         """
@@ -397,10 +390,9 @@ class Run:
 
         Example:
             ```python
-            run = dalva.init(project="my-project")
             table = run.create_table(name="predictions", log_mode="IMMUTABLE")
             table.log(df)
-            run.finish()  # auto-finishes table too
+            run.finish()
             ```
         """
         table = Table(
@@ -414,40 +406,94 @@ class Run:
         self._tables.append(table)
         return table
 
-    def finish(self):
+    def finish(self, on_error: str = "warn", timeout: float = 120):
         """Finish the run and mark it as completed.
 
-        All tables created via run.create_table() will be finished first.
+        Drains the worker queue (blocking until all pending requests are
+        processed or *timeout* seconds elapse), finishes all linked tables,
+        then sends the finish request to the server.
+
+        Args:
+            on_error: How to handle accumulated errors from failed ``log()``
+                calls. ``"warn"`` (default) prints warnings. ``"raise"`` raises
+                a ``DalvaError`` wrapping all accumulated errors.
+            timeout: Maximum seconds to wait for the worker queue to drain.
+                Defaults to 120.
+
+        Raises:
+            DalvaError: If ``on_error="raise"`` and there were failed requests.
+            ConnectionError: If the finish request itself fails.
 
         Example:
             ```python
-            run = dalva.init(project="my-project")
             run.log({"loss": 0.5}, step=0)
             run.finish()
+            run.finish(on_error="raise")
             ```
         """
         if self._finished:
             return
-        for table in self._tables:
-            if not table._finished:
-                try:
-                    table.finish()
-                except Exception:
-                    pass
-        client = self._get_client()
+
+        errors: list[tuple[PendingRequest, Exception]] = []
+        drained_ok = True
+
         try:
+            if self._worker is not None:
+                total = self._worker.pending
+                if total > 0:
+                    drained_ok = self._worker.drain_with_progress(
+                        label="Finishing run", timeout=timeout
+                    )
+                if not drained_ok:
+                    count = self._worker.dump_remaining()
+                    if count > 0:
+                        print(
+                            f"\n[Dalva] {count} operation(s) saved to disk. "
+                            f"Run 'dalva sync' to replay."
+                        )
+                    return
+                errors = self._worker.clear_errors()
+
+            for table in self._tables:
+                if not table._finished:
+                    try:
+                        table.finish(on_error=on_error)
+                    except Exception:
+                        pass
+
+            client = self._get_client()
             response = client.post(f"/api/runs/{self._db_id}/finish")
             response.raise_for_status()
             result = response.json()
             print(f"[Run] Run finished (state={result['state']})")
+            self._finished = True
+
+            if self._worker is not None:
+                self._worker.wal_delete()
+
+            if errors:
+                if on_error == "raise":
+                    msgs = [f"  {req.method} {req.url}: {exc}" for req, exc in errors]
+                    raise DalvaError(
+                        f"{len(errors)} request(s) failed during run:\n"
+                        + "\n".join(msgs),
+                        errors=errors,
+                    )
+                else:
+                    for req, exc in errors:
+                        warnings.warn(
+                            f"[Dalva] Request failed: {req.method} {req.url}: {exc}"
+                        )
+
         except httpx.HTTPStatusError as e:
             raise ConnectionError(_server_error(e))
         except httpx.HTTPError as e:
             raise ConnectionError(f"Failed to finish run on server: {e}")
         finally:
+            if self._worker is not None:
+                self._worker.stop()
+                self._worker = None
             self._client = None
-            self._finished = True
 
     def __repr__(self):
-        """String representation."""
         return f"Run(project='{self.project_name}', name='{self.name}', id={self.run_id}, server={self._server_url})"

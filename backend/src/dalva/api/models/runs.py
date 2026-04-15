@@ -56,6 +56,15 @@ class LogMetricsRequest(BaseModel):
     timestamp: Optional[datetime] = None
 
 
+class BatchLogEntry(BaseModel):
+    metrics: Mapping[str, InputValue]
+    step: Optional[int] = None
+
+
+class BatchLogMetricsRequest(BaseModel):
+    entries: list[BatchLogEntry]
+
+
 class LogResponse(BaseModel):
     success: bool = True
 

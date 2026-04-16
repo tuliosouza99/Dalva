@@ -4,7 +4,9 @@ import click
 
 from dalva.cli.config import config
 from dalva.cli.database import db
+from dalva.cli.query import query
 from dalva.cli.server import server
+from dalva.cli.skill import skill
 from dalva.cli.sync import sync
 
 
@@ -20,6 +22,8 @@ cli.add_command(server)
 cli.add_command(db)
 cli.add_command(config)
 cli.add_command(sync)
+cli.add_command(query)
+cli.add_command(skill)
 
 
 if __name__ == "__main__":

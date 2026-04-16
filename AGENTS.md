@@ -27,9 +27,33 @@ npm run lint       # eslint
 dalva server start              # production: build frontend + serve on single port
 dalva server dev                # dev: separate backend/frontend with hot reload
 dalva db info / backup / reset  # database management
+dalva config show               # view current configuration
 dalva sync                      # replay pending WAL operations from disk
 dalva sync --status             # show pending operations without sending
 dalva sync --dry-run            # preview what would be sent
+```
+
+**Query commands (read-only, hit the API server):**
+```bash
+dalva query projects                                               # list projects with run counts
+dalva query runs [--state] [--search] [--tags] [--limit]           # list/filter runs
+dalva query run <run_id>                                           # run summary (metrics + config + metadata)
+dalva query metrics <run_id>                                       # list available metric keys
+dalva query metric <run_id> <path> [--step-min] [--step-max]      # metric timeseries history
+dalva query config <run_id> [key]                                  # run config (all keys or specific)
+dalva query tables [--run-id] [--project-id]                       # list tables
+dalva query table <table_id>                                       # table metadata + schema
+dalva query table-data <table_id> [--sort-by] [--filters]          # table rows with sort/filter
+dalva query table-stats <table_id>                                 # per-column statistics
+```
+
+All query commands default to JSON output. Use `--format table` for human-readable output. Override server URL with `--server-url` or `DALVA_SERVER_URL` env var.
+
+**Skill commands:**
+```bash
+dalva skill install                  # install dalva-autoresearch skill into .agents/skills/
+dalva skill install --target claude  # install into .claude/skills/
+dalva skill install --cwd /path      # specify target directory
 ```
 
 ## Layout
@@ -37,8 +61,13 @@ dalva sync --dry-run            # preview what would be sent
 ```
 backend/src/dalva/    # Python package (hatch builds from here)
   api/                # FastAPI app + routes + Pydantic models
+  assets/             # Bundled assets shipped in the wheel
+    skills/           # Agent skills (installed via `dalva skill install`)
+      dalva-autoresearch/  # Autonomous experiment monitoring skill
   cli/                # Click CLI (entry: dalva.cli.main:cli)
     sync.py           # dalva sync — WAL replay command
+    query.py          # dalva query — read-only experiment queries (10 subcommands)
+    skill.py          # dalva skill — install bundled skills
   db/                 # SQLAlchemy schema + connection
   sdk/                # Client SDK (Run, Table, DalvaSchema, Worker, WAL)
     run.py            # Run class — async log(), sync finish()/get()/remove()
@@ -56,6 +85,7 @@ backend/tests/
     test_worker.py    # SyncWorker: enqueue, drain, batch, retry, WAL integration
     test_sdk.py       # SDK Run/Table: mocked HTTP, WAL unit tests
     test_sync_cli.py  # CLI sync command: status, dry-run, replay (mocked)
+    test_query_cli.py # CLI query commands: all 10 subcommands, JSON/table, errors
     test_config.py    # Config file parsing, env var overrides
   integration/        # Integration tests (real DB + real API)
     test_sync_integration.py  # Crash → WAL → sync → data recovered (end-to-end)

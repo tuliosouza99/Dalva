@@ -40,20 +40,21 @@ def info():
 
     click.echo(click.style("\nTable Statistics:", fg="green", bold=True))
 
-    tables = [
-        "projects",
-        "runs",
-        "configs",
-        "metrics",
-        "files",
-        "custom_views",
-    ]
-
     try:
         with engine.connect() as conn:
-            for table in tables:
+            table_names = [
+                row[0]
+                for row in conn.execute(
+                    text(
+                        "SELECT table_name FROM information_schema.tables "
+                        "WHERE table_schema = 'main' ORDER BY table_name"
+                    )
+                ).fetchall()
+                if not row[0].endswith("_id_seq")
+            ]
+            for table in table_names:
                 count = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
-                click.echo(f"  {table:15s}: {count:>8,} rows")
+                click.echo(f"  {table:20s}: {count:>8,} rows")
     except Exception as e:
         click.echo(click.style(f"\nError reading database: {e}", fg="red"), err=True)
 

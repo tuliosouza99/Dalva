@@ -16,6 +16,8 @@ For more information on using Dalva, please refer to the [documentation](https:/
 - **Run Comparison** - Compare metrics across multiple experiments
 - **Resume Support** - Continue logging to existing runs
 - **Crash Recovery** - Automatic WAL persistence + `dalva sync` for replaying lost operations
+- **CLI Query Tools** - Read-only CLI commands for monitoring experiments (`dalva query`)
+- **Agent-Friendly** - JSON output by default, designed for LLM agent consumption
 - **Lightweight** - No complex setup or external dependencies
 - **Project Organization** - Group experiments by project and tags
 
@@ -152,6 +154,25 @@ The Dalva web interface provides:
 - **Categorical Charts** - Stacked area charts for bool and string series
 - **Run Comparison** - Side-by-side comparison of multiple experiments
 - **Tables View** - Browse tabular data linked to runs with a "Load to Python" code snippet
+
+## CLI Query Tools
+
+Monitor experiments from the terminal or give an LLM agent visibility into training:
+
+```bash
+dalva query projects                    # list projects with run counts
+dalva query runs --state running        # filter running experiments
+dalva query run <run_id>                # run summary (metrics + config)
+dalva query metric <run_id> loss        # full metric timeseries
+dalva query config <run_id>             # run hyperparameters
+dalva query tables --run-id <run_id>    # list tables for a run
+dalva query table-data <table_id>       # inspect table rows
+dalva query table-stats <table_id>      # per-column statistics
+```
+
+All commands output JSON by default (for scripts and agents). Use `--format table` for human-readable output.
+
+See [`dalva skill install`](docs/getting_started/experiment_monitoring.md) for giving an LLM agent autonomous monitoring capabilities.
 
 ## Development
 

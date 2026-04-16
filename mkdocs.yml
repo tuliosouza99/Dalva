@@ -62,6 +62,7 @@ nav:
       - Runs: getting_started/runs.md
       - Metrics: getting_started/metrics.md
       - Tables: getting_started/tables.md
+      - AutoResearch: getting_started/autoresearch.md
       - Remote Training: getting_started/remote_training.md
       - CLI Usage: getting_started/cli_usage.md
   - Architecture: architecture.md

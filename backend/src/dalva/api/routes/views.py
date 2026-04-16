@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from dalva.api.models.common import MessageResponse
 from dalva.api.models.views import CustomViewCreate, CustomViewResponse
 from dalva.api.routes._helpers import get_project_or_404
 from dalva.db.connection import get_db, next_id
@@ -142,7 +143,7 @@ def update_custom_view(
     return db_view
 
 
-@router.delete("/views/{view_id}")
+@router.delete("/views/{view_id}", response_model=MessageResponse)
 def delete_custom_view(view_id: int, db: Session = Depends(get_db)):
     """
     Delete a custom view.
@@ -160,4 +161,4 @@ def delete_custom_view(view_id: int, db: Session = Depends(get_db)):
 
     db.delete(view)
     db.commit()
-    return {"message": "Custom view deleted successfully"}
+    return MessageResponse(message="Custom view deleted successfully")

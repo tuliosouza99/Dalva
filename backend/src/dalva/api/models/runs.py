@@ -1,9 +1,18 @@
 from datetime import datetime
 from typing import Mapping, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 from ...types import ConfigOutputDict, InputValue, OutputDict, SingleElement
+
+
+class DeleteMetricResponse(BaseModel):
+    message: str
+    count: int
+
+
+class RunConfigResponse(RootModel[ConfigOutputDict]):
+    pass
 
 
 class RunBase(BaseModel):

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, RootModel
 
 
 class MetricBase(BaseModel):
@@ -51,3 +51,9 @@ class MetricValuesResponse(BaseModel):
 class SummaryMetricsRequest(BaseModel):
     run_ids: list[int]
     metric_paths: list[str]
+
+
+class SummaryMetricsResponse(
+    RootModel[dict[str, dict[str, float | int | str | bool | None]]]
+):
+    pass

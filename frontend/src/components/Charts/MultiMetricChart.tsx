@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Plot } from '../../utils/plotlyComponent';
+import type { ChartTrace, ChartConfig } from '../../utils/plotlyComponent';
 import { useDarkMode } from '../../hooks/useDarkMode';
-import { buildChartLayout } from '../../utils/chartTheme';
+import { buildChartLayout, chartColors } from '../../utils/chartTheme';
 import type { MetricValue, MetricValuesResponse } from '../../api/client';
 import CategoryAreaChart from './CategoryAreaChart';
 
@@ -21,14 +22,14 @@ interface MultiMetricChartProps {
 }
 
 const DEFAULT_COLORS = [
-  '#1976d2', // Blue
-  '#d32f2f', // Red
-  '#388e3c', // Green
-  '#f57c00', // Orange
-  '#7b1fa2', // Purple
-  '#0097a7', // Cyan
-  '#c2185b', // Pink
-  '#afb42b', // Lime
+  chartColors.primary,
+  chartColors.secondary,
+  chartColors.tertiary,
+  chartColors.quaternary,
+  chartColors.quinary,
+  chartColors.senary,
+  chartColors.septenary,
+  chartColors.octonary,
 ];
 
 function isCategoricalSeries(attributeType?: string): boolean {
@@ -68,7 +69,7 @@ export default function MultiMetricChart({
       .filter(({ data }) => isCategoricalSeries(data.attribute_type));
   }, [queryResults, metrics, isLoading]);
 
-  const chartData = useMemo(() => {
+  const chartData: ChartTrace[] = useMemo(() => {
     if (isLoading || !queryResults.every((m) => m.data)) return [];
 
     return metrics.map((metric, idx) => {
@@ -102,7 +103,7 @@ export default function MultiMetricChart({
           ? '<b>Step:</b> %{x}<br><b>Value:</b> %{y:.6f}<extra></extra>'
           : '<b>Index:</b> %{x}<br><b>Value:</b> %{y:.6f}<extra></extra>',
       };
-    }).filter(Boolean);
+    }).filter(Boolean) as ChartTrace[];
   }, [queryResults, metrics, isLoading]);
 
   const hasAnyData = chartData.length > 0 || categoricalMetrics.length > 0;
@@ -122,7 +123,7 @@ export default function MultiMetricChart({
     [isDark, title, height, yAxisTitle]
   );
 
-  const config = useMemo(
+  const config: ChartConfig = useMemo(
     () => ({
       responsive: true,
       displayModeBar: true,
@@ -142,12 +143,12 @@ export default function MultiMetricChart({
   if (isLoading) {
     return (
       <div
-        className="bg-white rounded-lg border border-gray-200 flex items-center justify-center"
-        style={{ height }}
+        className="rounded-lg border flex items-center justify-center"
+        style={{ height, backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}
       >
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          <p className="mt-2 text-sm text-gray-600">Loading charts...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: 'var(--accent)' }}></div>
+          <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>Loading charts...</p>
         </div>
       </div>
     );
@@ -156,12 +157,12 @@ export default function MultiMetricChart({
   if (error) {
     return (
       <div
-        className="bg-red-50 rounded-lg border border-red-200 flex items-center justify-center"
-        style={{ height }}
+        className="rounded-lg border flex items-center justify-center"
+        style={{ height, backgroundColor: 'rgba(239, 68, 68, 0.06)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
       >
         <div className="text-center p-4">
-          <p className="text-red-700 font-semibold">Error loading charts</p>
-          <p className="text-red-600 text-sm mt-1">{error.message}</p>
+          <p style={{ color: 'var(--badge-failed)' }} className="font-semibold">Error loading charts</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--badge-failed)' }}>{error.message}</p>
         </div>
       </div>
     );
@@ -170,11 +171,11 @@ export default function MultiMetricChart({
   if (!hasAnyData) {
     return (
       <div
-        className="bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center"
-        style={{ height }}
+        className="rounded-lg border flex items-center justify-center"
+        style={{ height, backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
       >
         <div className="text-center p-4">
-          <p className="text-gray-500">No data available for the selected metrics</p>
+          <p style={{ color: 'var(--text-secondary)' }}>No data available for the selected metrics</p>
         </div>
       </div>
     );
@@ -183,12 +184,12 @@ export default function MultiMetricChart({
   return (
     <div className="space-y-4">
       {chartData.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <Plot data={chartData as never[]} layout={layout as never} config={config as never} style={{ width: '100%' }} />
+        <div className="rounded-lg border p-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+          <Plot data={chartData} layout={layout} config={config} style={{ width: '100%' }} />
         </div>
       )}
       {categoricalMetrics.map(({ metric, data }) => (
-        <div key={metric.metricPath} className="bg-white rounded-lg border border-gray-200 p-4">
+        <div key={metric.metricPath} className="rounded-lg border p-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
           <CategoryAreaChart
             values={data.data}
             attributeType={data.attribute_type!}

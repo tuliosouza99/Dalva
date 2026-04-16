@@ -5,7 +5,13 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from dalva.api.models.runs import ConfigGetResponse, LogConfigRequest, LogResponse
+from dalva.api.models.common import MessageResponse
+from dalva.api.models.runs import (
+    ConfigGetResponse,
+    LogConfigRequest,
+    LogResponse,
+    RunConfigResponse,
+)
 from dalva.api.routes._helpers import get_run_or_404
 from dalva.db.connection import get_db
 from dalva.db.schema import Config
@@ -14,7 +20,7 @@ from dalva.services.logger import _log_config
 router = APIRouter()
 
 
-@router.get("/{run_id}/config")
+@router.get("/{run_id}/config", response_model=RunConfigResponse)
 def get_run_config(run_id: int, db: Session = Depends(get_db)):
     """Get run configuration."""
     get_run_or_404(run_id, db)
@@ -58,7 +64,7 @@ def get_config(
     return ConfigGetResponse(key=key, value=value)
 
 
-@router.delete("/{run_id}/config/{key:path}")
+@router.delete("/{run_id}/config/{key:path}", response_model=MessageResponse)
 def remove_config(
     run_id: int,
     key: str,

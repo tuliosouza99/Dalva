@@ -121,14 +121,14 @@ function MetricTreeNode({
               className="text-[10px] px-1.5 py-0.5 rounded font-sans font-medium uppercase flex-shrink-0"
               style={{
                 backgroundColor: typeLabel === 'cat'
-                  ? 'rgba(139, 92, 246, 0.15)'
+                  ? 'var(--badge-quinary-bg, rgba(139, 92, 246, 0.15))'
                   : typeLabel === 'series'
-                  ? 'rgba(59, 130, 246, 0.15)'
+                  ? 'var(--badge-secondary-bg, rgba(99, 102, 241, 0.15))'
                   : 'var(--bg-elevated)',
                 color: typeLabel === 'cat'
-                  ? '#8b5cf6'
+                  ? 'var(--badge-quinary, #8b5cf6)'
                   : typeLabel === 'series'
-                  ? '#3b82f6'
+                  ? 'var(--badge-secondary, #6366f1)'
                   : 'var(--text-tertiary)',
               }}
             >

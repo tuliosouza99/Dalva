@@ -1,4 +1,4 @@
-"""Unit tests for the new schema-based Table SDK — RED phase (all should fail)."""
+"""Unit tests for the schema-based Table SDK."""
 
 import json
 from unittest.mock import MagicMock, patch

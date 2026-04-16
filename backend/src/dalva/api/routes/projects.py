@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from dalva.api.models.common import MessageResponse
 from dalva.api.models.projects import ProjectCreate, ProjectResponse, ProjectSummary
 from dalva.api.routes._helpers import get_project_or_404
 from dalva.db.connection import get_db, next_id
@@ -208,11 +209,11 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
     return db_project
 
 
-@router.delete("/{project_id}")
+@router.delete("/{project_id}", response_model=MessageResponse)
 def delete_project(project_id: int, db: Session = Depends(get_db)):
     """Delete a project and all associated runs."""
     project = get_project_or_404(project_id, db)
 
     db.delete(project)
     db.commit()
-    return {"message": "Project deleted successfully"}
+    return MessageResponse(message="Project deleted successfully")

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Plot } from '../../utils/plotlyComponent';
+import type { ChartTrace, ChartConfig } from '../../utils/plotlyComponent';
 import { useMetricValues } from '../../api/client';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { buildChartLayout } from '../../utils/chartTheme';
@@ -57,7 +58,7 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
     };
   }, [data]);
 
-  const chartData = useMemo(() => {
+  const chartData: ChartTrace[] = useMemo(() => {
     if (metricAnalysis.type !== 'chart') return [];
 
     const values = metricAnalysis.values as MetricValue[];
@@ -96,7 +97,7 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
     });
   }, [isDark, metricAnalysis, metricPath]);
 
-  const config = useMemo(
+  const config: ChartConfig = useMemo(
     () => ({
       responsive: true,
       displayModeBar: true,
@@ -157,7 +158,7 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
             </svg>
           </button>
         </div>
-        <div className="card p-4" style={{ backgroundColor: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+        <div className="card p-4" style={{ backgroundColor: 'rgba(239, 68, 68, 0.06)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
           <p style={{ color: 'var(--badge-failed)' }} className="font-semibold">Error loading metric</p>
           <p className="text-sm mt-1" style={{ color: 'var(--badge-failed)' }}>{error.message}</p>
         </div>
@@ -220,7 +221,7 @@ export default function MetricViewer({ runId, metricPath, onClose }: MetricViewe
             borderColor: 'var(--border)'
           }}
         >
-          <Plot data={chartData as never} layout={layout as never} config={config as never} style={{ width: '100%' }} />
+          <Plot data={chartData} layout={layout} config={config} style={{ width: '100%' }} />
         </div>
       )}
 

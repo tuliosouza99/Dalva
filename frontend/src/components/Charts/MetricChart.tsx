@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { Plot } from '../../utils/plotlyComponent';
+import type { ChartTrace, ChartConfig } from '../../utils/plotlyComponent';
 import { useMetricValues } from '../../api/client';
 import { useDarkMode } from '../../hooks/useDarkMode';
-import { buildChartLayout } from '../../utils/chartTheme';
+import { buildChartLayout, chartColors } from '../../utils/chartTheme';
 import type { MetricValue } from '../../api/client';
 import CategoryAreaChart from './CategoryAreaChart';
 
@@ -30,7 +31,7 @@ export default function MetricChart({
 
   const isCategoryChart = isCategoricalSeries(data?.attribute_type);
 
-  const chartData = useMemo(() => {
+  const chartData: ChartTrace[] = useMemo(() => {
     if (!data?.data || isCategoryChart) return [];
 
     const values = data.data;
@@ -53,7 +54,7 @@ export default function MetricChart({
           : numericValues.map((_, i: number) => i),
         y: numericValues.map((v: MetricValue) => v.value as number),
         line: {
-          color: '#1976d2',
+          color: chartColors.primary,
           width: 2,
           shape: 'spline',
         },
@@ -78,7 +79,7 @@ export default function MetricChart({
     [isDark, title, metricPath, height, showLegend, data]
   );
 
-  const config = useMemo(
+  const config: ChartConfig = useMemo(
     () => ({
       responsive: true,
       displayModeBar: true,
@@ -98,12 +99,12 @@ export default function MetricChart({
   if (isLoading) {
     return (
       <div
-        className="bg-white rounded-lg border border-gray-200 flex items-center justify-center"
-        style={{ height }}
+        className="rounded-lg border flex items-center justify-center"
+        style={{ height, backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}
       >
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          <p className="mt-2 text-sm text-gray-600">Loading chart...</p>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: 'var(--accent)' }}></div>
+          <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>Loading chart...</p>
         </div>
       </div>
     );
@@ -112,12 +113,12 @@ export default function MetricChart({
   if (error) {
     return (
       <div
-        className="bg-red-50 rounded-lg border border-red-200 flex items-center justify-center"
-        style={{ height }}
+        className="rounded-lg border flex items-center justify-center"
+        style={{ height, backgroundColor: 'rgba(239, 68, 68, 0.06)', borderColor: 'rgba(239, 68, 68, 0.2)' }}
       >
         <div className="text-center p-4">
-          <p className="text-red-700 font-semibold">Error loading chart</p>
-          <p className="text-red-600 text-sm mt-1">{error.message}</p>
+          <p style={{ color: 'var(--badge-failed)' }} className="font-semibold">Error loading chart</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--badge-failed)' }}>{error.message}</p>
         </div>
       </div>
     );
@@ -126,12 +127,12 @@ export default function MetricChart({
   if (chartData.length === 0 && !isCategoryChart) {
     return (
       <div
-        className="bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center"
-        style={{ height }}
+        className="rounded-lg border flex items-center justify-center"
+        style={{ height, backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
       >
         <div className="text-center p-4">
-          <p className="text-gray-500">No numeric data available for this metric</p>
-          <p className="text-gray-400 text-sm mt-1">{metricPath}</p>
+          <p style={{ color: 'var(--text-secondary)' }}>No numeric data available for this metric</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-tertiary)' }}>{metricPath}</p>
         </div>
       </div>
     );
@@ -139,7 +140,7 @@ export default function MetricChart({
 
   if (isCategoryChart && data?.data && data.data.length > 0) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="rounded-lg border p-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
         <CategoryAreaChart
           values={data.data}
           attributeType={data.attribute_type!}
@@ -152,8 +153,8 @@ export default function MetricChart({
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <Plot data={chartData as never[]} layout={layout as never} config={config as never} style={{ width: '100%' }} />
+    <div className="rounded-lg border p-4" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+      <Plot data={chartData} layout={layout} config={config} style={{ width: '100%' }} />
     </div>
   );
 }

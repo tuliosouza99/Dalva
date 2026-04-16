@@ -4,6 +4,10 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 
+class MessageResponse(BaseModel):
+    message: str
+
+
 class ConfigCreate(BaseModel):
     run_id: int
     key: str

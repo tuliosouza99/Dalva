@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plot } from '../../utils/plotlyComponent';
+import type { ChartTrace, ChartConfig } from '../../utils/plotlyComponent';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { buildChartLayout, chartColors } from '../../utils/chartTheme';
 import type { MetricValue } from '../../api/client';
@@ -21,8 +22,8 @@ const AREA_COLORS = [
   chartColors.senary,
   chartColors.septenary,
   chartColors.octonary,
-  '#64748b',
-  '#78716c',
+  chartColors.primary,
+  chartColors.secondary,
 ];
 
 function computeCategoryData(
@@ -107,7 +108,7 @@ export default function CategoryAreaChart({
 
   const maxTopN = Math.min(10, nUnique);
 
-  const chartData = useMemo(
+  const chartData: ChartTrace[] = useMemo(
     () =>
       traces.map((trace, idx) => ({
         type: 'scatter' as const,
@@ -145,7 +146,7 @@ export default function CategoryAreaChart({
     [isDark, title, metricPath, height]
   );
 
-  const config = useMemo(
+  const config: ChartConfig = useMemo(
     () => ({
       responsive: true,
       displayModeBar: true,
@@ -165,9 +166,9 @@ export default function CategoryAreaChart({
   return (
     <div>
       <Plot
-        data={chartData as never[]}
-        layout={layout as never}
-        config={config as never}
+        data={chartData}
+        layout={layout}
+        config={config}
         style={{ width: '100%' }}
       />
       {!isBool && nUnique > 3 && (

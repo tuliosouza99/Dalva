@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from dalva.api.models.runs import (
     BatchLogMetricsRequest,
+    DeleteMetricResponse,
     LogMetricsRequest,
     LogResponse,
     MetricGetResponse,
@@ -192,6 +193,7 @@ def get_metric(
 
 @router.delete(
     "/{run_id}/metrics/{attribute_path:path}",
+    response_model=DeleteMetricResponse,
     responses={
         404: {"description": "Metric not found"},
         409: {"description": "Ambiguous request — specify step parameter"},
@@ -240,10 +242,10 @@ def remove_metric(
         db.delete(row)
 
     db.commit()
-    return {
-        "message": f"Removed {count} metric row(s) for '{attribute_path}'",
-        "count": count,
-    }
+    return DeleteMetricResponse(
+        message=f"Removed {count} metric row(s) for '{attribute_path}'",
+        count=count,
+    )
 
 
 def _infer_type(value: object, suffix: str) -> tuple[str, str, object]:

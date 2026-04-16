@@ -10,6 +10,7 @@ from dalva.api.models.metrics import (
     MetricValue,
     MetricValuesResponse,
     SummaryMetricsRequest,
+    SummaryMetricsResponse,
 )
 from dalva.api.routes._helpers import extract_metric_value, get_run_or_404
 from dalva.db.connection import get_db
@@ -18,7 +19,7 @@ from dalva.db.schema import Metric
 router = APIRouter()
 
 
-@router.post("/summary")
+@router.post("/summary", response_model=SummaryMetricsResponse)
 def get_summary_metrics(
     request: SummaryMetricsRequest,
     db: Session = Depends(get_db),

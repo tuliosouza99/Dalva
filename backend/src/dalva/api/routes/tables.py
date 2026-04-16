@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from dalva.api.models.common import MessageResponse
 from dalva.api.models.tables import (
     BatchLogTableRequest,
     ColumnSchema,
@@ -313,7 +314,7 @@ def update_table_state(
     return FinishTableResponse(state=state)
 
 
-@router.delete("/{table_id}/rows")
+@router.delete("/{table_id}/rows", response_model=MessageResponse)
 def remove_table_rows(table_id: int, db: Session = Depends(get_db)):
     """Remove all rows from a table (keeps table metadata/schema)."""
     get_table_or_404(table_id, db)
@@ -323,10 +324,10 @@ def remove_table_rows(table_id: int, db: Session = Depends(get_db)):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    return {"message": "All rows removed successfully"}
+    return MessageResponse(message="All rows removed successfully")
 
 
-@router.delete("/{table_id}")
+@router.delete("/{table_id}", response_model=MessageResponse)
 def delete_table_endpoint(table_id: int, db: Session = Depends(get_db)):
     """Delete a table and all its rows."""
     get_table_or_404(table_id, db)
@@ -336,4 +337,4 @@ def delete_table_endpoint(table_id: int, db: Session = Depends(get_db)):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    return {"message": "Table deleted successfully"}
+    return MessageResponse(message="Table deleted successfully")

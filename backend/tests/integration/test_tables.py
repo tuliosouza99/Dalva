@@ -1,4 +1,4 @@
-"""Integration tests for the new schema-based tables API — RED phase."""
+"""Integration tests for the schema-based tables API."""
 
 import json
 

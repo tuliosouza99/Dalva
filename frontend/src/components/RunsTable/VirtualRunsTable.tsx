@@ -367,6 +367,7 @@ export default function VirtualRunsTable({
         },
       ];
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: hasMore ? sortedRuns.length + 1 : sortedRuns.length,
     getScrollElement: () => parentRef.current,

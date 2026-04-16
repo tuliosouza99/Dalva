@@ -16,6 +16,7 @@ from dalva.api.models.runs import (
     RunsListResponse,
     RunSummary,
 )
+from dalva.api.models.common import MessageResponse
 from dalva.api.models.tables import TableResponse
 from dalva.api.routes._helpers import extract_metric_value, get_run_or_404
 from dalva.db.connection import get_db
@@ -60,7 +61,14 @@ def list_runs(
     if tags:
         tag_list = [tag.strip() for tag in tags.split(",")]
         for tag in tag_list:
-            query = query.filter(Run.tags.ilike(f"%{tag}%"))
+            query = query.filter(
+                or_(
+                    Run.tags == tag,
+                    Run.tags.ilike(f"{tag},%"),
+                    Run.tags.ilike(f"%,{tag}"),
+                    Run.tags.ilike(f"%,{tag},%"),
+                )
+            )
 
     total = query.count()
 
@@ -144,7 +152,7 @@ def init_run(request: InitRunRequest):
     return InitRunResponse(id=db_id, run_id=run_id_str, name=name)
 
 
-@router.patch("/{run_id}/state")
+@router.patch("/{run_id}/state", response_model=RunResponse)
 def update_run_state(
     run_id: int,
     state: str = Query(..., pattern="^(running|completed|failed)$"),
@@ -174,7 +182,7 @@ def finish_run_remote(
     return FinishResponse(state="completed")
 
 
-@router.get("/{run_id}/tables")
+@router.get("/{run_id}/tables", response_model=list[TableResponse])
 def get_run_tables(run_id: int, db: Session = Depends(get_db)):
     """Get all tables linked to a run."""
     get_run_or_404(run_id, db)
@@ -183,11 +191,11 @@ def get_run_tables(run_id: int, db: Session = Depends(get_db)):
     return [TableResponse.model_validate(t) for t in tables]
 
 
-@router.delete("/{run_id}")
+@router.delete("/{run_id}", response_model=MessageResponse)
 def delete_run(run_id: int, db: Session = Depends(get_db)):
     """Delete a run and all associated data."""
     run = get_run_or_404(run_id, db)
 
     db.delete(run)
     db.commit()
-    return {"message": "Run deleted successfully"}
+    return MessageResponse(message="Run deleted successfully")

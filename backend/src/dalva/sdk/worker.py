@@ -115,7 +115,7 @@ class SyncWorker:
             if total == 0:
                 return True
             done = 0
-            _logger.info(f"[Dalva] {label}: 0/{total}", end="", flush=True)
+            print(f"\r[Dalva] {label}: 0/{total}", end="", flush=True)
             deadline = None if timeout is None else time.monotonic() + timeout
             while self._pending > 0:
                 if deadline is not None:
@@ -129,10 +129,8 @@ class SyncWorker:
                 new_done = total - self._pending
                 if new_done > done:
                     done = new_done
-                    _logger.info(
-                        f"\r[Dalva] {label}: {done}/{total}", end="", flush=True
-                    )
-            _logger.info("%s: %d/%d ✓", label, total, total)
+                    print(f"\r[Dalva] {label}: {done}/{total}", end="", flush=True)
+            print(f"\r[Dalva] {label}: {total}/{total} ✓")
             return True
 
     def dump_remaining(self) -> int:

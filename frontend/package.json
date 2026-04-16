@@ -13,7 +13,6 @@
   "dependencies": {
     "@tanstack/react-query": "^5.99.0",
     "@tanstack/react-virtual": "^3.13.23",
-    "@types/plotly.js": "^3.0.10",
     "@types/react-syntax-highlighter": "^15.5.13",
     "axios": "^1.15.0",
     "lucide-react": "^1.8.0",
@@ -21,7 +20,6 @@
     "plotly.js-dist-min": "^3.5.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-grid-layout": "^2.2.3",
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^7.14.1",
     "react-syntax-highlighter": "^16.1.1"
@@ -29,9 +27,10 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.10.1",
+    "@types/plotly.js": "^3.0.10",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-"@types/react-plotly.js": "^2.6.4",
+    "@types/react-plotly.js": "^2.6.4",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.5.0",
     "eslint": "^9.39.1",

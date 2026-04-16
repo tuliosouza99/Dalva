@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useQueries } from '@tanstack/react-query';
@@ -225,12 +226,13 @@ function CompareRunsContent({ runIds, onRemove, onClear }: { runIds: number[]; o
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-surface)')}
                   >
                     <div className="flex items-center gap-3">
-                      <ChevronRightIcon 
-                        className="transition-transform" 
-                        style={{ 
+                      <ChevronRight
+                        size={16}
+                        className="transition-transform"
+                        style={{
                           color: 'var(--text-tertiary)',
                           transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)'
-                        }} 
+                        }}
                       />
                       <span className="text-sm mono" style={{ color: 'var(--text-primary)' }}>{metricPath}</span>
                     </div>

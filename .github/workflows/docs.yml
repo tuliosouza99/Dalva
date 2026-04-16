@@ -17,10 +17,11 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Stub frontend assets for build
+        run: mkdir -p static && echo '<!-- stub -->' > static/index.html
+
       - name: Install the project
         run: uv sync --locked --group docs
-        env:
-          DALVA_SKIP_FRONTEND: "1"
 
       - name: Configure Git Credentials
         run: |

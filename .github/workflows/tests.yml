@@ -26,9 +26,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
+      - name: Stub frontend assets for build
+        run: mkdir -p static && echo '<!-- stub -->' > static/index.html
+
       - name: Install dependencies
-        run: |
-          uv sync --locked --dev
+        run: uv sync --locked --dev
 
       - name: Run tests
         run: |

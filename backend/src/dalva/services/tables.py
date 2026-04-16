@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Mapping, Optional
 
 from pydantic import BaseModel, create_model
 from sqlalchemy import func, text
@@ -11,6 +11,8 @@ from sqlalchemy.engine import Connection
 from dalva.db.connection import get_engine, next_id, session_scope
 from dalva.db.schema import DalvaTable, DalvaTableRow
 from dalva.services._shared import generate_abbreviation, get_or_create_project
+
+from ..types import InputValue
 
 _COLUMN_TYPES: dict[str, type] = {
     "int": int,
@@ -61,7 +63,7 @@ def create_table(
     project_name: str,
     column_schema: Optional[list[dict[str, str]]] = None,
     name: Optional[str] = None,
-    config: Optional[dict] = None,
+    config: Optional[Mapping[str, InputValue]] = None,
     run_id: Optional[int] = None,
     resume_from: Optional[str] = None,
 ) -> tuple[int, str, Optional[str]]:

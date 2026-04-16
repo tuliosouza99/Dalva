@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from dalva.api.models.tables import ColumnFilter
 from dalva.db.schema import DalvaTable, Metric, Project, Run
-
-if TYPE_CHECKING:
-    pass
 
 
 def get_run_or_404(run_id: int, db: Session) -> Run:
@@ -54,8 +51,6 @@ def extract_metric_value(metric: Metric):
 def parse_filters(filters: str | None) -> list[dict] | None:
     if not filters:
         return None
-    from dalva.api.models.tables import ColumnFilter
-
     try:
         raw = json.loads(filters)
         validated = [ColumnFilter(**f) for f in raw]

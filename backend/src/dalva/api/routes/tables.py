@@ -61,7 +61,7 @@ def list_tables(
         )
 
     project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
+    if (not project_id) or (not project):
         tables = []
         total = 0
     else:

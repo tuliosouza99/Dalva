@@ -6,20 +6,18 @@ import atexit
 import json
 import logging
 import warnings
+from collections.abc import Generator, Iterable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Literal, overload
 
 import httpx
 
-from ..types import InputDict
+from ..types import InputDict, TableRowValue
 from .errors import DalvaError
 from .http_utils import _server_error
 from .schema import DalvaSchema
 from .wal import WALManager
 from .worker import PendingRequest, SyncWorker
-
-if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable, Mapping
 
 _logger = logging.getLogger("dalva.sdk")
 
@@ -216,7 +214,8 @@ class Table:
             headers={"Content-Type": "application/json"},
             batch_key=f"table:{self._db_id}",
         )
-        self._worker.enqueue(request)
+        if self._worker:
+            self._worker.enqueue(request)
 
     def log_rows(self, rows: Iterable[Mapping[str, object]]) -> None:
         """Log multiple rows to the table (async — returns immediately).
@@ -245,11 +244,24 @@ class Table:
             headers={"Content-Type": "application/json"},
             batch_key=f"table:{self._db_id}",
         )
-        self._worker.enqueue(request)
+        if self._worker:
+            self._worker.enqueue(request)
+
+    @overload
+    def get_table(
+        self, stream: Literal[False] = False
+    ) -> list[dict[str, TableRowValue]]: ...
+
+    @overload
+    def get_table(
+        self, stream: Literal[True]
+    ) -> Generator[dict[str, TableRowValue], None, None]: ...
 
     def get_table(
         self, stream: bool = False
-    ) -> list[dict] | Generator[dict, None, None]:
+    ) -> (
+        list[dict[str, TableRowValue]] | Generator[dict[str, TableRowValue], None, None]
+    ):
         """Get all rows from the table (synchronous — drains worker first).
 
         Args:

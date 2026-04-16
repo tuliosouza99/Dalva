@@ -156,7 +156,8 @@ class Run:
             payload={"metrics": metrics, "step": step},
             batch_key=f"run:{self._db_id}",
         )
-        self._worker.enqueue(request)
+        if self._worker:
+            self._worker.enqueue(request)
 
     def flush(self, timeout: float | None = None) -> list[Exception]:
         if self._worker is None:

@@ -12,15 +12,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-
-      - name: Build frontend
-        run: |
-          cd frontend && npm install && npm run build
-
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
@@ -28,6 +19,8 @@ jobs:
 
       - name: Install the project
         run: uv sync --locked --group docs
+        env:
+          DALVA_SKIP_FRONTEND: "1"
 
       - name: Configure Git Credentials
         run: |

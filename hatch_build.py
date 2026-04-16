@@ -10,8 +10,12 @@ To build the frontend once (before publishing or contributing):
 
 The built files will be in the ../static directory and will be automatically
 included in the package.
+
+Set DALVA_SKIP_FRONTEND=1 to skip the frontend requirement (e.g. in CI for
+tests/docs where the frontend is not needed).
 """
 
+import os
 import shutil
 from pathlib import Path
 
@@ -25,13 +29,10 @@ class FrontendBuildHook(BuildHookInterface):
 
     def initialize(self, version, build_data):
         """Run before wheel is built."""
-        # Get paths
         repo_root = Path(__file__).parent
         static_source = repo_root / "static"
         package_static_dest = repo_root / "backend" / "src" / "dalva" / "static"
 
-        # Check if static files are already bundled in package
-        # This happens when building wheel from sdist (source distribution)
         if (
             package_static_dest.exists()
             and (package_static_dest / "index.html").exists()
@@ -39,13 +40,15 @@ class FrontendBuildHook(BuildHookInterface):
             print("Dalva: Static files already bundled in package")
             return
 
-        # Check if pre-built static files exist in the repo
         if static_source.exists() and (static_source / "index.html").exists():
             print("Dalva: Copying pre-built frontend assets...")
             self._copy_static_files(static_source, package_static_dest)
             return
 
-        # Static files not found - provide helpful error message
+        if os.environ.get("DALVA_SKIP_FRONTEND"):
+            print("Dalva: DALVA_SKIP_FRONTEND is set — skipping frontend assets")
+            return
+
         frontend_dir = repo_root / "frontend"
         has_frontend = frontend_dir.exists()
 

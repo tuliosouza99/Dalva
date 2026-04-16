@@ -10,8 +10,8 @@ export default defineConfig({
     chunkSizeWarningLimit: 6000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          plotly: ['plotly.js-dist-min'],
+        manualChunks(id) {
+          if (id.includes('plotly.js-dist-min')) return 'plotly';
         },
       },
     },

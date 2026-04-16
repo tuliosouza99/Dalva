@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 from dalva.api.models.tables import (
     BatchLogTableRequest,
     ColumnSchema,
-    ColumnFilter,
     FinishTableResponse,
     InitTableRequest,
     InitTableResponse,
@@ -23,8 +22,9 @@ from dalva.api.models.tables import (
     TableResponse,
     TableStatsResponse,
 )
+from dalva.api.routes._helpers import get_table_or_404, parse_filters
 from dalva.db.connection import get_db
-from dalva.db.schema import DalvaTable, DalvaTableRow, Project
+from dalva.db.schema import DalvaTableRow, Project
 from dalva.services.tables import (
     add_table_rows,
     create_table,
@@ -78,9 +78,7 @@ def list_tables(
 @router.get("/{table_id}", response_model=TableResponse)
 def get_table(table_id: int, db: Session = Depends(get_db)):
     """Get table metadata."""
-    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+    table = get_table_or_404(table_id, db)
     table.row_count = (
         db.query(func.count(DalvaTableRow.id))
         .filter(DalvaTableRow.table_id == table_id)
@@ -106,18 +104,9 @@ def get_table_data_endpoint(
 
     Set stream=true for NDJSON streaming response.
     """
-    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+    table = get_table_or_404(table_id, db)
 
-    parsed_filters = None
-    if filters:
-        try:
-            raw = json.loads(filters)
-            validated = [ColumnFilter(**f) for f in raw]
-            parsed_filters = [f.model_dump() for f in validated]
-        except (json.JSONDecodeError, ValueError) as e:
-            raise HTTPException(status_code=400, detail=f"Invalid filters: {e}")
+    parsed_filters = parse_filters(filters)
 
     if stream:
         column_schema = json.loads(table.column_schema) if table.column_schema else []
@@ -184,18 +173,9 @@ def get_table_stats_endpoint(
     db: Session = Depends(get_db),
 ):
     """Get per-column statistics for a table."""
-    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+    get_table_or_404(table_id, db)
 
-    parsed_filters = None
-    if filters:
-        try:
-            raw = json.loads(filters)
-            validated = [ColumnFilter(**f) for f in raw]
-            parsed_filters = [f.model_dump() for f in validated]
-        except (json.JSONDecodeError, ValueError) as e:
-            raise HTTPException(status_code=400, detail=f"Invalid filters: {e}")
+    parsed_filters = parse_filters(filters)
 
     try:
         stats = get_table_stats(
@@ -241,9 +221,7 @@ def log_table_rows(
     db: Session = Depends(get_db),
 ):
     """Log rows to a table."""
-    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+    table = get_table_or_404(table_id, db)
 
     if table.state == "finished":
         raise HTTPException(status_code=400, detail="Table is already finished")
@@ -273,9 +251,7 @@ def batch_log_table_rows(
     db: Session = Depends(get_db),
 ):
     """Batch log rows to a table (merges entries into a single insert)."""
-    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+    table = get_table_or_404(table_id, db)
 
     if table.state == "finished":
         raise HTTPException(status_code=400, detail="Table is already finished")
@@ -312,9 +288,7 @@ def batch_log_table_rows(
 @router.post("/{table_id}/finish", response_model=FinishTableResponse)
 def finish_table_endpoint(table_id: int, db: Session = Depends(get_db)):
     """Mark a table as finished."""
-    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+    get_table_or_404(table_id, db)
 
     try:
         state = finish_table(table_id)
@@ -331,9 +305,7 @@ def update_table_state(
     db: Session = Depends(get_db),
 ):
     """Update table state."""
-    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+    table = get_table_or_404(table_id, db)
 
     table.state = state
     table.updated_at = datetime.now(timezone.utc)
@@ -344,9 +316,7 @@ def update_table_state(
 @router.delete("/{table_id}/rows")
 def remove_table_rows(table_id: int, db: Session = Depends(get_db)):
     """Remove all rows from a table (keeps table metadata/schema)."""
-    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+    get_table_or_404(table_id, db)
 
     try:
         remove_all_rows(table_id)
@@ -359,9 +329,7 @@ def remove_table_rows(table_id: int, db: Session = Depends(get_db)):
 @router.delete("/{table_id}")
 def delete_table_endpoint(table_id: int, db: Session = Depends(get_db)):
     """Delete a table and all its rows."""
-    table = db.query(DalvaTable).filter(DalvaTable.id == table_id).first()
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
+    get_table_or_404(table_id, db)
 
     try:
         delete_table(table_id)

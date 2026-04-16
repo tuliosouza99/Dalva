@@ -3,23 +3,25 @@
 from __future__ import annotations
 
 import json
+import logging
 import queue
 import threading
 import time
 import warnings
 from dataclasses import dataclass, field
-from typing import Any
 
 import httpx
 
 from .wal import WALManager
+
+_logger = logging.getLogger("dalva.sdk")
 
 
 @dataclass
 class PendingRequest:
     method: str
     url: str
-    payload: Any = None
+    payload: dict | list | str | bytes | None = None
     headers: dict | None = None
     max_retries: int = 5
     retry_count: int = 0
@@ -128,7 +130,7 @@ class SyncWorker:
                 if new_done > done:
                     done = new_done
                     print(f"\r[Dalva] {label}: {done}/{total}", end="", flush=True)
-            print(f"\r[Dalva] {label}: {total}/{total} ✓")
+            _logger.info("%s: %d/%d ✓", label, total, total)
             return True
 
     def dump_remaining(self) -> int:

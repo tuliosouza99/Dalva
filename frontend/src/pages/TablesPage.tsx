@@ -2,12 +2,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { useTables, useProject, useDeleteTable } from '../api/client';
 import type { TableFilters } from '../api/client';
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, X, Trash2, Table2 } from 'lucide-react';
-
-function SortIcon({ column, sortBy, sortOrder }: { column: string; sortBy: string; sortOrder: string }) {
-  if (sortBy !== column) return <ArrowUpDown size={14} className="opacity-50" />;
-  return sortOrder === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />;
-}
+import { Search, X, Trash2, Table2 } from 'lucide-react';
+import { SortIcon } from '../components/Icons';
 
 export default function TablesPage() {
   const { projectId } = useParams<{ projectId: string }>();

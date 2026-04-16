@@ -7,6 +7,7 @@ from pathlib import Path
 
 import click
 from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
 
 from dalva.config import load_config
 from dalva.db.connection import get_db_url
@@ -36,7 +37,7 @@ def info():
     click.echo(f"File Size:     {file_size_mb:.2f} MB")
 
     # Connect and show table statistics
-    engine = create_engine(get_db_url())
+    engine = create_engine(get_db_url(), poolclass=NullPool)
 
     click.echo(click.style("\nTable Statistics:", fg="green", bold=True))
 
@@ -57,6 +58,7 @@ def info():
                 click.echo(f"  {table:20s}: {count:>8,} rows")
     except Exception as e:
         click.echo(click.style(f"\nError reading database: {e}", fg="red"), err=True)
+        sys.exit(1)
 
 
 @db.command()

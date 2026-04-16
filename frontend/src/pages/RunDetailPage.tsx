@@ -1,47 +1,14 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useState, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useRun, useRunSummary, useRunMetrics, useDeleteRun, useProject, useTablesForRun, useUpdateRunState } from '../api/client';
 import MetricBrowser from '../components/Charts/MetricBrowser';
 import JsonViewer from '../components/JsonViewer';
+import { ChartIcon, ForkIcon } from '../components/Icons';
 
 const MetricViewer = lazy(() => import('../components/Charts/MetricViewer'));
 
 function isDarkMode() {
   return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
-}
-
-function ChartIcon({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={style}>
-      <line x1="18" y1="20" x2="18" y2="10"/>
-      <line x1="12" y1="20" x2="12" y2="4"/>
-      <line x1="6" y1="20" x2="6" y2="14"/>
-    </svg>
-  );
-}
-
-function ForkIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      style={{ color: 'var(--accent)' }}
-      aria-label="Forked run"
-    >
-      <circle cx="12" cy="18" r="3"/>
-      <circle cx="6" cy="6" r="3"/>
-      <circle cx="18" cy="6" r="3"/>
-      <path d="M18 9v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9"/>
-      <path d="M12 12v3"/>
-    </svg>
-  );
 }
 
 export default function RunDetailPage() {
@@ -63,7 +30,7 @@ export default function RunDetailPage() {
 
   const projectName = project?.name || `Project ${run?.project_id}`;
 
-  useState(() => {
+  useEffect(() => {
     if (run?.project_id) {
       setSearchParams((prev) => {
         if (prev.get('project') === String(run.project_id)) return prev;
@@ -71,7 +38,7 @@ export default function RunDetailPage() {
         return prev;
       });
     }
-  });
+  }, [run?.project_id, setSearchParams]);
 
   const handleDeleteRun = () => {
     if (!run) return;

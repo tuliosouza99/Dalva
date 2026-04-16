@@ -1,11 +1,14 @@
 """API models for table endpoints."""
 
+import re
 from datetime import datetime
 from typing import Literal, Mapping, Optional, Union
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from ...types import InputValue, SingleElement
+
+_COLUMN_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,127}$")
 
 
 class ColumnSchema(BaseModel):
@@ -13,6 +16,16 @@ class ColumnSchema(BaseModel):
 
     name: str
     type: str
+
+    @field_validator("name")
+    @classmethod
+    def _validate_name(cls, v: str) -> str:
+        if not _COLUMN_NAME_RE.match(v):
+            raise ValueError(
+                f"Invalid column name '{v}': must start with a letter or underscore "
+                "and contain only letters, digits, and underscores (max 128 chars)"
+            )
+        return v
 
 
 class InitTableRequest(BaseModel):

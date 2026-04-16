@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react';
+import { Filter } from 'lucide-react';
+import { SortIcon } from '../Icons';
 import type { ColumnSchema, ColumnStats, ColumnFilter } from '../../api/client';
 import MiniHistogram from './MiniHistogram';
 import MiniCategoryBar from './MiniCategoryBar';
@@ -14,11 +15,6 @@ interface ColumnHeaderProps {
   filter: ColumnFilter | undefined;
   onSort: (column: string) => void;
   onFilter: (filter: ColumnFilter | undefined, columnName?: string) => void;
-}
-
-function SortIcon({ column, sortBy, sortOrder }: { column: string; sortBy: string | null; sortOrder: string }) {
-  if (sortBy !== column) return <ArrowUpDown size={12} className="opacity-40" />;
-  return sortOrder === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
 }
 
 export default function ColumnHeader({

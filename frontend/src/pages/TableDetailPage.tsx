@@ -1,5 +1,6 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
+import { useDebounce } from "../hooks/useDebounce";
 import {
   useTable,
   useTableData,
@@ -94,15 +95,6 @@ const lightTheme = {
   bold: { fontWeight: "bold" },
   italic: { fontStyle: "italic" },
 };
-
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debouncedValue;
-}
 
 export default function TableDetailPage() {
   const { tableId } = useParams<{ tableId: string }>();

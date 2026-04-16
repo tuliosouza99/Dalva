@@ -25,6 +25,17 @@ def _ok_response(status_code=200, json_data=None):
     return resp
 
 
+def _mock_sync_client(**overrides):
+    client = MagicMock()
+    client.get.return_value = _ok_response()
+    client.post.return_value = _ok_response()
+    client.__enter__ = MagicMock(return_value=client)
+    client.__exit__ = MagicMock(return_value=False)
+    for k, v in overrides.items():
+        setattr(client, k, v)
+    return client
+
+
 def _write_wal(outbox_dir, name, entries):
     filepath = outbox_dir / f"{name}.jsonl"
     lines = []
@@ -157,8 +168,7 @@ class TestSyncReplay:
                 "batch_count": 0,
             },
         ]
-        mock_client = MagicMock()
-        mock_client.get.return_value = _ok_response()
+        mock_client = _mock_sync_client()
         mock_client.post.return_value = _ok_response()
 
         runner = CliRunner()
@@ -215,9 +225,7 @@ class TestSyncReplay:
                 "batch_count": 0,
             },
         ]
-        mock_client = MagicMock()
-        mock_client.get.return_value = _ok_response()
-        mock_client.post.return_value = _ok_response()
+        mock_client = _mock_sync_client()
 
         runner = CliRunner()
         with (
@@ -261,8 +269,7 @@ class TestSyncReplay:
         conflict_resp = MagicMock()
         conflict_resp.status_code = 409
         conflict_resp.json.return_value = {"detail": "conflict"}
-        mock_client = MagicMock()
-        mock_client.get.return_value = _ok_response()
+        mock_client = _mock_sync_client()
         mock_client.post.side_effect = httpx.HTTPStatusError(
             "409", request=MagicMock(), response=conflict_resp
         )
@@ -315,8 +322,7 @@ class TestSyncReplay:
         error_resp = MagicMock()
         error_resp.status_code = 500
         error_resp.json.return_value = {"detail": "error"}
-        mock_client = MagicMock()
-        mock_client.get.return_value = _ok_response()
+        mock_client = _mock_sync_client()
         mock_client.post.side_effect = [
             _ok_response(),
             httpx.HTTPStatusError("500", request=MagicMock(), response=error_resp),
@@ -360,8 +366,7 @@ class TestSyncReplay:
                 "batch_count": 0,
             },
         ]
-        mock_client = MagicMock()
-        mock_client.get.return_value = _ok_response()
+        mock_client = _mock_sync_client()
         mock_client.post.side_effect = httpx.ConnectError("connection refused")
 
         runner = CliRunner()
@@ -412,9 +417,7 @@ class TestSyncReplay:
                 "batch_count": 0,
             },
         ]
-        mock_client = MagicMock()
-        mock_client.get.return_value = _ok_response()
-        mock_client.post.return_value = _ok_response()
+        mock_client = _mock_sync_client()
 
         runner = CliRunner()
         with (
@@ -454,9 +457,7 @@ class TestSyncReplay:
                 "batch_count": 0,
             },
         ]
-        mock_client = MagicMock()
-        mock_client.get.return_value = _ok_response()
-        mock_client.post.return_value = _ok_response()
+        mock_client = _mock_sync_client()
 
         runner = CliRunner()
         with (
@@ -496,9 +497,7 @@ class TestSyncReplay:
                 "batch_count": 0,
             },
         ]
-        mock_client = MagicMock()
-        mock_client.get.return_value = _ok_response()
-        mock_client.post.return_value = _ok_response()
+        mock_client = _mock_sync_client()
 
         runner = CliRunner()
         with (
@@ -538,9 +537,7 @@ class TestSyncReplay:
                 "batch_count": 0,
             },
         ]
-        mock_client = MagicMock()
-        mock_client.get.return_value = _ok_response()
-        mock_client.post.return_value = _ok_response()
+        mock_client = _mock_sync_client()
 
         runner = CliRunner()
         with (

@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { Plot } from '../../utils/plotlyComponent';
-import { useMetricValues } from '../../api/client';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { buildChartLayout } from '../../utils/chartTheme';
-import type { MetricValue } from '../../api/client';
+import type { MetricValue, MetricValuesResponse } from '../../api/client';
 import CategoryAreaChart from './CategoryAreaChart';
 
 interface MetricConfig {
@@ -41,31 +41,38 @@ export default function MultiMetricChart({
   height = 400,
   yAxisTitle = 'Value',
 }: MultiMetricChartProps) {
-  const metricData = metrics.map((metric) =>
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useMetricValues(metric.runId, metric.metricPath)
-  );
+  const queryResults = useQueries({
+    queries: metrics.map((metric) => ({
+      queryKey: ['metrics', metric.runId, metric.metricPath],
+      queryFn: async (): Promise<MetricValuesResponse> => {
+        const res = await fetch(`/api/metrics/runs/${metric.runId}/metric/${metric.metricPath}`);
+        if (!res.ok) throw new Error('Failed to fetch metric');
+        return res.json();
+      },
+      enabled: !!metric.runId && !!metric.metricPath,
+    })),
+  });
 
-  const isLoading = metricData.some((m) => m.isLoading);
-  const error = metricData.find((m) => m.error)?.error;
+  const isLoading = queryResults.some((m) => m.isLoading);
+  const error = queryResults.find((m) => m.error)?.error;
   const isDark = useDarkMode();
 
   const categoricalMetrics = useMemo(() => {
-    if (isLoading || !metricData.every((m) => m.data)) return [];
+    if (isLoading || !queryResults.every((m) => m.data)) return [];
     return metrics
       .map((metric, idx) => ({
         metric,
         idx,
-        data: metricData[idx].data!,
+        data: queryResults[idx].data!,
       }))
       .filter(({ data }) => isCategoricalSeries(data.attribute_type));
-  }, [metricData, metrics, isLoading]);
+  }, [queryResults, metrics, isLoading]);
 
   const chartData = useMemo(() => {
-    if (isLoading || !metricData.every((m) => m.data)) return [];
+    if (isLoading || !queryResults.every((m) => m.data)) return [];
 
     return metrics.map((metric, idx) => {
-      const data = metricData[idx].data;
+      const data = queryResults[idx].data;
 
       if (isCategoricalSeries(data?.attribute_type)) return null;
 
@@ -96,7 +103,7 @@ export default function MultiMetricChart({
           : '<b>Index:</b> %{x}<br><b>Value:</b> %{y:.6f}<extra></extra>',
       };
     }).filter(Boolean);
-  }, [metricData, metrics, isLoading]);
+  }, [queryResults, metrics, isLoading]);
 
   const hasAnyData = chartData.length > 0 || categoricalMetrics.length > 0;
 

@@ -1,35 +1,18 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { api, useMetricValues } from '../api/client';
+import { api } from '../api/client';
 import { useComparison } from '../contexts/ComparisonContext';
 import CategoryAreaChart from '../components/Charts/CategoryAreaChart';
+import { ChartIcon } from '../components/Icons';
 
 const MultiMetricChart = lazy(() => import('../components/Charts/MultiMetricChart'));
-
-function ChevronRightIcon({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="9 18 15 12 9 6"/>
-    </svg>
-  );
-}
-
-function ChartIcon({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <svg className={className} style={style} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="20" x2="18" y2="10"/>
-      <line x1="12" y1="20" x2="12" y2="4"/>
-      <line x1="6" y1="20" x2="6" y2="14"/>
-    </svg>
-  );
-}
 
 function EmptyState({ onNavigate }: { onNavigate: () => void }) {
   return (
     <div className="p-8 page-enter">
       <div className="card text-center py-16">
-        <ChartIcon className="mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
+        <ChartIcon className="mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} size={16} strokeWidth={2} />
         <h3 className="heading-md mb-2">No runs selected</h3>
         <p className="text-body mb-6 max-w-md mx-auto">
           Select runs from the runs table and click "Compare" to view them side-by-side
@@ -285,17 +268,23 @@ interface MetricComparisonViewerProps {
 }
 
 function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparisonViewerProps) {
-  const metricsData = runIds.map((runId) => ({
-    runId,
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    data: useMetricValues(runId, metricPath),
-  }));
+  const queryResults = useQueries({
+    queries: runIds.map((runId) => ({
+      queryKey: ['metrics', runId, metricPath],
+      queryFn: async () => {
+        const res = await fetch(`/api/metrics/runs/${runId}/metric/${metricPath}`);
+        if (!res.ok) throw new Error('Failed to fetch metric');
+        return res.json();
+      },
+      enabled: !!runId && !!metricPath,
+    })),
+  });
 
-  const isLoading = metricsData.some((m) => m.data.isLoading);
-  const error = metricsData.find((m) => m.data.error);
+  const isLoading = queryResults.some((m) => m.isLoading);
+  const error = queryResults.find((m) => m.error);
 
   const metricAnalysis = useMemo(() => {
-    const allData = metricsData.map((m) => m.data.data);
+    const allData = queryResults.map((m) => m.data);
     const firstWithData = allData.find((d) => d && d.data.length > 0);
     
     if (!firstWithData) {
@@ -321,7 +310,7 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
     }
 
     return { type: 'list' };
-  }, [metricsData]);
+  }, [queryResults]);
 
   if (isLoading) {
     return (
@@ -351,8 +340,8 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
   }
 
   if (metricAnalysis.type === 'single') {
-    const values = metricsData.map((m) => {
-      const metricData = m.data.data?.data;
+    const values = queryResults.map((m) => {
+      const metricData = m.data?.data;
       if (metricData && metricData.length > 0) {
         return metricData[0].value;
       }
@@ -422,8 +411,8 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
   }
 
   if (metricAnalysis.type === 'list') {
-    const values = metricsData.map((m) => {
-      const metricData = m.data.data?.data;
+    const values = queryResults.map((m) => {
+      const metricData = m.data?.data;
       if (metricData && metricData.length > 0) {
         return metricData[0].value;
       }
@@ -469,11 +458,11 @@ function MetricComparisonViewer({ metricPath, runIds, runNames }: MetricComparis
   if (metricAnalysis.type === 'category') {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {metricsData.map((m, idx) => {
-          const metricValues = m.data.data?.data;
+        {queryResults.map((m, idx) => {
+          const metricValues = m.data?.data;
           if (!metricValues || metricValues.length === 0) return null;
           return (
-            <div key={m.runId} className="rounded-lg border p-4" style={{ borderColor: 'var(--border)' }}>
+            <div key={runIds[idx]} className="rounded-lg border p-4" style={{ borderColor: 'var(--border)' }}>
               <p className="text-xs mb-2 font-medium" style={{ color: 'var(--text-tertiary)' }}>
                 {runNames[idx]}
               </p>

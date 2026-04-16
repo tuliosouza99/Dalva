@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
-from dalva.api.routes import metrics, projects, runs, tables
+from dalva.api.routes import metrics, projects, run_configs, run_metrics, runs, tables
 from dalva.db.schema import Metric, Run
 from dalva.db.schema import DalvaTable as DalvaTableSchema
 from fastapi import FastAPI
@@ -294,6 +294,8 @@ def api_client(db_engine, monkeypatch) -> TestClient:
     # Include routers
     app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
     app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
+    app.include_router(run_metrics.router, prefix="/api/runs", tags=["run-metrics"])
+    app.include_router(run_configs.router, prefix="/api/runs", tags=["run-configs"])
     app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
     app.include_router(tables.router, prefix="/api/tables", tags=["tables"])
 

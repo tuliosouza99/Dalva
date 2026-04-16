@@ -2,13 +2,23 @@
 
 from contextlib import asynccontextmanager
 
+import os
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from dalva.api.routes import metrics, projects, runs, tables, views
+from dalva.api.routes import (
+    metrics,
+    projects,
+    run_configs,
+    run_metrics,
+    runs,
+    tables,
+    views,
+)
 from dalva.db.connection import init_db
 from dalva.utils.paths import get_static_dir
 
@@ -41,9 +51,13 @@ app = FastAPI(
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    if os.getenv("DALVA_DEBUG"):
+        detail = f"{type(exc).__name__}: {exc}"
+    else:
+        detail = "Internal server error"
     return JSONResponse(
         status_code=500,
-        content={"detail": f"{type(exc).__name__}: {exc}"},
+        content={"detail": detail},
     )
 
 
@@ -66,6 +80,8 @@ async def health():
 # Register routers
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
+app.include_router(run_metrics.router, prefix="/api/runs", tags=["run-metrics"])
+app.include_router(run_configs.router, prefix="/api/runs", tags=["run-configs"])
 app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
 app.include_router(tables.router, prefix="/api/tables", tags=["tables"])
 app.include_router(views.router, prefix="/api/views", tags=["views"])

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from dalva.api.models.projects import ProjectCreate, ProjectResponse, ProjectSummary
+from dalva.api.routes._helpers import get_project_or_404
 from dalva.db.connection import get_db, next_id
 from dalva.db.schema import Metric, Project, Run
 
@@ -35,26 +36,50 @@ def list_projects(
         .all()
     )
 
-    # Add run statistics for each project
+    from sqlalchemy import case, func
+
+    project_ids = [p.id for p in projects]
+
+    if not project_ids:
+        return []
+
+    counts_raw = (
+        db.query(
+            Run.project_id,
+            func.count(Run.id).label("total"),
+            func.sum(case((Run.state == "running", 1), else_=0)).label("running"),
+            func.sum(case((Run.state == "completed", 1), else_=0)).label("completed"),
+            func.sum(case((Run.state == "failed", 1), else_=0)).label("failed"),
+        )
+        .filter(Run.project_id.in_(project_ids))
+        .group_by(Run.project_id)
+        .all()
+    )
+
+    counts_map: dict[int, dict[str, int]] = {
+        pid: {"total": 0, "running": 0, "completed": 0, "failed": 0}
+        for pid in project_ids
+    }
+    for row in counts_raw:
+        counts_map[row[0]] = {
+            "total": row[1],
+            "running": int(row[2] or 0),
+            "completed": int(row[3] or 0),
+            "failed": int(row[4] or 0),
+        }
+    for row in counts_raw:
+        counts_map[row[0]] = {
+            "total": row[1],
+            "running": row[2],
+            "completed": row[3],
+            "failed": row[4],
+        }
+
     result = []
     for project in projects:
-        total_runs = db.query(Run).filter(Run.project_id == project.id).count()
-        running_runs = (
-            db.query(Run)
-            .filter(Run.project_id == project.id, Run.state == "running")
-            .count()
+        c = counts_map.get(
+            project.id, {"total": 0, "running": 0, "completed": 0, "failed": 0}
         )
-        completed_runs = (
-            db.query(Run)
-            .filter(Run.project_id == project.id, Run.state == "completed")
-            .count()
-        )
-        failed_runs = (
-            db.query(Run)
-            .filter(Run.project_id == project.id, Run.state == "failed")
-            .count()
-        )
-
         result.append(
             ProjectSummary(
                 id=project.id,
@@ -62,10 +87,10 @@ def list_projects(
                 project_id=project.project_id,
                 created_at=project.created_at,
                 updated_at=project.updated_at,
-                total_runs=total_runs,
-                running_runs=running_runs,
-                completed_runs=completed_runs,
-                failed_runs=failed_runs,
+                total_runs=c["total"],
+                running_runs=c["running"],
+                completed_runs=c["completed"],
+                failed_runs=c["failed"],
             )
         )
 
@@ -74,36 +99,20 @@ def list_projects(
 
 @router.get("/{project_id}", response_model=ProjectSummary)
 def get_project(project_id: int, db: Session = Depends(get_db)):
-    """
-    Get project details with summary statistics.
+    """Get project details with summary statistics."""
+    project = get_project_or_404(project_id, db)
 
-    Args:
-        project_id: Project ID
-        db: Database session
+    from sqlalchemy import case, func
 
-    Returns:
-        Project details with run statistics
-    """
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    # Get run statistics
-    total_runs = db.query(Run).filter(Run.project_id == project_id).count()
-    running_runs = (
-        db.query(Run)
-        .filter(Run.project_id == project_id, Run.state == "running")
-        .count()
-    )
-    completed_runs = (
-        db.query(Run)
-        .filter(Run.project_id == project_id, Run.state == "completed")
-        .count()
-    )
-    failed_runs = (
-        db.query(Run)
-        .filter(Run.project_id == project_id, Run.state == "failed")
-        .count()
+    row = (
+        db.query(
+            func.count(Run.id).label("total"),
+            func.sum(case((Run.state == "running", 1), else_=0)).label("running"),
+            func.sum(case((Run.state == "completed", 1), else_=0)).label("completed"),
+            func.sum(case((Run.state == "failed", 1), else_=0)).label("failed"),
+        )
+        .filter(Run.project_id == project_id)
+        .one()
     )
 
     return ProjectSummary(
@@ -112,28 +121,17 @@ def get_project(project_id: int, db: Session = Depends(get_db)):
         project_id=project.project_id,
         created_at=project.created_at,
         updated_at=project.updated_at,
-        total_runs=total_runs,
-        running_runs=running_runs,
-        completed_runs=completed_runs,
-        failed_runs=failed_runs,
+        total_runs=row[0],
+        running_runs=int(row[1] or 0),
+        completed_runs=int(row[2] or 0),
+        failed_runs=int(row[3] or 0),
     )
 
 
 @router.get("/{project_id}/tags", response_model=list[str])
 def get_project_tags(project_id: int, db: Session = Depends(get_db)):
-    """
-    Get all unique tags for a project.
-
-    Args:
-        project_id: Project ID
-        db: Database session
-
-    Returns:
-        List of unique tags
-    """
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    """Get all unique tags for a project."""
+    get_project_or_404(project_id, db)
 
     # Get all runs with tags
     runs = (
@@ -152,15 +150,8 @@ def get_project_tags(project_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{project_id}/available-columns", response_model=list[str])
 def get_available_columns(project_id: int, db: Session = Depends(get_db)):
-    """
-    Get available metric columns for the runs table.
-
-    Returns numeric (float/int) scalar metrics only. Bool and string metrics
-    are excluded since the table renders numeric columns.
-    """
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    """Get available metric columns for the runs table."""
+    get_project_or_404(project_id, db)
 
     metrics = (
         db.query(Metric.attribute_path)
@@ -219,19 +210,8 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
 
 @router.delete("/{project_id}")
 def delete_project(project_id: int, db: Session = Depends(get_db)):
-    """
-    Delete a project and all associated runs.
-
-    Args:
-        project_id: Project ID
-        db: Database session
-
-    Returns:
-        Success message
-    """
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    """Delete a project and all associated runs."""
+    project = get_project_or_404(project_id, db)
 
     db.delete(project)
     db.commit()

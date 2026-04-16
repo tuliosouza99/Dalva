@@ -158,37 +158,40 @@ def sync(status, dry_run, outbox):
     total_fail = 0
     total_skipped = 0
 
-    try:
-        client = httpx.Client(timeout=30)
-        try:
-            client.get("http://localhost:8000/api/health").raise_for_status()
-        except Exception:
-            click.echo(
-                click.style(
-                    "Error: Cannot reach Dalva server at http://localhost:8000",
-                    fg="red",
-                )
-            )
-            click.echo("Start the server with: dalva server start")
-            return
+    import os
 
-        for info in pending:
-            label = f"{info.resource_type}_{info.resource_id}.jsonl"
-            ok, fail, _failed_entries = _replay_file(client, info, dry_run=False)
-            total_ok += ok
-            total_fail += fail
-            if fail > 0:
-                click.echo(f"  {label}: Synced {ok}/{ok + fail} ({fail} failed)")
-            else:
-                skipped = info.entry_count - ok
-                total_skipped += skipped
-                if skipped:
-                    click.echo(
-                        f"  {label}: Synced {ok}/{info.entry_count} ({skipped} already applied)"
+    server_url = os.getenv("DALVA_SERVER_URL", "http://localhost:8000")
+
+    try:
+        with httpx.Client(base_url=server_url, timeout=30) as client:
+            try:
+                client.get("/api/health").raise_for_status()
+            except Exception:
+                click.echo(
+                    click.style(
+                        f"Error: Cannot reach Dalva server at {server_url}",
+                        fg="red",
                     )
+                )
+                click.echo("Start the server with: dalva server start")
+                return
+
+            for info in pending:
+                label = f"{info.resource_type}_{info.resource_id}.jsonl"
+                ok, fail, _failed_entries = _replay_file(client, info, dry_run=False)
+                total_ok += ok
+                total_fail += fail
+                if fail > 0:
+                    click.echo(f"  {label}: Synced {ok}/{ok + fail} ({fail} failed)")
                 else:
-                    click.echo(f"  {label}: Synced {ok}/{ok} ✓")
-        client.close()
+                    skipped = info.entry_count - ok
+                    total_skipped += skipped
+                    if skipped:
+                        click.echo(
+                            f"  {label}: Synced {ok}/{info.entry_count} ({skipped} already applied)"
+                        )
+                    else:
+                        click.echo(f"  {label}: Synced {ok}/{ok} ✓")
     except Exception as e:
         click.echo(click.style(f"Error: {e}", fg="red"))
         return

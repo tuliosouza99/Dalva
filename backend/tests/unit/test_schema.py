@@ -121,7 +121,7 @@ class TestDalvaSchemaValidation:
         class MySchema(DalvaSchema):
             count: int
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match=""):
             MySchema.validate_row({"count": "not_a_number"})
 
     def test_validate_row_fills_defaults(self):
@@ -140,5 +140,5 @@ class TestDalvaSchemaValidation:
         class MySchema(DalvaSchema):
             name: str
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match=""):
             MySchema.validate_row({"name": "test", "extra": "bad"})

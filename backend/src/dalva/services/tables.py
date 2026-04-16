@@ -1,17 +1,18 @@
 """Plain functions for table database operations."""
 
-import hashlib
 import json
-import re
-import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Mapping, Optional
 
 from pydantic import BaseModel, create_model
 from sqlalchemy import func, text
+from sqlalchemy.engine import Connection
 
 from dalva.db.connection import get_engine, next_id, session_scope
-from dalva.db.schema import DalvaTable, DalvaTableRow, Project
+from dalva.db.schema import DalvaTable, DalvaTableRow
+from dalva.services._shared import generate_abbreviation, get_or_create_project
+
+from ..types import InputValue
 
 _COLUMN_TYPES: dict[str, type] = {
     "int": int,
@@ -21,6 +22,30 @@ _COLUMN_TYPES: dict[str, type] = {
     "list": list,
     "dict": dict,
 }
+
+
+def _get_column_names(column_schema: list[dict[str, str]]) -> set[str]:
+    return {col["name"] for col in column_schema}
+
+
+def _validate_sort_column(sort_by: str, column_schema: list[dict[str, str]]) -> None:
+    valid = _get_column_names(column_schema)
+    if sort_by not in valid:
+        raise ValueError(
+            f"Invalid sort column '{sort_by}'. Valid columns: {sorted(valid)}"
+        )
+
+
+def _validate_filter_columns(
+    filters: list[dict[str, Any]], column_schema: list[dict[str, str]]
+) -> None:
+    valid = _get_column_names(column_schema)
+    for f in filters:
+        col = f["column"]
+        if col not in valid:
+            raise ValueError(
+                f"Invalid filter column '{col}'. Valid columns: {sorted(valid)}"
+            )
 
 
 def _build_row_model(
@@ -34,55 +59,17 @@ def _build_row_model(
     return create_model("RowModel", **fields)
 
 
-def _generate_table_abbreviation(project_name: str) -> str:
-    """Generate a 3-letter uppercase abbreviation from project name."""
-    clean = re.sub(r"[^a-zA-Z0-9\s-]", "", project_name)
-    words = re.split(r"[-_\s]+", clean)
-    words = [w for w in words if w]
-
-    if not words:
-        return "TBL"
-    if len(words) >= 3:
-        abbrev = "".join(w[0] for w in words[:3])
-    elif len(words) == 1:
-        abbrev = words[0][:3]
-    else:
-        abbrev = words[0][0] + words[1][0] + (words[0][1] if len(words[0]) > 1 else "X")
-    return abbrev.upper().ljust(3, "X")[:3]
-
-
 def create_table(
     project_name: str,
     column_schema: Optional[list[dict[str, str]]] = None,
     name: Optional[str] = None,
-    config: Optional[dict] = None,
+    config: Optional[Mapping[str, InputValue]] = None,
     run_id: Optional[int] = None,
     resume_from: Optional[str] = None,
 ) -> tuple[int, str, Optional[str]]:
-    """Create or resume a table.
-
-    Args:
-        project_name: Project name
-        column_schema: Column schema from DalvaSchema.to_column_schema()
-        name: Optional table name (user-defined, for display only)
-        config: Optional configuration dictionary
-        run_id: Optional run ID to link this table to
-        resume_from: table_id to resume (omit to create a new table)
-
-    Returns:
-        Tuple of (internal_db_id, table_id_string, descriptive_name)
-    """
 
     with session_scope() as db:
-        project = db.query(Project).filter(Project.name == project_name).first()
-        if not project:
-            project_id_str = f"{project_name}_{hashlib.md5(str(time.time()).encode()).hexdigest()[:16]}"
-            project = Project(
-                id=next_id(db, "projects"), name=project_name, project_id=project_id_str
-            )
-            db.add(project)
-            db.flush()
-
+        project = get_or_create_project(project_name, db)
         project_db_id = project.id
 
         if resume_from:
@@ -102,14 +89,12 @@ def create_table(
             db.flush()
             return existing.id, existing.table_id, existing.name
 
-        abbrev = _generate_table_abbreviation(project_name)
-        table_count = (
-            db.query(DalvaTable).filter(DalvaTable.project_id == project_db_id).count()
-        )
-        table_id_str = f"{abbrev}-T{table_count + 1}"
+        abbrev = generate_abbreviation(project_name, fallback="TBL")
+        table_db_id = next_id(db, "dalva_tables")
+        table_id_str = f"{abbrev}-T{table_db_id}"
 
         table = DalvaTable(
-            id=next_id(db, "dalva_tables"),
+            id=table_db_id,
             project_id=project_db_id,
             table_id=table_id_str,
             name=name,
@@ -249,6 +234,7 @@ def get_table_data(
         filter_clause = ""
         filter_params: dict[str, Any] = {}
         if filters:
+            _validate_filter_columns(filters, column_schema)
             where, params = _build_filter_sql(filters)
             filter_clause = f" AND {where}"
             filter_params = params
@@ -262,6 +248,7 @@ def get_table_data(
 
         order_clause = ""
         if sort_by:
+            _validate_sort_column(sort_by, column_schema)
             direction = "DESC" if sort_order == "desc" else "ASC"
             order_clause = (
                 f" ORDER BY json_extract(row_data, '$.\"{sort_by}\"') {direction}"
@@ -308,7 +295,6 @@ def get_tables_for_project(
     limit: int = 100,
     offset: int = 0,
 ) -> tuple[list[DalvaTable], int]:
-    """Get all tables for a project."""
     with session_scope() as db:
         query = db.query(DalvaTable).filter(DalvaTable.project_id == project_db_id)
         total = query.count()
@@ -318,29 +304,38 @@ def get_tables_for_project(
             .offset(offset)
             .all()
         )
-        for t in tables:
-            actual = (
-                db.query(func.count(DalvaTableRow.id))
-                .filter(DalvaTableRow.table_id == t.id)
-                .scalar()
+
+        if tables:
+            table_ids = [t.id for t in tables]
+            row_counts = dict(
+                db.query(DalvaTableRow.table_id, func.count(DalvaTableRow.id))
+                .filter(DalvaTableRow.table_id.in_(table_ids))
+                .group_by(DalvaTableRow.table_id)
+                .all()
             )
-            t.row_count = actual or 0
-            db.expunge(t)
+            for t in tables:
+                t.row_count = row_counts.get(t.id, 0)
+                db.expunge(t)
+
         return list(tables), total
 
 
 def get_tables_for_run(run_db_id: int) -> list[DalvaTable]:
-    """Get all tables linked to a run."""
     with session_scope() as db:
         tables = db.query(DalvaTable).filter(DalvaTable.run_id == run_db_id).all()
-        for t in tables:
-            actual = (
-                db.query(func.count(DalvaTableRow.id))
-                .filter(DalvaTableRow.table_id == t.id)
-                .scalar()
+
+        if tables:
+            table_ids = [t.id for t in tables]
+            row_counts = dict(
+                db.query(DalvaTableRow.table_id, func.count(DalvaTableRow.id))
+                .filter(DalvaTableRow.table_id.in_(table_ids))
+                .group_by(DalvaTableRow.table_id)
+                .all()
             )
-            t.row_count = actual or 0
-            db.expunge(t)
+            for t in tables:
+                t.row_count = row_counts.get(t.id, 0)
+                db.expunge(t)
+
         return list(tables)
 
 
@@ -412,7 +407,7 @@ def _build_filter_sql(
 
 
 def _compute_numeric_stats(
-    conn: Any,
+    conn: Connection,
     col_name: str,
     base_params: dict[str, Any],
     ver_where: str,
@@ -490,7 +485,7 @@ def _compute_numeric_stats(
 
 
 def _compute_bool_stats(
-    conn: Any,
+    conn: Connection,
     col_name: str,
     base_params: dict[str, Any],
     ver_where: str,
@@ -519,7 +514,7 @@ def _compute_bool_stats(
 
 
 def _compute_string_stats(
-    conn: Any,
+    conn: Connection,
     col_name: str,
     base_params: dict[str, Any],
     ver_where: str,
@@ -573,7 +568,7 @@ def _compute_string_stats(
 
 
 def _compute_default_stats(
-    conn: Any,
+    conn: Connection,
     col_name: str,
     col_type: str,
     base_params: dict[str, Any],
@@ -630,6 +625,7 @@ def get_table_stats(
         filter_clause = ""
         filter_params: dict[str, Any] = {}
         if filters:
+            _validate_filter_columns(filters, column_schema)
             where, params = _build_filter_sql(filters)
             filter_clause = f" AND {where}"
             filter_params = params

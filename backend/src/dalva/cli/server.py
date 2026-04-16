@@ -187,3 +187,5 @@ def dev(backend_port, frontend_port):
         cleanup()
         click.echo(click.style("Servers stopped", fg="green"))
         sys.exit(0)
+    finally:
+        cleanup()

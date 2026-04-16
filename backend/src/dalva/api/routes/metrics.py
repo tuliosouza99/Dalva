@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from dalva.api.models.metrics import (
@@ -11,8 +11,9 @@ from dalva.api.models.metrics import (
     MetricValuesResponse,
     SummaryMetricsRequest,
 )
+from dalva.api.routes._helpers import extract_metric_value, get_run_or_404
 from dalva.db.connection import get_db
-from dalva.db.schema import Metric, Run
+from dalva.db.schema import Metric
 
 router = APIRouter()
 
@@ -96,17 +97,7 @@ def get_summary_metrics(
     # Extract values
     for key, metric in max_step_metrics.items():
         run_id, attr_path = key
-        value: float | int | str | bool | None = None
-        if metric.float_value is not None:
-            value = metric.float_value
-        elif metric.int_value is not None:
-            value = metric.int_value
-        elif metric.string_value is not None:
-            value = metric.string_value
-        elif metric.bool_value is not None:
-            value = metric.bool_value
-
-        result[run_id][attr_path] = value
+        result[run_id][attr_path] = extract_metric_value(metric)
 
     # Convert int keys to string keys for JSON compatibility
     return {str(run_id): metrics_dict for run_id, metrics_dict in result.items()}
@@ -114,12 +105,8 @@ def get_summary_metrics(
 
 @router.get("/runs/{run_id}", response_model=list[MetricInfo])
 def list_metrics(run_id: int, db: Session = Depends(get_db)):
-    """
-    List all metrics for a run with their attribute types.
-    """
-    run = db.query(Run).filter(Run.id == run_id).first()
-    if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
+    """List all metrics for a run with their attribute types."""
+    get_run_or_404(run_id, db)
 
     metrics = (
         db.query(Metric.attribute_path, Metric.attribute_type)
@@ -147,9 +134,7 @@ def get_metric_values(
     """
     Get time-series values for a specific metric.
     """
-    run = db.query(Run).filter(Run.id == run_id).first()
-    if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
+    get_run_or_404(run_id, db)
 
     query = db.query(Metric).filter(
         Metric.run_id == run_id,
@@ -167,21 +152,10 @@ def get_metric_values(
     data = []
     attribute_type = None
     for m in metrics:
-        value = None
-        if m.float_value is not None:
-            value = m.float_value
+        value = extract_metric_value(m)
+        if value is not None:
             attribute_type = m.attribute_type
-        elif m.int_value is not None:
-            value = m.int_value
-            attribute_type = m.attribute_type
-        elif m.string_value is not None:
-            value = m.string_value
-            attribute_type = m.attribute_type
-        elif m.bool_value is not None:
-            value = m.bool_value
-            attribute_type = m.attribute_type
-
-        if value is None:
+        else:
             continue
 
         data.append(

@@ -6,14 +6,13 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
-from dalva.api.routes import metrics, projects, runs, tables
-from dalva.db.schema import Metric, Run
+from dalva.api.routes import metrics, projects, run_configs, run_metrics, runs, tables
 from dalva.db.schema import DalvaTable as DalvaTableSchema
+from dalva.db.schema import Metric, Run
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -41,7 +40,7 @@ def temp_config_dir(tmp_path, monkeypatch) -> Path:
 
 
 @pytest.fixture(scope="function")
-def db_engine(temp_db_path) -> Engine:
+def db_engine(temp_db_path):
     """Create a fresh SQLAlchemy engine for testing."""
     # Set the test database path
     os.environ["DALVA_DB_PATH"] = temp_db_path
@@ -276,7 +275,7 @@ def db_session(db_engine) -> Generator[Session, None, None]:
 
 
 @pytest.fixture(scope="function")
-def api_client(db_engine, monkeypatch) -> TestClient:
+def api_client(db_engine, monkeypatch):
     """Create a test client with mocked dependencies."""
     # Set test database path
     os.environ["DALVA_DB_PATH"] = db_engine.url.database
@@ -294,6 +293,8 @@ def api_client(db_engine, monkeypatch) -> TestClient:
     # Include routers
     app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
     app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
+    app.include_router(run_metrics.router, prefix="/api/runs", tags=["run-metrics"])
+    app.include_router(run_configs.router, prefix="/api/runs", tags=["run-configs"])
     app.include_router(metrics.router, prefix="/api/metrics", tags=["metrics"])
     app.include_router(tables.router, prefix="/api/tables", tags=["tables"])
 

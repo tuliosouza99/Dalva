@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRef, useEffect, useState, useMemo } from 'react';
 import type { Run } from '../../api/client';
 import { api } from '../../api/client';
+import { ForkIcon } from '../Icons';
 
 function ChevronUpIcon() {
   return (
@@ -16,30 +17,6 @@ function ChevronDownIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="6 9 12 15 18 9"/>
-    </svg>
-  );
-}
-
-function ForkIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      style={{ color: 'var(--accent)' }}
-      aria-label="Forked run"
-    >
-      <circle cx="12" cy="18" r="3"/>
-      <circle cx="6" cy="6" r="3"/>
-      <circle cx="18" cy="6" r="3"/>
-      <path d="M18 9v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9"/>
-      <path d="M12 12v3"/>
     </svg>
   );
 }
@@ -245,7 +222,7 @@ export default function VirtualRunsTable({
           width: '250px',
           render: (run) => (
             <div className="flex items-center gap-2">
-              {run.fork_from && <ForkIcon />}
+              {run.fork_from && <ForkIcon size={14} />}
               <span className="text-sm truncate block" style={{ color: 'var(--text-primary)' }} title={run.name || ''}>
                 {run.name}
               </span>
@@ -330,7 +307,7 @@ export default function VirtualRunsTable({
           width: '250px',
           render: (run) => (
             <div className="flex items-center gap-2">
-              {run.fork_from && <ForkIcon />}
+              {run.fork_from && <ForkIcon size={14} />}
               <span className="text-sm truncate block" style={{ color: 'var(--text-primary)' }} title={run.name || ''}>
                 {run.name}
               </span>

@@ -255,7 +255,7 @@ class TestConfigStrictInsert:
             session.add(Config(id=1, run_id=run_id, key="lr", value='"0.001"'))
             session.commit()
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match=""):
             from dalva.services.logger import _log_config
 
             _log_config(run_id, {"lr": 0.01})

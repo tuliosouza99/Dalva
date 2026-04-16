@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from dalva.api.models.views import CustomViewCreate, CustomViewResponse
+from dalva.api.routes._helpers import get_project_or_404
 from dalva.db.connection import get_db, next_id
-from dalva.db.schema import CustomView, Project
+from dalva.db.schema import CustomView
 
 router = APIRouter()
 
@@ -22,9 +23,7 @@ def list_custom_views(project_id: int, db: Session = Depends(get_db)):
     Returns:
         List of custom views
     """
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    get_project_or_404(project_id, db)
 
     views = (
         db.query(CustomView)
@@ -51,11 +50,8 @@ def create_custom_view(
     Returns:
         Created custom view
     """
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+    get_project_or_404(project_id, db)
 
-    # Check if view with same name already exists
     existing = (
         db.query(CustomView)
         .filter(CustomView.project_id == project_id, CustomView.name == view.name)

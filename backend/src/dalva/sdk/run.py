@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import atexit
+import logging
 import warnings
 from pathlib import Path
 from typing import overload
@@ -11,19 +12,13 @@ import httpx
 
 from ..types import _T, InputDict, Metric
 from .errors import DalvaError
+from .http_utils import _server_error
 from .schema import DalvaSchema
 from .table import Table
 from .wal import WALManager
 from .worker import PendingRequest, SyncWorker
 
-
-def _server_error(exc: httpx.HTTPStatusError) -> str:
-    try:
-        body = exc.response.json()
-        detail = body.get("detail", str(exc))
-    except Exception:
-        detail = str(exc)
-    return f"Server error {exc.response.status_code}: {detail}"
+_logger = logging.getLogger("dalva.sdk")
 
 
 class Run:
@@ -62,6 +57,9 @@ class Run:
         self._worker: SyncWorker | None = None
         self._tables: list[Table] = []
         self._finished: bool = False
+        self._db_id: int = 0
+        self.run_id: str = ""
+        self.name: str | None = None
 
         self._verify_server_connection()
 
@@ -77,7 +75,7 @@ class Run:
         self._worker = SyncWorker(server_url, wal_manager=self._wal)
         atexit.register(self._atexit_handler)
 
-        print(f"Run created: {self.run_id}")
+        _logger.info("Run created: %s", self.run_id)
 
     def _atexit_handler(self) -> None:
         if self._finished:
@@ -91,7 +89,7 @@ class Run:
         try:
             response = httpx.get(f"{self._server_url}/api/health", timeout=10)
             response.raise_for_status()
-            print(f"[Run] Server health check OK: {self._server_url}")
+            _logger.info("[Run] Server health check OK: %s", self._server_url)
         except httpx.HTTPError as e:
             raise ConnectionError(
                 f"Cannot connect to Dalva server at {self._server_url}. "
@@ -158,7 +156,8 @@ class Run:
             payload={"metrics": metrics, "step": step},
             batch_key=f"run:{self._db_id}",
         )
-        self._worker.enqueue(request)
+        if self._worker:
+            self._worker.enqueue(request)
 
     def flush(self, timeout: float | None = None) -> list[Exception]:
         if self._worker is None:
@@ -169,9 +168,10 @@ class Run:
         if not drained:
             count = self._worker.dump_remaining()
             if count > 0:
-                print(
-                    f"\n[Dalva] {count} operation(s) saved to disk. "
-                    f"Run 'dalva sync' to replay."
+                _logger.warning(
+                    "[Dalva] %d operation(s) saved to disk. "
+                    "Run 'dalva sync' to replay.",
+                    count,
                 )
         return [exc for _, exc in self._worker.clear_errors()]
 
@@ -241,6 +241,8 @@ class Run:
             run.get("missing", default=0) # 0
             ```
         """
+        if self._worker is not None:
+            self._worker.drain()
         client = self._get_client()
         params = {}
         if step is not None:
@@ -311,6 +313,8 @@ class Run:
             run.log_config({"lr": 0.01})
             ```
         """
+        if self._worker is not None:
+            self._worker.drain()
         client = self._get_client()
         try:
             response = client.delete(f"/api/runs/{self._db_id}/config/{key}")
@@ -351,6 +355,8 @@ class Run:
             run.get_config("missing", default=0) # 0
             ```
         """
+        if self._worker is not None:
+            self._worker.drain()
         client = self._get_client()
         try:
             response = client.get(f"/api/runs/{self._db_id}/config/{key}")
@@ -441,10 +447,12 @@ class Run:
                 if not drained_ok:
                     count = self._worker.dump_remaining()
                     if count > 0:
-                        print(
-                            f"\n[Dalva] {count} operation(s) saved to disk. "
-                            f"Run 'dalva sync' to replay."
+                        _logger.warning(
+                            "[Dalva] %d operation(s) saved to disk. "
+                            "Run 'dalva sync' to replay.",
+                            count,
                         )
+                    self._finished = True
                     return
                 errors = self._worker.clear_errors()
 
@@ -459,7 +467,7 @@ class Run:
             response = client.post(f"/api/runs/{self._db_id}/finish")
             response.raise_for_status()
             result = response.json()
-            print(f"[Run] Run finished (state={result['state']})")
+            _logger.info("[Run] Run finished (state=%s)", result["state"])
             self._finished = True
 
             if self._worker is not None:

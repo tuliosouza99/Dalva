@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import Plot from 'react-plotly.js';
+import { Plot } from '../../utils/plotlyComponent';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import { buildChartLayout, chartColors } from '../../utils/chartTheme';
 import type { MetricValue } from '../../api/client';

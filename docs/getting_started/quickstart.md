@@ -5,9 +5,11 @@ Get up and running with Dalva in 5 minutes.
 ## 1. Install Dalva
 
 ```bash
-git clone https://github.com/tuliosouza99/Dalva.git
-cd Dalva/backend
-uv sync
+# uv
+uv add dalva
+
+# pip
+pip install dalva
 ```
 
 ## 2. Start the Server

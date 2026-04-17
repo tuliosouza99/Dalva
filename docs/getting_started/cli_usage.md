@@ -5,8 +5,11 @@
 The `dalva` CLI is included when you install the backend dependencies:
 
 ```bash
-cd backend && uv sync
-dalva --help
+# uv
+uv add dalva
+
+# pip
+pip install dalva
 ```
 
 ## Server Commands

@@ -6,6 +6,16 @@
 
 Dalva provides a simple Python API for logging experiments and a web interface for visualizing results.
 
+## Installation
+
+```bash
+# uv
+uv add dalva
+
+# pip
+pip install dalva
+```
+
 ## Quick Start
 
 ```python
@@ -35,13 +45,6 @@ run.finish()
 - **Tabular Data** - Track DataFrames alongside runs with `dalva.table()`
 - **Web Interface** - View and compare experiments at `http://localhost:8000`
 - **Crash Recovery** - Automatic WAL persistence + `dalva sync` for replaying lost operations
-
-## Installation
-
-```bash
-git clone https://github.com/tuliosouza99/Dalva.git
-cd Dalva/backend && uv sync
-```
 
 ## Start the Server
 

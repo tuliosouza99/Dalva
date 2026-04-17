@@ -25,16 +25,24 @@ For more information on using Dalva, please refer to the [documentation](https:/
 
 ### Installation
 
-**Backend:**
+1. Install in your virtual environment
 ```bash
-cd backend
-uv sync
+# uv
+uv add dalva
+
+# pip
+pip install dalva
 ```
 
-**Frontend:**
+2. Install from source
+
 ```bash
-cd frontend
+git clone https://github.com/tuliosouza99/dalva.git
+cd dalva/frontend
 npm install
+npm run build
+cd ..
+uv sync --frozen
 ```
 
 ### Running the App
@@ -52,7 +60,7 @@ The server will automatically find an available port and display the URL.
 
 ```bash
 # Start backend and frontend separately with hot reload
-dalva server dev
+uv run dalva server dev
 ```
 
 **Option 3: Manual Setup (advanced)**
@@ -199,12 +207,6 @@ See [`dalva skill install`](docs/getting_started/experiment_monitoring.md) for g
 ```bash
 cd backend
 uv run pytest
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm run build:check  # TypeScript type-check (no test runner)
 ```
 
 ### Project Structure

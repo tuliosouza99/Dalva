@@ -1,0 +1,1898 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Lightweight experiment tracker for deep learning">
+      
+      
+      
+        <link rel="canonical" href="https://github.com/tuliosouza99/Dalva/0.1/getting_started/metrics/">
+      
+      
+        <link rel="prev" href="../runs/">
+      
+      
+        <link rel="next" href="../tables/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Metrics - Dalva Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#metrics" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Dalva Documentation" class="md-header__button md-logo" aria-label="Dalva Documentation" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Dalva Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Metrics
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue-grey" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/tuliosouza99/Dalva" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tuliosouza99/Dalva
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Overview
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../quickstart/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api_documentation/dalva_module/" class="md-tabs__link">
+          
+  
+  
+  API Documentation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Dalva Documentation" class="md-nav__button md-logo" aria-label="Dalva Documentation" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    Dalva Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/tuliosouza99/Dalva" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    tuliosouza99/Dalva
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../python_sdk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python SDK
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#log-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Log Metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Log Metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nested-dicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nested Dicts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#series-vs-scalar-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Series vs Scalar Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Series vs Scalar Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-step-determines-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Step Determines Type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supported-value-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Value Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging-categorical-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging Categorical Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-to-use-config-vs-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use Config vs Metrics?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repeated-keys-strict-insert-no-overwrites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repeated Keys (Strict Insert — No Overwrites)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Repeated Keys (Strict Insert — No Overwrites)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metrics_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-consistency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Type Consistency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scalar-vs-series" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalar vs Series
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removing-metrics-and-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removing Metrics and Config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getting-metrics-and-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Getting Metrics and Config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remove-and-re-log-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remove and Re-log Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frontend-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend Rendering
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Frontend Rendering">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scalar-metrics-stepnone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalar Metrics (step=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#numeric-series-float_series-int_series" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Numeric Series (float_series, int_series)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bool-series-bool_series" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bool Series (bool_series)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#string-series-string_series" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        String Series (string_series)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="String Series (string_series)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#compare-runs-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compare Runs View
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../autoresearch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutoResearch
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../remote_training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remote Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli_usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Documentation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Documentation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api_documentation/dalva_module/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dalva
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api_documentation/run_class/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api_documentation/table_class/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Table
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#log-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Log Metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Log Metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#nested-dicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nested Dicts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#series-vs-scalar-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Series vs Scalar Types
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Series vs Scalar Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-step-determines-type" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How Step Determines Type
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#supported-value-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Supported Value Types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#logging-categorical-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging Categorical Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-to-use-config-vs-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use Config vs Metrics?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#repeated-keys-strict-insert-no-overwrites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Repeated Keys (Strict Insert — No Overwrites)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Repeated Keys (Strict Insert — No Overwrites)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#metrics_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Metrics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-consistency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Type Consistency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scalar-vs-series" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalar vs Series
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removing-metrics-and-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removing Metrics and Config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#getting-metrics-and-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Getting Metrics and Config
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#remove-and-re-log-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remove and Re-log Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#frontend-rendering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend Rendering
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Frontend Rendering">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#scalar-metrics-stepnone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scalar Metrics (step=None)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#numeric-series-float_series-int_series" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Numeric Series (float_series, int_series)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bool-series-bool_series" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bool Series (bool_series)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#string-series-string_series" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        String Series (string_series)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="String Series (string_series)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#compare-runs-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Compare Runs View
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Overview
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../quickstart/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="metrics">Metrics</h1>
+<h2 id="log-metrics">Log Metrics</h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span></code></pre></div>
+<p>You can log multiple metrics at once:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">&quot;train/loss&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="s2">&quot;train/accuracy&quot;</span><span class="p">:</span> <span class="mf">0.85</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="s2">&quot;val/loss&quot;</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="s2">&quot;val/accuracy&quot;</span><span class="p">:</span> <span class="mf">0.80</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="n">epoch</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="nested-dicts">Nested Dicts</h3>
+<p>You can also use nested dicts, which are automatically flattened with <code>/</code> as the separator:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="mf">0.85</span><span class="p">}},</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># equivalent to: run.log({&quot;train/loss&quot;: 0.5, &quot;train/accuracy&quot;: 0.85}, step=0)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;encoder&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">}}},</span> <span class="n">step</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># equivalent to: run.log({&quot;model/encoder/loss&quot;: 0.3}, step=1)</span>
+</span></code></pre></div>
+<p>Nested metric values must be scalars (<code>str</code>, <code>bool</code>, <code>int</code>, <code>float</code>). Logging a non-scalar leaf (like a list) returns a 422 error.</p>
+<h2 id="series-vs-scalar-types">Series vs Scalar Types</h2>
+<p>The <code>step</code> parameter determines whether a metric is stored as a <strong>scalar</strong> or <strong>series</strong>:</p>
+<ul>
+<li><strong><code>step=None</code></strong> → Scalar types (<code>float</code>, <code>int</code>, <code>string</code>, <code>bool</code>)</li>
+<li>Single values stored without a step index</li>
+<li>Displayed as a <strong>single value card</strong> in the UI</li>
+<li>
+<p>Use for: final metrics, summary statistics, best model performance</p>
+</li>
+<li>
+<p><strong><code>step=&lt;int&gt;</code></strong> → Series types (<code>float_series</code>, <code>int_series</code>, <code>string_series</code>, <code>bool_series</code>)</p>
+</li>
+<li>Values stored with a step index (e.g., step=0, step=1, step=2)</li>
+<li>Displayed as an <strong>interactive chart</strong> in the UI</li>
+<li>Use for: training curves, epoch-level metrics, iteration metrics</li>
+</ul>
+<h3 id="how-step-determines-type">How Step Determines Type</h3>
+<p>The type is automatically determined by the <code>step</code> parameter:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># step=None → scalar type</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;best_accuracy&quot;</span><span class="p">:</span> <span class="mf">0.95</span><span class="p">})</span>  <span class="c1"># attribute_type=&quot;float&quot;</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># step=0 → series type</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="mf">0.85</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># attribute_type=&quot;float_series&quot;</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="mf">0.87</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># attribute_type=&quot;float_series&quot;</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;accuracy&quot;</span><span class="p">:</span> <span class="mf">0.89</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># attribute_type=&quot;float_series&quot;</span>
+</span></code></pre></div>
+<h3 id="supported-value-types">Supported Value Types</h3>
+<table>
+<thead>
+<tr>
+<th>Python Type</th>
+<th><code>attribute_type</code></th>
+<th>Storage Column</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>float</code></td>
+<td><code>float</code></td>
+<td><code>float_value</code></td>
+<td>Summary metrics (step=None)</td>
+</tr>
+<tr>
+<td><code>int</code></td>
+<td><code>int</code></td>
+<td><code>int_value</code></td>
+<td>Summary metrics (step=None)</td>
+</tr>
+<tr>
+<td><code>str</code></td>
+<td><code>string</code></td>
+<td><code>string_value</code></td>
+<td>Summary metrics (step=None)</td>
+</tr>
+<tr>
+<td><code>bool</code></td>
+<td><code>bool</code></td>
+<td><code>bool_value</code></td>
+<td>Summary metrics (step=None)</td>
+</tr>
+<tr>
+<td><code>float</code></td>
+<td><code>float_series</code></td>
+<td><code>float_value</code></td>
+<td>Time-series metrics (step=int)</td>
+</tr>
+<tr>
+<td><code>int</code></td>
+<td><code>int_series</code></td>
+<td><code>int_value</code></td>
+<td>Time-series metrics (step=int)</td>
+</tr>
+<tr>
+<td><code>str</code></td>
+<td><code>string_series</code></td>
+<td><code>string_value</code></td>
+<td>Time-series metrics (step=int)</td>
+</tr>
+<tr>
+<td><code>bool</code></td>
+<td><code>bool_series</code></td>
+<td><code>bool_value</code></td>
+<td>Time-series metrics (step=int)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="logging-categorical-metrics">Logging Categorical Metrics</h3>
+<p>In addition to numeric types (<code>float</code>, <code>int</code>), you can log <code>bool</code> and <code>str</code> values to track categorical changes over time. These render as <strong>stacked area charts</strong> instead of line charts.</p>
+<p><strong>Bool series</strong> — track binary flags like training phase, convergence, or early stopping:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>        <span class="s2">&quot;train/loss&quot;</span><span class="p">:</span> <span class="n">train_loss</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        <span class="s2">&quot;phase/is_training&quot;</span><span class="p">:</span> <span class="n">step</span> <span class="o">%</span> <span class="mi">10</span> <span class="o">!=</span> <span class="mi">7</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="s2">&quot;phase/is_converged&quot;</span><span class="p">:</span> <span class="n">step</span> <span class="o">&gt;=</span> <span class="mi">50</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+</span></code></pre></div>
+<p><strong>String series</strong> — track categorical values like optimizer, data source, or phase name:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="s2">&quot;train/loss&quot;</span><span class="p">:</span> <span class="n">train_loss</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="s2">&quot;hyperparams/optimizer&quot;</span><span class="p">:</span> <span class="n">current_optimizer</span><span class="p">,</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="s2">&quot;phase/name&quot;</span><span class="p">:</span> <span class="s2">&quot;train&quot;</span> <span class="k">if</span> <span class="n">step</span> <span class="o">%</span> <span class="mi">10</span> <span class="o">!=</span> <span class="mi">7</span> <span class="k">else</span> <span class="s2">&quot;validate&quot;</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+</span></code></pre></div>
+<p>By default, string series show the top 3 categories as separate areas with the rest grouped as "Other". You can adjust this up to 10 in the chart UI.</p>
+<h2 id="when-to-use-config-vs-metrics">When to use Config vs Metrics?</h2>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Config</th>
+<th>Metrics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>When set</td>
+<td>Once at init</td>
+<td>Multiple times during run</td>
+</tr>
+<tr>
+<td>Use case</td>
+<td>Hyperparameters</td>
+<td>Values that change over time</td>
+</tr>
+<tr>
+<td>Examples</td>
+<td><code>lr=0.001</code>, <code>model=resnet50</code></td>
+<td><code>loss=0.5</code>, <code>accuracy=0.87</code></td>
+</tr>
+<tr>
+<td>Display</td>
+<td>Config tab</td>
+<td>Overview tab + Charts</td>
+</tr>
+</tbody>
+</table>
+<h2 id="repeated-keys-strict-insert-no-overwrites">Repeated Keys (Strict Insert — No Overwrites)</h2>
+<p>Logging a metric or config with a key that already exists raises a <strong>409 Conflict</strong> error. To overwrite a value, you must explicitly remove it first.</p>
+<p>This is intentional: overwrites can silently lose data in concurrent scenarios and make run history unreliable. Every logged value is permanent.</p>
+<h3 id="metrics_1">Metrics</h3>
+<p>Metric keys are unique per run <strong>per step</strong>. Logging the same metric at the same step raises 409:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>   <span class="c1"># OK</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>   <span class="c1"># 409 Conflict — use remove() first</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>   <span class="c1"># OK — different step, new row created</span>
+</span></code></pre></div>
+<p>To overwrite:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">run</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;loss&quot;</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>        <span class="c1"># remove specific step</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;loss&quot;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>   <span class="c1"># now log the new value</span>
+</span></code></pre></div>
+<h3 id="config">Config</h3>
+<p>Config keys are unique per run. Adding a duplicate key raises a 409 error. Use <code>run.log_config()</code> to add new keys after run creation, or <code>run.remove_config()</code> to delete a key before overwriting:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">run</span> <span class="o">=</span> <span class="n">dalva</span><span class="o">.</span><span class="n">init</span><span class="p">(</span><span class="n">project</span><span class="o">=</span><span class="s2">&quot;my-project&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;lr&quot;</span><span class="p">:</span> <span class="mf">0.001</span><span class="p">})</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># Add more config later:</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">run</span><span class="o">.</span><span class="n">log_config</span><span class="p">({</span><span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span> <span class="s2">&quot;epochs&quot;</span><span class="p">:</span> <span class="mi">100</span><span class="p">})</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="c1"># Overwrite an existing key — must remove first:</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">run</span><span class="o">.</span><span class="n">remove_config</span><span class="p">(</span><span class="s2">&quot;lr&quot;</span><span class="p">)</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">run</span><span class="o">.</span><span class="n">log_config</span><span class="p">({</span><span class="s2">&quot;lr&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">})</span>        <span class="c1"># now succeeds</span>
+</span></code></pre></div>
+<p>Nested dicts are flattened with <code>/</code> as separator:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">run</span><span class="o">.</span><span class="n">log_config</span><span class="p">({</span><span class="s2">&quot;optimizer&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;lr&quot;</span><span class="p">:</span> <span class="mf">0.001</span><span class="p">,</span> <span class="s2">&quot;betas&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.999</span><span class="p">]}})</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="c1"># Creates keys: optimizer/lr, optimizer/betas</span>
+</span></code></pre></div>
+<h3 id="type-consistency">Type Consistency</h3>
+<p>Once a metric key is logged with a type, it cannot be changed. int and float are treated as distinct types:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;m&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>       <span class="c1"># OK — int_series</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;m&quot;</span><span class="p">:</span> <span class="mf">5.5</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>    <span class="c1"># 409 Conflict — cannot change to float_series</span>
+</span></code></pre></div>
+<h3 id="scalar-vs-series">Scalar vs Series</h3>
+<p>You cannot mix scalar (step=NULL) and series (step!=NULL) values for the same key:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;acc&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">})</span>            <span class="c1"># OK — scalar</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;acc&quot;</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>   <span class="c1"># 409 Conflict — acc already has scalar values</span>
+</span></code></pre></div>
+<h3 id="removing-metrics-and-config">Removing Metrics and Config</h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">run</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;loss&quot;</span><span class="p">)</span>              <span class="c1"># removes ALL loss entries (all steps)</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">run</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;loss&quot;</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>       <span class="c1"># removes only step 5</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">run</span><span class="o">.</span><span class="n">remove_config</span><span class="p">(</span><span class="s2">&quot;lr&quot;</span><span class="p">)</span>         <span class="c1"># removes the lr config key</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="n">run</span><span class="o">.</span><span class="n">log_config</span><span class="p">({</span><span class="s2">&quot;lr&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">})</span>   <span class="c1"># log new value after removal</span>
+</span></code></pre></div>
+<h3 id="getting-metrics-and-config">Getting Metrics and Config</h3>
+<p>Retrieve a specific metric or config key by name:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Get the latest step value for a metric:</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">run</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;loss&quot;</span><span class="p">)</span>                  <span class="c1"># {&quot;key&quot;: &quot;loss&quot;, &quot;value&quot;: 0.3, &quot;step&quot;: 1}</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Get a specific step:</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">run</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;loss&quot;</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>          <span class="c1"># {&quot;key&quot;: &quot;loss&quot;, &quot;value&quot;: 0.5, &quot;step&quot;: 0}</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># Works with nested/flattened keys too:</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="n">run</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;train/loss&quot;</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>   <span class="c1"># {&quot;key&quot;: &quot;train/loss&quot;, &quot;value&quot;: 0.4, &quot;step&quot;: 0}</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="c1"># If the key doesn&#39;t exist, returns None (or your default):</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="n">run</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;missing&quot;</span><span class="p">)</span>              <span class="c1"># None</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="n">run</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;missing&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>   <span class="c1"># 0</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="c1"># Get a config key:</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="n">run</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;lr&quot;</span><span class="p">)</span>            <span class="c1"># {&quot;key&quot;: &quot;lr&quot;, &quot;value&quot;: 0.001}</span>
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="n">run</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;optimizer/lr&quot;</span><span class="p">)</span>  <span class="c1"># {&quot;key&quot;: &quot;optimizer/lr&quot;, &quot;value&quot;: 0.001}</span>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a><span class="n">run</span><span class="o">.</span><span class="n">get_config</span><span class="p">(</span><span class="s2">&quot;missing&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;unknown&quot;</span><span class="p">)</span>  <span class="c1"># &quot;unknown&quot;</span>
+</span></code></pre></div>
+<h3 id="remove-and-re-log-pattern">Remove and Re-log Pattern</h3>
+<p>Since logging is strict (no overwrites), you must remove before re-logging. This works for both flat and nested keys:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Overwrite a scalar metric:</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">run</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;best_accuracy&quot;</span><span class="p">)</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;best_accuracy&quot;</span><span class="p">:</span> <span class="mf">0.97</span><span class="p">})</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1"># Overwrite a specific step:</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;train/loss&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="n">run</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;train/loss&quot;</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span><span class="s2">&quot;train/loss&quot;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="c1"># Overwrite a nested config key:</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="n">run</span><span class="o">.</span><span class="n">remove_config</span><span class="p">(</span><span class="s2">&quot;optimizer/lr&quot;</span><span class="p">)</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a><span class="n">run</span><span class="o">.</span><span class="n">log_config</span><span class="p">({</span><span class="s2">&quot;optimizer&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;lr&quot;</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">}})</span>
+</span></code></pre></div>
+<h2 id="frontend-rendering">Frontend Rendering</h2>
+<h3 id="scalar-metrics-stepnone">Scalar Metrics (step=None)</h3>
+<p>Scalar metrics are displayed as <strong>value cards</strong> in the run's Overview tab:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>best_model/accuracy</td>
+<td>0.9523</td>
+</tr>
+<tr>
+<td>best_model/hter</td>
+<td>0.0821</td>
+</tr>
+<tr>
+<td>training_completed</td>
+<td>true</td>
+</tr>
+<tr>
+<td>best_optimizer</td>
+<td>adamw</td>
+</tr>
+</tbody>
+</table>
+<h3 id="numeric-series-float_series-int_series">Numeric Series (float_series, int_series)</h3>
+<p>Numeric series are displayed as <strong>interactive line charts</strong> in the run's Metrics tab. The chart shows the metric value over steps, with hover tooltips for exact values.</p>
+<h3 id="bool-series-bool_series">Bool Series (bool_series)</h3>
+<p>Bool series are displayed as <strong>stacked area charts</strong> with two areas (<code>true</code> / <code>false</code>) showing cumulative counts over steps.</p>
+<p><strong>Use case — tracking binary states:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">50</span><span class="p">):</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>        <span class="s2">&quot;phase/is_training&quot;</span><span class="p">:</span> <span class="n">step</span> <span class="o">%</span> <span class="mi">10</span> <span class="o">!=</span> <span class="mi">7</span><span class="p">,</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>        <span class="s2">&quot;phase/is_converged&quot;</span><span class="p">:</span> <span class="n">step</span> <span class="o">&gt;=</span> <span class="mi">30</span><span class="p">,</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+</span></code></pre></div>
+<p>This lets you visualize when a flag flips — for example, when training switches to validation, or when a model converges.</p>
+<h3 id="string-series-string_series">String Series (string_series)</h3>
+<p>String series are displayed as <strong>stacked area charts</strong> showing cumulative counts per category over steps. By default the top 3 categories (by total count) are shown as separate areas, with remaining categories grouped under "Other". You can increase the number of visible categories up to <code>min(10, nunique)</code> using the selector below the chart.</p>
+<p><strong>Use case — tracking categorical values:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">optimizers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;adam&quot;</span><span class="p">,</span> <span class="s2">&quot;adam&quot;</span><span class="p">,</span> <span class="s2">&quot;sgd&quot;</span><span class="p">,</span> <span class="s2">&quot;adam&quot;</span><span class="p">,</span> <span class="s2">&quot;rmsprop&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">50</span><span class="p">):</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="n">run</span><span class="o">.</span><span class="n">log</span><span class="p">({</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>        <span class="s2">&quot;hyperparams/optimizer&quot;</span><span class="p">:</span> <span class="n">optimizers</span><span class="p">[</span><span class="n">step</span><span class="p">],</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>        <span class="s2">&quot;phase/name&quot;</span><span class="p">:</span> <span class="s2">&quot;train&quot;</span> <span class="k">if</span> <span class="n">step</span> <span class="o">%</span> <span class="mi">8</span> <span class="o">!=</span> <span class="mi">7</span> <span class="k">else</span> <span class="s2">&quot;validate&quot;</span><span class="p">,</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="p">},</span> <span class="n">step</span><span class="o">=</span><span class="n">step</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Common scenarios for string series:</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Example metric</th>
+<th>Categories</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Training phase</td>
+<td><code>phase/name</code></td>
+<td><code>train</code>, <code>validate</code>, <code>test</code></td>
+</tr>
+<tr>
+<td>Optimizer sweep</td>
+<td><code>hyperparams/optimizer</code></td>
+<td><code>adam</code>, <code>sgd</code>, <code>rmsprop</code></td>
+</tr>
+<tr>
+<td>Data source region</td>
+<td><code>infra/region</code></td>
+<td><code>us-east</code>, <code>eu-west</code>, <code>ap-south</code></td>
+</tr>
+<tr>
+<td>Learning rate schedule</td>
+<td><code>lr/schedule</code></td>
+<td><code>cosine</code>, <code>step</code>, <code>constant</code></td>
+</tr>
+<tr>
+<td>Model selection</td>
+<td><code>model/variant</code></td>
+<td><code>base</code>, <code>large</code>, <code>xl</code></td>
+</tr>
+</tbody>
+</table>
+<h4 id="compare-runs-view">Compare Runs View</h4>
+<p>When comparing multiple runs, categorical metrics display <strong>side-by-side stacked area charts</strong> — one per run — so you can see how category distributions differ across experiments.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.top", "navigation.path", "navigation.sections", "announce.dismiss", "content.code.copy", "content.code.annotate", "content.actions.view"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -85,3 +85,7 @@ markdown_extensions:
   - pymdownx.snippets
   - admonition
   - pymdownx.details
+
+extra:
+  version:
+    provider: mike

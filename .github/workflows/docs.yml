@@ -1,9 +1,8 @@
 name: Build and Deploy Docs
 on:
   push:
-    branches:
-      - master
-      - main
+    tags:
+      - 'v*'
 permissions:
   contents: write
 jobs:
@@ -37,4 +36,8 @@ jobs:
           restore-keys: |
             mkdocs-material-
 
-      - run: uv run mkdocs gh-deploy --force
+      - name: Deploy with mike
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          MIKE_VERSION="${VERSION%.*}"
+          uv run mike deploy --push --update-aliases "$MIKE_VERSION" latest

@@ -19,8 +19,7 @@ def test_version():
 def test_cli_entrypoint():
     from importlib.metadata import entry_points
 
-    eps = entry_points()
-    cli_eps = [ep for ep in eps.get("console_scripts", []) if ep.name == "dalva"]
+    cli_eps = [ep for ep in entry_points(group="console_scripts") if ep.name == "dalva"]
     assert cli_eps, "dalva console_scripts entry point not found"
 
 

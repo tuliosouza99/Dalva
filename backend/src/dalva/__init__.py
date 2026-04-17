@@ -7,7 +7,6 @@ from dalva.sdk.run import Run
 from dalva.sdk.schema import DalvaSchema
 from dalva.sdk.table import Table
 
-__version__ = "0.1.0"
 __all__ = ["DalvaError", "DalvaSchema", "Run", "Table", "init", "table"]
 
 

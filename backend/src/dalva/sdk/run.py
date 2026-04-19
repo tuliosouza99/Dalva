@@ -406,7 +406,7 @@ class Run:
         self._tables.append(t)
         return t
 
-    def finish(self, on_error: str = "warn", timeout: float = 120):
+    def finish(self, on_error: str = "warn", timeout: float | None = None):
         """Finish the run and mark it as completed.
 
         Drains the worker queue (blocking until all pending requests are
@@ -418,7 +418,7 @@ class Run:
                 calls. ``"warn"`` (default) prints warnings. ``"raise"`` raises
                 a ``DalvaError`` wrapping all accumulated errors.
             timeout: Maximum seconds to wait for the worker queue to drain.
-                Defaults to 120.
+                Defaults to None (wait indefinitely).
 
         Raises:
             DalvaError: If ``on_error="raise"`` and there were failed requests.

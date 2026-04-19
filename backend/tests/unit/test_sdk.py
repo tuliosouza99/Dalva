@@ -156,7 +156,7 @@ class TestRunFinish:
             run.finish()
 
             mock_worker.drain_with_progress.assert_called_once_with(
-                label="Finishing run", timeout=120
+                label="Finishing run", timeout=None
             )
             mock_worker.clear_errors.assert_called_once()
             mock_worker.stop.assert_called_once()

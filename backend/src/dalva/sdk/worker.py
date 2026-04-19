@@ -241,6 +241,15 @@ class SyncWorker:
     def _handle_batch_network_error(
         self, request: PendingRequest, exc: httpx.HTTPError, count: int
     ) -> None:
+        if isinstance(exc, httpx.TimeoutException):
+            _logger.warning(
+                "Request to %s timed out — not retrying to avoid duplicates. "
+                "The server may have already processed this request.",
+                request.url,
+            )
+            self._store_error(request, exc)
+            self._dec_pending_by(count)
+            return
         self._retry_batch_or_store(request, exc, count)
 
     def _retry_batch_or_store(
@@ -318,6 +327,16 @@ class SyncWorker:
     def _handle_network_error(
         self, request: PendingRequest, exc: httpx.HTTPError
     ) -> None:
+        dec_by = request.batch_count if request.batch_count > 0 else 1
+        if isinstance(exc, httpx.TimeoutException):
+            _logger.warning(
+                "Request to %s timed out — not retrying to avoid duplicates. "
+                "The server may have already processed this request.",
+                request.url,
+            )
+            self._store_error(request, exc)
+            self._dec_pending_by(dec_by)
+            return
         self._retry_or_store(request, exc)
 
     def _retry_or_store(self, request: PendingRequest, exc: Exception) -> None:

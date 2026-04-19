@@ -443,3 +443,99 @@ class TestSyncWorkerSendMethods:
 
         mock_httpx_client.delete.assert_called_once_with("/test/1", params={"step": 5})
         worker.stop()
+
+
+class TestSyncWorkerTimeout:
+    def test_timeout_not_retried_stored_as_error(self, mock_httpx_client):
+        mock_httpx_client.post.side_effect = httpx.ReadTimeout("read timed out")
+
+        worker = SyncWorker(
+            "http://localhost:8000",
+            max_queue_size=10,
+            max_retries=3,
+            base_backoff=0.01,
+        )
+
+        req = PendingRequest(method="POST", url="/test", payload={"x": 1})
+        worker.enqueue(req)
+        drained = worker.drain(timeout=10)
+
+        assert drained is True
+        assert mock_httpx_client.post.call_count == 1
+        errors = worker.errors
+        assert len(errors) == 1
+        assert isinstance(errors[0][1], httpx.ReadTimeout)
+        worker.stop()
+
+    def test_batch_timeout_not_retried_stored_as_error(self, mock_httpx_client):
+        mock_httpx_client.post.side_effect = httpx.ReadTimeout("read timed out")
+
+        worker = SyncWorker(
+            "http://localhost:8000",
+            max_queue_size=10,
+            max_retries=3,
+            base_backoff=0.01,
+            batch_size=100,
+        )
+
+        for i in range(3):
+            worker.enqueue(
+                PendingRequest(
+                    method="POST",
+                    url="/api/runs/1/log",
+                    payload={"metrics": {"loss": float(i)}, "step": i},
+                    batch_key="run:1",
+                )
+            )
+        drained = worker.drain(timeout=10)
+
+        assert drained is True
+        assert mock_httpx_client.post.call_count == 1
+        errors = worker.errors
+        assert len(errors) == 1
+        assert isinstance(errors[0][1], httpx.ReadTimeout)
+        worker.stop()
+
+    def test_connect_error_still_retried(self, mock_httpx_client):
+        mock_httpx_client.post.side_effect = [
+            httpx.ConnectError("connection refused"),
+            _ok_response(),
+        ]
+
+        worker = SyncWorker(
+            "http://localhost:8000",
+            max_queue_size=10,
+            max_retries=3,
+            base_backoff=0.01,
+            max_backoff=0.1,
+        )
+
+        req = PendingRequest(method="POST", url="/test", payload={"x": 1})
+        worker.enqueue(req)
+        drained = worker.drain(timeout=10)
+
+        assert drained is True
+        assert worker.errors == []
+        assert mock_httpx_client.post.call_count == 2
+        worker.stop()
+
+    def test_connect_timeout_not_retried(self, mock_httpx_client):
+        mock_httpx_client.post.side_effect = httpx.ConnectTimeout("connect timed out")
+
+        worker = SyncWorker(
+            "http://localhost:8000",
+            max_queue_size=10,
+            max_retries=3,
+            base_backoff=0.01,
+        )
+
+        req = PendingRequest(method="POST", url="/test", payload={"x": 1})
+        worker.enqueue(req)
+        drained = worker.drain(timeout=10)
+
+        assert drained is True
+        assert mock_httpx_client.post.call_count == 1
+        errors = worker.errors
+        assert len(errors) == 1
+        assert isinstance(errors[0][1], httpx.ConnectTimeout)
+        worker.stop()

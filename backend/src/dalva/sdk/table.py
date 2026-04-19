@@ -335,7 +335,7 @@ class Table:
                 )
         return [exc for _, exc in self._worker.clear_errors()]
 
-    def finish(self, on_error: str = "warn", timeout: float = 120) -> None:
+    def finish(self, on_error: str = "warn", timeout: float | None = None) -> None:
         """Finish the table and mark it as completed.
 
         Args:
@@ -343,6 +343,7 @@ class Table:
                 calls. ``"warn"`` (default) prints warnings. ``"raise"`` raises
                 a DalvaError wrapping all accumulated errors.
             timeout: Maximum seconds to wait for the worker queue to drain.
+                Defaults to None (wait indefinitely).
         """
         if self._finished:
             return

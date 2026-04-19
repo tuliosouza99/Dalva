@@ -19,6 +19,7 @@ def init(
     copy_tables_on_fork: bool | list[int] = False,
     server_url: str = "http://localhost:8000",
     outbox_dir: Path | None = None,
+    http_timeout: float | None = None,
 ) -> Run:
     """
     Initialize a new run.
@@ -33,6 +34,7 @@ def init(
             Only used when fork_from is set.
         server_url: Server URL. Defaults to http://localhost:8000
         outbox_dir: Directory for WAL files. Defaults to ~/.dalva/outbox/
+        http_timeout: HTTP timeout in seconds. Defaults to None (no timeout).
 
     Returns:
         Run object
@@ -54,6 +56,7 @@ def init(
         copy_tables_on_fork=copy_tables_on_fork,
         server_url=server_url,
         outbox_dir=outbox_dir,
+        http_timeout=http_timeout,
     )
 
 
@@ -66,6 +69,7 @@ def table(
     resume_from: str | None = None,
     server_url: str = "http://localhost:8000",
     outbox_dir: Path | None = None,
+    http_timeout: float | None = None,
 ) -> Table:
     """
     Initialize a new table or resume an existing one.
@@ -80,6 +84,7 @@ def table(
         resume_from: table_id to resume (omit to create a new table)
         server_url: Server URL. Defaults to http://localhost:8000
         outbox_dir: Directory for WAL files. Defaults to ~/.dalva/outbox/
+        http_timeout: HTTP timeout in seconds. Defaults to None (no timeout).
 
     Returns:
         Table object
@@ -106,4 +111,5 @@ def table(
         resume_from=resume_from,
         server_url=server_url,
         outbox_dir=outbox_dir,
+        http_timeout=http_timeout,
     )

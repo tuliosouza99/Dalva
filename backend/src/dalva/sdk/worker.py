@@ -45,6 +45,7 @@ class SyncWorker:
         batch_size: int = 50,
         flush_interval: float = 0.2,
         wal_manager: WALManager | None = None,
+        http_timeout: float | None = None,
     ) -> None:
         self._max_retries = max_retries
         self._base_backoff = base_backoff
@@ -58,7 +59,7 @@ class SyncWorker:
         self._errors_lock = threading.Lock()
         self._pending = 0
         self._drain_cond = threading.Condition()
-        self._client = httpx.Client(base_url=server_url, timeout=30)
+        self._client = httpx.Client(base_url=server_url, timeout=http_timeout)
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
         self._thread.start()
 

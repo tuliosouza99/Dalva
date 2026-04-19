@@ -112,7 +112,13 @@ def _replay_file(
     default=None,
     help="Path to outbox directory (default: ~/.dalva/outbox).",
 )
-def sync(status, dry_run, outbox):
+@click.option(
+    "--timeout",
+    type=float,
+    default=None,
+    help="HTTP timeout in seconds (default: no timeout).",
+)
+def sync(status, dry_run, outbox, timeout):
     """Sync pending operations from disk to the server.
 
     Replays WAL (write-ahead log) files that were saved when operations
@@ -163,7 +169,7 @@ def sync(status, dry_run, outbox):
     server_url = os.getenv("DALVA_SERVER_URL", "http://localhost:8000")
 
     try:
-        with httpx.Client(base_url=server_url, timeout=30) as client:
+        with httpx.Client(base_url=server_url, timeout=timeout) as client:
             try:
                 client.get("/api/health").raise_for_status()
             except Exception:

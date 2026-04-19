@@ -77,7 +77,7 @@ print(f"  WAL written: {pending[0].entry_count} operations in {pending[0].path.n
 # --- Phase 3: Sync (replay from disk) ---
 print("\n--- Phase 3: Replaying with dalva sync ---")
 
-client = httpx.Client(base_url=server_url, timeout=30)
+client = httpx.Client(base_url=server_url)
 client.get("/api/health").raise_for_status()
 
 total_ok = 0

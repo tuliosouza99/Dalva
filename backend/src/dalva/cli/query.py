@@ -19,10 +19,11 @@ def _make_request(
     path: str,
     server_url: str,
     params: dict[str, Any] | None = None,
+    timeout: float | None = None,
 ) -> Any:
     url = f"{server_url}{path}"
     try:
-        with httpx.Client(timeout=30) as client:
+        with httpx.Client(timeout=timeout) as client:
             resp = client.request(method, url, params=params)
             resp.raise_for_status()
             return resp.json()
@@ -146,18 +147,27 @@ def _print_stats(data: dict) -> None:
 
 
 @click.group()
-def query():
+@click.option(
+    "--timeout",
+    type=float,
+    default=None,
+    help="HTTP timeout in seconds (default: no timeout).",
+)
+@click.pass_context
+def query(ctx, timeout):
     """Query experiments from the Dalva server (read-only)."""
-    pass
+    ctx.ensure_object(dict)
+    ctx.obj["timeout"] = timeout
 
 
 @query.command()
 @click.option("--format", "fmt", type=click.Choice(["json", "table"]), default="json")
 @click.option("--server-url", default=None)
-def projects(fmt, server_url):
+@click.pass_context
+def projects(ctx, fmt, server_url):
     """List all projects with run counts."""
-    base = server_url or _server_url(click.get_current_context())
-    data = _make_request("GET", "/api/projects/", base)
+    base = server_url or _server_url(ctx)
+    data = _make_request("GET", "/api/projects/", base, timeout=ctx.obj.get("timeout"))
     _output(data, fmt)
 
 
@@ -174,11 +184,22 @@ def projects(fmt, server_url):
 @click.option("--sort-order", type=click.Choice(["asc", "desc"]), default="desc")
 @click.option("--format", "fmt", type=click.Choice(["json", "table"]), default="json")
 @click.option("--server-url", default=None)
+@click.pass_context
 def runs_list(
-    project_id, state, search, tags, limit, offset, sort_by, sort_order, fmt, server_url
+    ctx,
+    project_id,
+    state,
+    search,
+    tags,
+    limit,
+    offset,
+    sort_by,
+    sort_order,
+    fmt,
+    server_url,
 ):
     """List and filter runs."""
-    base = server_url or _server_url(click.get_current_context())
+    base = server_url or _server_url(ctx)
     params: dict[str, Any] = {
         "limit": limit,
         "offset": offset,
@@ -193,7 +214,9 @@ def runs_list(
         params["search"] = search
     if tags:
         params["tags"] = tags
-    data = _make_request("GET", "/api/runs/", base, params=params)
+    data = _make_request(
+        "GET", "/api/runs/", base, params=params, timeout=ctx.obj.get("timeout")
+    )
     _output(data, fmt)
 
 
@@ -201,10 +224,13 @@ def runs_list(
 @click.argument("run_id")
 @click.option("--format", "fmt", type=click.Choice(["json", "table"]), default="json")
 @click.option("--server-url", default=None)
-def run_detail(run_id, fmt, server_url):
+@click.pass_context
+def run_detail(ctx, run_id, fmt, server_url):
     """Get run summary (metadata + latest metrics + config)."""
-    base = server_url or _server_url(click.get_current_context())
-    data = _make_request("GET", f"/api/runs/{run_id}/summary", base)
+    base = server_url or _server_url(ctx)
+    data = _make_request(
+        "GET", f"/api/runs/{run_id}/summary", base, timeout=ctx.obj.get("timeout")
+    )
     _output(data, fmt)
 
 
@@ -212,10 +238,13 @@ def run_detail(run_id, fmt, server_url):
 @click.argument("run_id")
 @click.option("--format", "fmt", type=click.Choice(["json", "table"]), default="json")
 @click.option("--server-url", default=None)
-def metrics_list(run_id, fmt, server_url):
+@click.pass_context
+def metrics_list(ctx, run_id, fmt, server_url):
     """List available metric keys for a run."""
-    base = server_url or _server_url(click.get_current_context())
-    data = _make_request("GET", f"/api/metrics/runs/{run_id}", base)
+    base = server_url or _server_url(ctx)
+    data = _make_request(
+        "GET", f"/api/metrics/runs/{run_id}", base, timeout=ctx.obj.get("timeout")
+    )
     _output(data, fmt)
 
 
@@ -228,18 +257,23 @@ def metrics_list(run_id, fmt, server_url):
 @click.option("--offset", type=int, default=0)
 @click.option("--format", "fmt", type=click.Choice(["json", "table"]), default="json")
 @click.option("--server-url", default=None)
+@click.pass_context
 def metric_history(
-    run_id, metric_path, step_min, step_max, limit, offset, fmt, server_url
+    ctx, run_id, metric_path, step_min, step_max, limit, offset, fmt, server_url
 ):
     """Get full history of a metric (timeseries)."""
-    base = server_url or _server_url(click.get_current_context())
+    base = server_url or _server_url(ctx)
     params: dict[str, Any] = {"limit": limit, "offset": offset}
     if step_min is not None:
         params["step_min"] = step_min
     if step_max is not None:
         params["step_max"] = step_max
     data = _make_request(
-        "GET", f"/api/metrics/runs/{run_id}/metric/{metric_path}", base, params=params
+        "GET",
+        f"/api/metrics/runs/{run_id}/metric/{metric_path}",
+        base,
+        params=params,
+        timeout=ctx.obj.get("timeout"),
     )
     _output(data, fmt)
 
@@ -249,13 +283,21 @@ def metric_history(
 @click.argument("key", required=False, default=None)
 @click.option("--format", "fmt", type=click.Choice(["json", "table"]), default="json")
 @click.option("--server-url", default=None)
-def run_config(run_id, key, fmt, server_url):
+@click.pass_context
+def run_config(ctx, run_id, key, fmt, server_url):
     """Get run config (all keys, or a specific key)."""
-    base = server_url or _server_url(click.get_current_context())
+    base = server_url or _server_url(ctx)
     if key:
-        data = _make_request("GET", f"/api/runs/{run_id}/config/{key}", base)
+        data = _make_request(
+            "GET",
+            f"/api/runs/{run_id}/config/{key}",
+            base,
+            timeout=ctx.obj.get("timeout"),
+        )
     else:
-        data = _make_request("GET", f"/api/runs/{run_id}/config", base)
+        data = _make_request(
+            "GET", f"/api/runs/{run_id}/config", base, timeout=ctx.obj.get("timeout")
+        )
     _output(data, fmt)
 
 
@@ -266,15 +308,18 @@ def run_config(run_id, key, fmt, server_url):
 @click.option("--offset", type=int, default=0)
 @click.option("--format", "fmt", type=click.Choice(["json", "table"]), default="json")
 @click.option("--server-url", default=None)
-def tables_list(run_id, project_id, limit, offset, fmt, server_url):
+@click.pass_context
+def tables_list(ctx, run_id, project_id, limit, offset, fmt, server_url):
     """List tables."""
-    base = server_url or _server_url(click.get_current_context())
+    base = server_url or _server_url(ctx)
     params: dict[str, Any] = {"limit": limit, "offset": offset}
     if run_id is not None:
         params["run_id"] = run_id
     if project_id is not None:
         params["project_id"] = project_id
-    data = _make_request("GET", "/api/tables/", base, params=params)
+    data = _make_request(
+        "GET", "/api/tables/", base, params=params, timeout=ctx.obj.get("timeout")
+    )
     _output(data, fmt)
 
 
@@ -282,10 +327,13 @@ def tables_list(run_id, project_id, limit, offset, fmt, server_url):
 @click.argument("table_id")
 @click.option("--format", "fmt", type=click.Choice(["json", "table"]), default="json")
 @click.option("--server-url", default=None)
-def table_detail(table_id, fmt, server_url):
+@click.pass_context
+def table_detail(ctx, table_id, fmt, server_url):
     """Get table metadata and schema."""
-    base = server_url or _server_url(click.get_current_context())
-    data = _make_request("GET", f"/api/tables/{table_id}", base)
+    base = server_url or _server_url(ctx)
+    data = _make_request(
+        "GET", f"/api/tables/{table_id}", base, timeout=ctx.obj.get("timeout")
+    )
     _output(data, fmt)
 
 
@@ -298,9 +346,12 @@ def table_detail(table_id, fmt, server_url):
 @click.option("--filters", default=None, help="JSON array of column filters.")
 @click.option("--format", "fmt", type=click.Choice(["json", "table"]), default="json")
 @click.option("--server-url", default=None)
-def table_data(table_id, limit, offset, sort_by, sort_order, filters, fmt, server_url):
+@click.pass_context
+def table_data(
+    ctx, table_id, limit, offset, sort_by, sort_order, filters, fmt, server_url
+):
     """Get table rows with optional sorting and filtering."""
-    base = server_url or _server_url(click.get_current_context())
+    base = server_url or _server_url(ctx)
     params: dict[str, Any] = {
         "limit": limit,
         "offset": offset,
@@ -310,7 +361,13 @@ def table_data(table_id, limit, offset, sort_by, sort_order, filters, fmt, serve
         params["sort_by"] = sort_by
     if filters:
         params["filters"] = filters
-    data = _make_request("GET", f"/api/tables/{table_id}/data", base, params=params)
+    data = _make_request(
+        "GET",
+        f"/api/tables/{table_id}/data",
+        base,
+        params=params,
+        timeout=ctx.obj.get("timeout"),
+    )
     _output(data, fmt)
 
 
@@ -318,8 +375,11 @@ def table_data(table_id, limit, offset, sort_by, sort_order, filters, fmt, serve
 @click.argument("table_id")
 @click.option("--format", "fmt", type=click.Choice(["json", "table"]), default="json")
 @click.option("--server-url", default=None)
-def table_stats(table_id, fmt, server_url):
+@click.pass_context
+def table_stats(ctx, table_id, fmt, server_url):
     """Get per-column statistics for a table."""
-    base = server_url or _server_url(click.get_current_context())
-    data = _make_request("GET", f"/api/tables/{table_id}/stats", base)
+    base = server_url or _server_url(ctx)
+    data = _make_request(
+        "GET", f"/api/tables/{table_id}/stats", base, timeout=ctx.obj.get("timeout")
+    )
     _output(data, fmt)

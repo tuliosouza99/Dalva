@@ -54,6 +54,7 @@ class Table:
         resume_from: str | None = None,
         server_url: str = "http://localhost:8000",
         outbox_dir: Path | None = None,
+        http_timeout: float | None = None,
     ):
         if resume_from is None:
             if schema is None:
@@ -70,6 +71,7 @@ class Table:
         self._schema_cls = schema
         self.config = config or {}
         self._server_url = server_url
+        self._http_timeout = http_timeout
         self._client: httpx.Client | None = None
         self._worker: SyncWorker | None = None
         self._run_id = run_id
@@ -89,7 +91,9 @@ class Table:
         )
 
         self._wal = WALManager("table", self._db_id, outbox_dir=outbox_dir)
-        self._worker = SyncWorker(server_url, wal_manager=self._wal)
+        self._worker = SyncWorker(
+            server_url, wal_manager=self._wal, http_timeout=http_timeout
+        )
         atexit.register(self._atexit_handler)
 
         _logger.info("Table created: %s", self.table_id)
@@ -117,7 +121,9 @@ class Table:
 
     def _get_client(self) -> httpx.Client:
         if self._client is None:
-            self._client = httpx.Client(base_url=self._server_url, timeout=30)
+            self._client = httpx.Client(
+                base_url=self._server_url, timeout=self._http_timeout
+            )
         return self._client
 
     def _create_table_on_server(

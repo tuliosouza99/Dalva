@@ -49,10 +49,12 @@ class Run:
         copy_tables_on_fork: bool | list[int] = False,
         server_url: str = "http://localhost:8000",
         outbox_dir: Path | None = None,
+        http_timeout: float | None = None,
     ):
         self.project_name = project
         self.config = config or {}
         self._server_url = server_url
+        self._http_timeout = http_timeout
         self._client: httpx.Client | None = None
         self._worker: SyncWorker | None = None
         self._tables: list[Table] = []
@@ -72,7 +74,9 @@ class Run:
         )
 
         self._wal = WALManager("run", self._db_id, outbox_dir=outbox_dir)
-        self._worker = SyncWorker(server_url, wal_manager=self._wal)
+        self._worker = SyncWorker(
+            server_url, wal_manager=self._wal, http_timeout=http_timeout
+        )
         atexit.register(self._atexit_handler)
 
         _logger.info("Run created: %s", self.run_id)
@@ -98,7 +102,9 @@ class Run:
 
     def _get_client(self) -> httpx.Client:
         if self._client is None:
-            self._client = httpx.Client(base_url=self._server_url, timeout=30)
+            self._client = httpx.Client(
+                base_url=self._server_url, timeout=self._http_timeout
+            )
         return self._client
 
     def _create_run_on_server(
@@ -402,6 +408,7 @@ class Run:
             config=config,
             run_id=self.run_id,
             server_url=self._server_url,
+            http_timeout=self._http_timeout,
         )
         self._tables.append(t)
         return t

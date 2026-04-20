@@ -202,7 +202,7 @@ class TestTableLogRow:
                 schema=MySchema,
                 outbox_dir=tmp_path / "outbox",
             )
-            with pytest.raises(Exception, match=""):
+            with pytest.raises(Exception, match=None):
                 t.log_row({"count": "not_a_number"})
 
     def test_log_row_raises_on_finished(self, tmp_path):
@@ -297,7 +297,7 @@ class TestTableLogRows:
                 schema=MySchema,
                 outbox_dir=tmp_path / "outbox",
             )
-            with pytest.raises(Exception, match=""):
+            with pytest.raises(Exception, match=None):
                 t.log_rows(
                     [
                         {"x": 1},

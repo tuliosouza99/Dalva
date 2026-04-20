@@ -40,6 +40,38 @@ dalva db backup    # copy DB to timestamped backup
 dalva db reset     # delete DB (confirmation required)
 ```
 
+### Export / Import
+
+Transfer data between Dalva instances. The primary use case is remote training: run Dalva on the GPU machine, then sync results back to your local database.
+
+```bash
+dalva db export                          # export entire DB to stdout (NDJSON format)
+dalva db export --output dump.ndjson     # export to file
+dalva db export --project my-project     # export only one project
+
+dalva db import dump.ndjson              # import from file
+dalva db import -                        # import from stdin (for piping)
+dalva db import dump.ndjson --fail-on-conflict  # error on duplicates
+```
+
+Merge behavior (default): existing projects/runs/tables are skipped silently, new data is inserted. Metrics use `ON CONFLICT DO NOTHING` so duplicates are safe.
+
+Typical remote training workflow:
+
+```bash
+# On remote GPU machine
+dalva server start &
+python train.py   # logs to localhost:8000
+
+# Sync back to local machine (one-liner)
+ssh gpu-server "dalva db export --project vit-finetune" | dalva db import -
+
+# Or: export to file, transfer, then import
+ssh gpu-server "dalva db export --output /tmp/dump.ndjson --project vit-finetune"
+scp gpu-server:/tmp/dump.ndjson .
+dalva db import dump.ndjson
+```
+
 ## Wiring Dalva Into a Training Script
 
 ### Basic: Track a Run with Metrics and Config

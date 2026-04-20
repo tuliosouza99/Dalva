@@ -27,6 +27,8 @@ npm run lint       # eslint
 dalva server start              # production: build frontend + serve on single port
 dalva server dev                # dev: separate backend/frontend with hot reload
 dalva db info / backup / reset  # database management
+dalva db export [--output FILE] [--project NAME]  # export DB to NDJSON
+dalva db import FILE [--fail-on-conflict]          # import NDJSON into DB
 dalva config show               # view current configuration
 dalva sync                      # replay pending WAL operations from disk
 dalva sync --status             # show pending operations without sending
@@ -75,7 +77,7 @@ backend/src/dalva/    # Python package (hatch builds from here)
     schema.py         # DalvaSchema — Pydantic base class for table column schemas
     worker.py         # SyncWorker — background thread with batching + retry
     wal.py            # WALManager — write-ahead log for crash resilience
-  services/           # Business logic (logger.py, tables.py)
+  services/           # Business logic (logger.py, tables.py, export.py, import_db.py)
   static/             # Frontend build output bundled into wheel (gitignored)
   utils/
 backend/tests/

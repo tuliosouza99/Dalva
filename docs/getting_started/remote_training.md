@@ -1,173 +1,136 @@
 # Remote Training
 
-Track experiments running on remote machines (clusters, GPUs, cloud instances) by using an SSH reverse tunnel to connect to your local Dalva server.
+Track experiments running on remote machines (clusters, GPUs, cloud instances) by running Dalva directly on the remote machine and syncing data back to your local database when training finishes.
 
 ## How It Works
 
-When training on a remote machine, you can't directly reach your local server. By creating an SSH reverse tunnel, the remote machine can forward traffic to your local Dalva server.
+1. Run `dalva server start` on the remote machine
+2. Train your model, logging metrics to `localhost` as usual
+3. After training, export the database to an NDJSON stream
+4. Import the stream into your local Dalva database
 
 ## Setup
 
-### 1. Start the Dalva Server (Local Machine)
-
-On your local machine where you want to store the database:
+### 1. Start Dalva Server (Remote Machine)
 
 ```bash
 dalva server start
 ```
 
-Note the port number shown (e.g., `8000`).
+The server listens on `http://localhost:8000` by default.
 
-### 2. Create SSH Reverse Tunnel (Remote Machine)
-
-On your remote training machine, create an SSH tunnel:
-
-```bash
-ssh -R 8000:localhost:8000 user@your-local-machine
-```
-
-This forwards port `8000` on the remote machine to port `8000` on your local machine.
-
-### 3. Run Training (Remote Machine)
-
-On your remote machine, install Dalva and run your experiment:
+### 2. Run Training (Remote Machine)
 
 ```python
 import dalva
 
 run = dalva.init(
-    project="remote-project",
+    project="vit-finetune",
     name="gpu-experiment",
     config={
         "learning_rate": 0.001,
         "batch_size": 64,
         "epochs": 100,
     },
-    server_url="http://localhost:8000"
+    server_url="http://localhost:8000",
 )
 
-for step in range(100):
+for step in range(10000):
     loss = train_step(step)
     run.log({"train": {"loss": loss}}, step=step)
 
 run.finish()
 ```
 
-The `server_url="http://localhost:8000"` points to the SSH tunnel, which forwards traffic to your local Dalva server.
+All metrics are written to the local DuckDB on the remote machine — no network traffic leaves the machine during training.
 
-## SSH Tunnel Options
+### 3. Sync Back to Local Machine
 
-### Keep Tunnel Alive
+After training finishes, export the data and import it locally.
 
-Add this to your SSH command to prevent the tunnel from timing out:
-
-```bash
-ssh -R 8000:localhost:8000 -o ServerAliveInterval=60 user@your-local-machine
-```
-
-### Custom Port
-
-If your local server is on a different port, adjust both the SSH tunnel and `server_url`:
+**Option A: One-liner via SSH pipe**
 
 ```bash
-# Local machine: dalva server start --port 9000
-# Remote machine: ssh -R 8000:localhost:9000 user@your-local-machine
-
-run = dalva.init(
-    project="my-project",
-    server_url="http://localhost:8000"  # Tunnel maps 8000 -> 9000
-)
+ssh gpu-server "dalva db export --project vit-finetune" | dalva db import -
 ```
+
+This streams the NDJSON export directly over SSH into your local database. No temporary files needed.
+
+**Option B: Export to file, transfer, then import**
+
+```bash
+# On the remote machine
+dalva db export --output /tmp/vit-export.ndjson --project vit-finetune
+
+# Transfer to local machine
+scp gpu-server:/tmp/vit-export.ndjson .
+
+# Import into local database
+dalva db import vit-export.ndjson
+```
+
+**Option C: Compressed transfer (recommended for large exports)**
+
+```bash
+ssh gpu-server "dalva db export --project vit-finetune | gzip" | gunzip | dalva db import -
+```
+
+## CLI Reference
+
+### Export
+
+```bash
+dalva db export                          # Export entire database to stdout
+dalva db export --output dump.ndjson     # Export to file
+dalva db export --project my-project     # Export only one project
+```
+
+### Import
+
+```bash
+dalva db import dump.ndjson              # Import from file
+dalva db import -                        # Import from stdin (for piping)
+dalva db import dump.ndjson --fail-on-conflict  # Error on duplicates
+```
+
+### Merge Behavior
+
+By default, `dalva db import` **skips** records that already exist locally:
+
+- Projects with the same name are reused
+- Runs with the same `(project, run_id)` are skipped (along with their metrics/configs)
+- Tables with the same `(project, table_id)` are skipped
+- Individual configs and metrics that conflict are silently ignored
+
+Use `--fail-on-conflict` to error instead of skipping if you want strict import behavior.
 
 ## Crash Recovery
 
-When training on a remote machine, network issues or process crashes can cause metric data to be lost. Dalva provides automatic crash recovery via a **write-ahead log (WAL)**.
-
-### How It Works
-
-Every `run.log()` call is enqueued to a background worker thread. Before the worker sends each operation to the server, it appends it to a WAL file on disk (`~/.dalva/outbox/`).
-
-```
-run.log() → queue → worker appends to WAL → sends HTTP
-                              ↓
-  finish() times out  → dump remaining → WAL persists on disk
-  finish() succeeds   → WAL deleted
-  process crashes     → WAL survives   → dalva sync replays later
-```
-
-### Automatic Timeout Handling
-
-If `finish()` or `flush()` times out (e.g., the server is unreachable), unsent operations are automatically saved to disk:
-
-```
-[Dalva] 7 operation(s) saved to disk. Run 'dalva sync' to replay.
-```
-
-### Manual Recovery with `dalva sync`
-
-After a crash or timeout, use the CLI to replay pending operations:
+When training on a remote machine, Dalva's write-ahead log (WAL) protects against crashes during training. If the training process crashes:
 
 ```bash
-dalva sync             # Replay all pending operations
-dalva sync --status    # Show what's pending without sending
-dalva sync --dry-run   # Preview what would be sent
+# On the remote machine — replay unsent operations to the local server
+dalva sync
 ```
 
-Example output:
-
-```
-$ dalva sync --status
-Pending operations:
-
-  run_42.jsonl: 15 operation(s)
-  table_7.jsonl: 3 operation(s)
-
-  Total: 18 operation(s) across 2 file(s)
-
-$ dalva sync
-  run_42.jsonl: Synced 15/15 ✓
-  table_7.jsonl: Synced 3/3 ✓
-
-Done: synced 18.
-```
-
-### Example: Simulated Crash and Recovery
-
-```python
-import dalva
-
-# Phase 1: Normal training — server is up
-run = dalva.init(project="crash-demo", name="experiment-1")
-
-for step in range(10):
-    loss = train_step(step)
-    run.log({"loss": loss}, step=step)
-
-run.flush()  # Ensure metrics are sent
-
-# Phase 2: Server goes down / network drops
-# ... run.log() continues to enqueue, WAL persists to disk ...
-# ... process crashes or finish() times out ...
-
-# Phase 3: Server is back — recover from disk
-# Run on the same machine where training happened:
-#   $ dalva sync
-# All pending metrics are replayed to the server.
-```
+Then export/import as usual.
 
 ## Troubleshooting
 
-### Connection Refused
+### Empty Export
 
-- Verify the SSH tunnel is active: `ssh -R 8000:localhost:8000 user@host` succeeded
-- Check that your local Dalva server is still running
-- Verify the `server_url` matches the tunnel port
+- Verify the remote Dalva server was running during training
+- Check that runs completed successfully: `dalva query runs` on the remote machine
 
-### Tunnel Drops
+### Import Conflicts
 
-- Use `ServerAliveInterval=60` to keep the connection alive
-- Consider using `autossh` for automatic reconnection:
+- Use `dalva db info` on the local machine to inspect existing data
+- Re-importing the same export is safe (duplicate records are skipped)
+
+### Large Exports
+
+For projects with millions of metric rows, use the compressed transfer option:
 
 ```bash
-autossh -R 8000:localhost:8000 user@your-local-machine
+ssh gpu-server "dalva db export | gzip" | gunzip | dalva db import -
 ```

@@ -121,4 +121,15 @@ dalva sync --status    # check for pending operations
 dalva sync             # replay them to the server
 ```
 
+## Remote Training
+
+When training runs on a remote GPU machine, use export/import to sync results back:
+
+```bash
+# Sync from remote to local in one command
+ssh gpu-server "dalva db export --project my-project" | dalva db import -
+```
+
+See [Remote Training](remote_training.md) for the full guide.
+
 See [CLI Usage](cli_usage.md) for the full command reference.

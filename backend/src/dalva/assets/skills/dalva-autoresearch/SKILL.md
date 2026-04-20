@@ -139,6 +139,28 @@ dalva db backup    # creates a timestamped backup
 dalva db reset     # deletes the database (requires confirmation)
 ```
 
+### Export / Import (Remote Training)
+
+Transfer data between Dalva instances — used when training runs on a remote GPU machine and you want to sync results back to your local database.
+
+```bash
+# Export (on the remote machine)
+dalva db export                          # export entire database to stdout (NDJSON)
+dalva db export --output dump.ndjson     # export to file
+dalva db export --project my-project     # export only one project
+
+# Import (on the local machine)
+dalva db import dump.ndjson              # import from file
+dalva db import -                        # import from stdin (for piping)
+dalva db import dump.ndjson --fail-on-conflict  # error on duplicates instead of skipping
+```
+
+One-liner to sync from remote to local:
+
+```bash
+ssh gpu-server "dalva db export --project vit-finetune" | dalva db import -
+```
+
 ### Configuration
 
 ```bash
@@ -299,6 +321,17 @@ When multiple runs test different hyperparameters:
 3. Compare configs against metric outcomes to find the best configuration
 4. Use table data if the sweep results are logged as a table
 
+### Pattern 4: Remote Training Sync
+
+When training runs on a remote GPU machine:
+
+1. The training script runs `dalva server start` on the remote machine and logs to `localhost`
+2. After training finishes, export the data: `dalva db export --project <name>`
+3. Import into the local database: `dalva db import <file>` or pipe via SSH
+4. Then use all the standard query tools to analyze the results locally
+
+This avoids SSH tunnel bottlenecks — zero network traffic during training, one bulk sync after.
+
 ---
 
 ## Tips for Effective Use
@@ -308,3 +341,4 @@ When multiple runs test different hyperparameters:
 - The `--format table` option is useful for quick visual inspection when you're looking at output yourself
 - Tables are a powerful way to log structured per-step or per-epoch data (predictions, gradients, layer statistics) alongside scalar metrics
 - If the server is unreachable, check if it's running with `dalva db info` or `curl http://localhost:8000/api/health`
+- For remote training, use `dalva db export` / `dalva db import` to transfer data between machines — see "Export / Import" under Other CLI Commands

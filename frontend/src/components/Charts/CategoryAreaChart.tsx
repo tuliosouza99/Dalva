@@ -215,7 +215,7 @@ export default function CategoryAreaChart({
           {displayCategories.map((cat, idx) => (
             <span key={cat} className="flex items-center gap-1 text-xs">
               <span
-                className="inline-block w-3 h-3 rounded-sm"
+                className="inline-block w-3 h-3 rounded-xs"
                 style={{ backgroundColor: AREA_COLORS[idx % AREA_COLORS.length] }}
               />
               {cat}

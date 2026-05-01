@@ -59,8 +59,8 @@ export default function Layout() {
       <div className="flex-1 flex">
         {/* Sidebar */}
         <aside 
-          className="w-56 flex flex-col"
-          style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)', borderRight: '1px solid' }}
+          className="w-56 flex flex-col border-r"
+          style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}
         >
           <nav className="flex-1 p-4">
             <div className="nav-section-label">Workspace</div>

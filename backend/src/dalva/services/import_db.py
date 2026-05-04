@@ -9,6 +9,24 @@ from sqlalchemy import text
 from dalva.db.connection import _sync_sequences, get_engine
 
 BATCH_SIZE = 1000
+FLUSH_CHUNK_SIZE = 100
+
+_INDEXES = [
+    ("idx_projects_name", "projects(name)"),
+    ("idx_runs_project_id", "runs(project_id)"),
+    ("idx_runs_group_name", "runs(group_name)"),
+    ("idx_runs_state", "runs(state)"),
+    ("idx_runs_last_activity", "runs(last_activity_at)"),
+    ("idx_metrics_run_attr", "metrics(run_id, attribute_path)"),
+    ("idx_metrics_run_step", "metrics(run_id, step)"),
+    ("idx_metrics_attr_type", "metrics(attribute_type)"),
+    ("idx_files_run_type", "files(run_id, file_type)"),
+    ("idx_tables_project", "dalva_tables(project_id)"),
+    ("idx_tables_run", "dalva_tables(run_id)"),
+    ("idx_tables_table_id_version", "dalva_tables(table_id, version)"),
+    ("idx_table_rows_table_version", "dalva_table_rows(table_id, version)"),
+    ("uq_run_metric_attr", "metrics(run_id, attribute_path, COALESCE(step, -999999999))"),
+]
 
 
 def _parse_datetime(val):
@@ -42,17 +60,19 @@ def _flush_metrics(conn, buffer, run_map, counts):
         )
 
     if params_list:
-        conn.execute(
-            text("""
-            INSERT INTO metrics (id, run_id, attribute_path, attribute_type,
-                                 step, timestamp, float_value, int_value,
-                                 string_value, bool_value)
-            VALUES (nextval('metrics_id_seq'), :run_id, :path, :type, :step, :ts,
-                    :fv, :iv, :sv, :bv)
-            ON CONFLICT DO NOTHING
-        """),
-            params_list,
-        )
+        for i in range(0, len(params_list), FLUSH_CHUNK_SIZE):
+            chunk = params_list[i : i + FLUSH_CHUNK_SIZE]
+            conn.execute(
+                text("""
+                INSERT INTO metrics (id, run_id, attribute_path, attribute_type,
+                                     step, timestamp, float_value, int_value,
+                                     string_value, bool_value)
+                VALUES (nextval('metrics_id_seq'), :run_id, :path, :type, :step, :ts,
+                        :fv, :iv, :sv, :bv)
+                ON CONFLICT DO NOTHING
+            """),
+                chunk,
+            )
         counts["metrics_imported"] += len(params_list)
 
     buffer.clear()
@@ -77,16 +97,24 @@ def _flush_table_rows(conn, buffer, table_map, counts):
         )
 
     if params_list:
-        conn.execute(
-            text("""
-            INSERT INTO dalva_table_rows (id, table_id, version, row_data)
-            VALUES (nextval('dalva_table_rows_id_seq'), :table_id, :version, :row_data)
-        """),
-            params_list,
-        )
+        for i in range(0, len(params_list), FLUSH_CHUNK_SIZE):
+            chunk = params_list[i : i + FLUSH_CHUNK_SIZE]
+            conn.execute(
+                text("""
+                INSERT INTO dalva_table_rows (id, table_id, version, row_data)
+                VALUES (nextval('dalva_table_rows_id_seq'), :table_id, :version, :row_data)
+            """),
+                chunk,
+            )
         counts["table_rows_imported"] += len(params_list)
 
     buffer.clear()
+
+
+def _rebuild_indexes(conn):
+    for name, definition in _INDEXES:
+        conn.execute(text(f"DROP INDEX IF EXISTS {name}"))
+        conn.execute(text(f"CREATE INDEX {name} ON {definition}"))
 
 
 def _handle_project(conn, record, project_map, counts, fail_on_conflict):
@@ -277,8 +305,11 @@ def import_db(input: IO[str], fail_on_conflict: bool = False) -> dict:
     table_map = {}
     metrics_buffer = []
     table_rows_buffer = []
+    commit_interval = 5000
+    lines_since_commit = 0
 
     with engine.connect() as conn:
+        conn.execute(text("SET preserve_insertion_order=false"))
         for line in input:
             line = line.strip()
             if not line:
@@ -327,11 +358,20 @@ def import_db(input: IO[str], fail_on_conflict: bool = False) -> dict:
                 if len(table_rows_buffer) >= BATCH_SIZE:
                     _flush_table_rows(conn, table_rows_buffer, table_map, counts)
 
+            lines_since_commit += 1
+            if lines_since_commit >= commit_interval:
+                _flush_metrics(conn, metrics_buffer, run_map, counts)
+                _flush_table_rows(conn, table_rows_buffer, table_map, counts)
+                conn.commit()
+                lines_since_commit = 0
+
         _flush_metrics(conn, metrics_buffer, run_map, counts)
         _flush_table_rows(conn, table_rows_buffer, table_map, counts)
 
         conn.commit()
+        _rebuild_indexes(conn)
         _sync_sequences(conn)
+        conn.execute(text("CHECKPOINT"))
         conn.commit()
 
     return counts

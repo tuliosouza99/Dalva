@@ -25,7 +25,10 @@ _INDEXES = [
     ("idx_tables_run", "dalva_tables(run_id)"),
     ("idx_tables_table_id_version", "dalva_tables(table_id, version)"),
     ("idx_table_rows_table_version", "dalva_table_rows(table_id, version)"),
-    ("uq_run_metric_attr", "metrics(run_id, attribute_path, COALESCE(step, -999999999))"),
+    (
+        "uq_run_metric_attr",
+        "metrics(run_id, attribute_path, COALESCE(step, -999999999))",
+    ),
 ]
 
 

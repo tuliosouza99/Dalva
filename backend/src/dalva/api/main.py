@@ -1,7 +1,9 @@
 """FastAPI application for Dalva."""
 
 import os
+import threading
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -19,6 +21,7 @@ from dalva.api.routes import (
     views,
 )
 from dalva.db.connection import init_db
+from dalva.services.journal_import import import_journals_once
 from dalva.utils.paths import get_static_dir
 
 # Get static directory (works in both dev and installed modes)
@@ -35,7 +38,24 @@ async def lifespan(app: FastAPI):
     # Initialize database
     init_db()
 
+    runs_dir = Path(
+        os.getenv("DALVA_RUNS_DIR", str(Path.home() / ".dalva" / "runs"))
+    ).expanduser()
+    stop_importer = threading.Event()
+
+    def watch_journals() -> None:
+        while not stop_importer.is_set():
+            import_journals_once(runs_dir)
+            stop_importer.wait(0.5)
+
+    import_journals_once(runs_dir)
+    importer = threading.Thread(target=watch_journals, daemon=True)
+    importer.start()
+
     yield
+
+    stop_importer.set()
+    importer.join(timeout=2)
 
     print("Server shutdown complete")
 

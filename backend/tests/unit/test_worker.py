@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import queue
 import warnings
 from unittest.mock import MagicMock, patch
 
@@ -48,6 +49,30 @@ class TestPendingRequest:
 
 
 class TestSyncWorkerEnqueueAndDrain:
+    def test_wal_is_persisted_before_request_enters_queue(
+        self, mock_httpx_client, tmp_path
+    ):
+        from dalva.sdk.wal import WALManager
+
+        wal = WALManager("run", 1, outbox_dir=tmp_path)
+        worker = SyncWorker(
+            "http://localhost:8000",
+            max_queue_size=1,
+            wal_manager=wal,
+        )
+        request = PendingRequest(method="POST", url="/durable", payload={"x": 1})
+
+        with (
+            patch.object(worker._queue, "put", side_effect=queue.Full),
+            pytest.raises(ConnectionError, match="queue full"),
+        ):
+            worker.enqueue(request, timeout=0)
+
+        entries = wal.read(wal.path)
+        assert entries[-1]["url"] == "/durable"
+        assert request.wal_persisted is True
+        worker.stop()
+
     def test_enqueue_and_drain(self, mock_httpx_client):
         mock_httpx_client.post.return_value = _ok_response()
         worker = SyncWorker("http://localhost:8000", max_queue_size=10)

@@ -8,6 +8,7 @@ from dalva.cli.query import query
 from dalva.cli.server import server
 from dalva.cli.skill import skill
 from dalva.cli.sync import sync
+from dalva.cli.ui import ui
 
 
 @click.group()
@@ -23,6 +24,7 @@ cli.add_command(config)
 cli.add_command(sync)
 cli.add_command(query)
 cli.add_command(skill)
+cli.add_command(ui)
 
 
 if __name__ == "__main__":

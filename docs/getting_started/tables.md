@@ -53,7 +53,6 @@ table = dalva.table(
     project="my-project",
     schema=PredictionSchema,
     name="predictions",
-    server_url="http://localhost:8000",
 )
 ```
 
@@ -65,7 +64,7 @@ table = dalva.table(
 - `config` (optional) - Configuration dictionary
 - `run_id` (optional) - Run ID string to link this table to a run
 - `resume_from` (optional) - Table ID to resume an existing table (schema not needed)
-- `server_url` (required) - URL of the Dalva server
+- `sync` (optional) - Filesystem or S3-compatible replication target
 
 ### Linked to a Run
 

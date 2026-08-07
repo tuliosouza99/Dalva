@@ -21,12 +21,11 @@ pip install dalva
 ```python
 import dalva
 
-# Initialize a run (server must be running)
+# Initialize a daemonless run
 run = dalva.init(
     project="my-project",
     name="experiment-1",
     config={"lr": 0.001},
-    server_url="http://localhost:8000",
 )
 
 # Log metrics
@@ -40,19 +39,18 @@ run.finish()
 ## Features
 
 - **Simple API** - Just `init()`, `log()`, and `finish()`
-- **Self-Hosted** - Data stored locally in DuckDB
+- **Daemonless Logging** - Durable per-run journals require no server
+- **Self-Hosted** - Journals and the DuckDB read model remain local
 - **Flexible Metrics** - Log any metrics without schemas
 - **Tabular Data** - Track DataFrames alongside runs with `dalva.table()`
-- **Web Interface** - View and compare experiments at `http://localhost:8000`
-- **Crash Recovery** - Automatic WAL persistence + `dalva sync` for replaying lost operations
+- **Web Interface** - Start an on-demand viewer with `dalva ui`
+- **Crash Recovery** - Every event is journaled before `log()` returns
 
-## Start the Server
+## View Experiments
 
 ```bash
-dalva server start
+dalva ui
 ```
 
-Open [http://localhost:8000](http://localhost:8000) to access the web interface.
-
-!!! important
-    The Dalva server must be running before logging experiments. The Python SDK communicates with the server via HTTP at the specified `server_url`.
+The viewer materializes journal events into DuckDB while it is running. Training
+processes never need to connect to it.

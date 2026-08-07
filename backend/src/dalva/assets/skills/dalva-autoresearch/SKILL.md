@@ -21,12 +21,15 @@ This skill gives you, the agent, a complete set of tools to observe and reason a
 
 ## How Dalva Works
 
-Dalva is a lightweight experiment tracker. A training script logs metrics, configs, and tabular data to a local Dalva server via the Python SDK. You query that data through CLI commands.
+Dalva is a lightweight experiment tracker. Training processes write durable
+per-run journals without a server. The on-demand UI materializes those journals
+into DuckDB, which the CLI query commands read through the local API.
 
 The server must be running for query commands to work. If it's not running, start it:
 
 ```bash
-dalva server start              # production mode
+dalva server start --no-reload  # headless API for agent queries
+dalva ui                        # interactive UI + API
 dalva server dev                # dev mode (separate frontend/backend)
 ```
 
@@ -325,12 +328,12 @@ When multiple runs test different hyperparameters:
 
 When training runs on a remote GPU machine:
 
-1. The training script runs `dalva server start` on the remote machine and logs to `localhost`
-2. After training finishes, export the data: `dalva db export --project <name>`
-3. Import into the local database: `dalva db import <file>` or pipe via SSH
-4. Then use all the standard query tools to analyze the results locally
+1. The training script uses `sync="s3://bucket/prefix"`; no Dalva server runs remotely
+2. Immutable journal segments upload in the background
+3. Download the prefix into `~/.dalva/runs/`
+4. Start `dalva server start --no-reload` and use the standard query tools
 
-This avoids SSH tunnel bottlenecks — zero network traffic during training, one bulk sync after.
+Use `run.sync()` at important checkpoints to wait for remote acknowledgement.
 
 ---
 
@@ -341,4 +344,4 @@ This avoids SSH tunnel bottlenecks — zero network traffic during training, one
 - The `--format table` option is useful for quick visual inspection when you're looking at output yourself
 - Tables are a powerful way to log structured per-step or per-epoch data (predictions, gradients, layer statistics) alongside scalar metrics
 - If the server is unreachable, check if it's running with `dalva db info` or `curl http://localhost:8000/api/health`
-- For remote training, use `dalva db export` / `dalva db import` to transfer data between machines — see "Export / Import" under Other CLI Commands
+- For remote training, use daemonless S3-compatible journal replication

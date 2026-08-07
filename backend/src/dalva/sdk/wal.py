@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import queue
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -32,6 +34,7 @@ class WALManager:
         self._outbox_dir = outbox_dir or _default_outbox_dir()
         self._path = self._outbox_dir / f"{resource_type}_{resource_id}.jsonl"
         self._seq = 0
+        self._lock = threading.Lock()
 
     @property
     def path(self) -> Path:
@@ -42,20 +45,22 @@ class WALManager:
         return self._path.exists() and self._path.stat().st_size > 0
 
     def append(self, request) -> None:
-        self._outbox_dir.mkdir(parents=True, exist_ok=True)
-        self._seq += 1
-        entry = {
-            "seq": self._seq,
-            "method": request.method,
-            "url": request.url,
-            "payload": request.payload,
-            "headers": request.headers,
-            "batch_key": request.batch_key,
-            "batch_count": request.batch_count,
-        }
-        with open(self._path, "a") as f:
-            f.write(json.dumps(entry, default=str) + "\n")
-            f.flush()
+        with self._lock:
+            self._outbox_dir.mkdir(parents=True, exist_ok=True)
+            self._seq += 1
+            entry = {
+                "seq": self._seq,
+                "method": request.method,
+                "url": request.url,
+                "payload": request.payload,
+                "headers": request.headers,
+                "batch_key": request.batch_key,
+                "batch_count": request.batch_count,
+            }
+            with open(self._path, "a") as f:
+                f.write(json.dumps(entry, default=str) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
 
     def delete(self) -> None:
         try:
@@ -77,8 +82,11 @@ class WALManager:
             return 0
 
         self._outbox_dir.mkdir(parents=True, exist_ok=True)
-        with open(self._path, "a") as f:
+        with self._lock, open(self._path, "a") as f:
+            wrote = False
             for item in items:
+                if getattr(item, "wal_persisted", False):
+                    continue
                 self._seq += 1
                 entry = {
                     "seq": self._seq,
@@ -90,7 +98,11 @@ class WALManager:
                     "batch_count": item.batch_count,
                 }
                 f.write(json.dumps(entry, default=str) + "\n")
-            f.flush()
+                item.wal_persisted = True
+                wrote = True
+            if wrote:
+                f.flush()
+                os.fsync(f.fileno())
         return len(items)
 
     @staticmethod

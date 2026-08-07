@@ -14,6 +14,15 @@ pip install dalva
 
 ## Server Commands
 
+For normal use, start the on-demand viewer:
+
+```bash
+dalva ui
+```
+
+Training itself does not require this process. The `dalva server` commands are
+retained for legacy HTTP clients and development.
+
 ### `dalva server start`
 
 Start production server (builds frontend, serves from single port):

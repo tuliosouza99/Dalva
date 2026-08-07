@@ -75,6 +75,9 @@ def _create_tables(engine) -> None:
         conn.execute(
             text("CREATE SEQUENCE IF NOT EXISTS dalva_table_rows_id_seq START 1")
         )
+        conn.execute(
+            text("CREATE SEQUENCE IF NOT EXISTS journal_events_id_seq START 1")
+        )
 
         # Projects table
         conn.execute(
@@ -210,6 +213,19 @@ def _create_tables(engine) -> None:
                 table_id INTEGER NOT NULL,
                 version INTEGER DEFAULT 0,
                 row_data VARCHAR
+            )
+        """)
+        )
+
+        conn.execute(
+            text("""
+            CREATE TABLE IF NOT EXISTS journal_events (
+                id INTEGER PRIMARY KEY DEFAULT nextval('journal_events_id_seq'),
+                resource_id VARCHAR NOT NULL,
+                seq INTEGER NOT NULL,
+                event_type VARCHAR NOT NULL,
+                imported_at TIMESTAMP,
+                UNIQUE(resource_id, seq)
             )
         """)
         )

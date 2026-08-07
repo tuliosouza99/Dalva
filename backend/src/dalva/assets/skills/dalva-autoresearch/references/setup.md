@@ -2,7 +2,7 @@
 
 How to set up Dalva for experiment tracking, from installation to wiring it into a training script.
 
-## Installation and Server
+## Installation and Viewer
 
 Dalva is installed as a Python package. Once installed, the `dalva` CLI is available.
 
@@ -10,12 +10,14 @@ Dalva is installed as a Python package. Once installed, the `dalva` CLI is avail
 pip install dalva          # or: uv add dalva
 ```
 
-### Starting the Server
+### Starting the on-demand viewer
 
-The Dalva server is a local FastAPI app backed by DuckDB. Start it before running experiments:
+Training does not require a server. Start the viewer only when you want the UI
+or CLI query API:
 
 ```bash
-dalva server start              # production: serves frontend + API on one port
+dalva ui                        # interactive viewer
+dalva server start --no-reload  # headless API for agents
 dalva server start --port 8080  # custom port
 dalva server start --no-reload  # disable auto-reload
 
@@ -42,7 +44,7 @@ dalva db reset     # delete DB (confirmation required)
 
 ### Export / Import
 
-Transfer data between Dalva instances. The primary use case is remote training: run Dalva on the GPU machine, then sync results back to your local database.
+These commands remain available for legacy DuckDB database transfer.
 
 ```bash
 dalva db export                          # export entire DB to stdout (NDJSON format)
@@ -56,20 +58,16 @@ dalva db import dump.ndjson --fail-on-conflict  # error on duplicates
 
 Merge behavior (default): existing projects/runs/tables are skipped silently, new data is inserted. Metrics use `ON CONFLICT DO NOTHING` so duplicates are safe.
 
-Typical remote training workflow:
+Preferred remote training workflow:
 
 ```bash
-# On remote GPU machine
-dalva server start &
-python train.py   # logs to localhost:8000
+uv add "dalva[s3]"
+# Configure the training script with sync="s3://bucket/dalva"
+python train.py
 
-# Sync back to local machine (one-liner)
-ssh gpu-server "dalva db export --project vit-finetune" | dalva db import -
-
-# Or: export to file, transfer, then import
-ssh gpu-server "dalva db export --output /tmp/dump.ndjson --project vit-finetune"
-scp gpu-server:/tmp/dump.ndjson .
-dalva db import dump.ndjson
+# On the analysis machine
+aws s3 sync s3://bucket/dalva ~/.dalva/runs
+dalva server start --no-reload
 ```
 
 ## Wiring Dalva Into a Training Script
@@ -202,7 +200,11 @@ dalva sync --dry-run
 dalva sync
 ```
 
-The typical crash recovery pattern:
+The following applies to legacy HTTP mode. In daemonless mode, each event is
+journaled locally before `log()` returns and `run.sync()` retries unacknowledged
+segments directly.
+
+The legacy HTTP crash recovery pattern:
 1. Training script crashes (OOM, SIGKILL, power loss)
 2. WAL files survive on disk with unsent metric log requests
 3. Restart the server: `dalva server start`
@@ -213,7 +215,8 @@ The typical crash recovery pattern:
 
 - **Normal operation**: Worker appends to WAL before sending HTTP. On successful `finish()`, WAL is deleted
 - **Timeout**: If `finish()` or `flush()` times out, remaining queue items are dumped to WAL
-- **Crash**: Items already appended to WAL survive. Items still in the in-memory queue (~0.2s window) are lost
+- **Crash**: Requests are appended and fsynced to the WAL before entering the
+  in-memory HTTP queue, so a worker-pickup window cannot lose them
 
 ## SDK Run API Quick Reference
 

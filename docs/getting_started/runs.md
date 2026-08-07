@@ -9,7 +9,6 @@ run = dalva.init(
     project="my-project",
     name="experiment-1",
     config={"lr": 0.001, "batch_size": 32},
-    server_url="http://localhost:8000",
 )
 ```
 
@@ -21,7 +20,10 @@ run = dalva.init(
 - `resume_from` (optional) - Run ID to resume an existing run
 - `fork_from` (optional) - Run ID to fork from (creates a copy with config/metrics)
 - `copy_tables_on_fork` (optional) - `False` (default, no tables), `True` (all tables), or a list of table IDs. Only used with `fork_from`.
-- `server_url` (required) - URL of the Dalva server (e.g., `http://localhost:8000`)
+- `sync` (optional) - A local path, `file://` URI, or `s3://bucket/prefix`
+  replication target
+- `durability` (optional) - `balanced` (default) or `strict` (fsync per event)
+- `server_url` (optional) - Use the legacy HTTP mode with an existing server
 
 ## The Config Parameter
 
@@ -54,7 +56,6 @@ run = dalva.init(
         # Reproducibility
         "seed": 42,
     },
-    server_url="http://localhost:8000",
 )
 ```
 
@@ -81,7 +82,6 @@ run = dalva.init(
             "val": {"path": "/data/val", "size": 10000},
         },
     },
-    server_url="http://localhost:8000",
 )
 # Stored as flat keys: model/backbone, optimizer/lr, data/train/path, etc.
 ```
@@ -90,7 +90,7 @@ run = dalva.init(
 
 The `Run` object has these properties:
 
-- `run_id` - System-generated unique identifier (e.g., "ABC-1")
+- `run_id` - System-generated unique identifier (e.g., `RUN-1786123456789-a1b2c3d4e5f6`)
 - `name` - User-defined display name
 - `project` - Project name
 - `state` - Run state (running, finished, etc.)
@@ -102,13 +102,13 @@ See the [Run Class API documentation](../api_documentation/run_class.md) for the
 When you create a run, Dalva generates a unique `run_id` for you:
 
 ```
-ABC-1
+RUN-1786123456789-a1b2c3d4e5f6
 ```
 
 This ID is:
 
 - **Unique** - No two runs share the same ID
-- **Human-readable** - Uses a short prefix and incrementing number (e.g., "ABC-1", "ABC-2")
+- **Sortable** - Includes its creation timestamp and a random collision-resistant suffix
 - **Persistent** - Once assigned, a run's ID never changes
 
 **Where to find your run_id:**
@@ -116,15 +116,10 @@ This ID is:
 1. **Python** - Access it via the Run object:
    ```python
    run = dalva.init(project="my-project")
-   print(f"Run ID: {run.run_id}")  # ABC-1
+   print(f"Run ID: {run.run_id}")  # RUN-1786123456789-a1b2c3d4e5f6
    ```
 
-2. **Console output** - When you initialize a run, Dalva prints the run ID:
-   ```
-   Run created: ABC-1
-   ```
-
-3. **Frontend** - The run ID is displayed in the run's overview page in the web interface
+2. **Frontend** - The run ID is displayed in the run's overview page in the web interface
 
 ## Resuming Runs
 
@@ -136,7 +131,7 @@ import dalva
 # Resume an existing run
 run = dalva.init(
     project="my-project",
-    resume_from="ABC-1",  # The run_id to resume
+    resume_from="RUN-1786123456789-a1b2c3d4e5f6",
 )
 
 run.log({"loss": 0.2}, step=2)
@@ -152,10 +147,10 @@ run1.log({"loss": 1.0}, step=0)
 run1.log({"loss": 0.8}, step=1)
 run1.finish()
 
-print(f"Run ID: {run1.run_id}")  # e.g., "ABC-1"
+print(f"Run ID: {run1.run_id}")
 
 # Later, resume the same run
-run2 = dalva.init(project="training", resume_from="ABC-1")
+run2 = dalva.init(project="training", resume_from=run1.run_id)
 run2.log({"loss": 0.6}, step=2)
 run2.log({"loss": 0.4}, step=3)
 run2.finish()

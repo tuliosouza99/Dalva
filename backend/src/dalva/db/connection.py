@@ -182,6 +182,22 @@ def _create_duckdb_tables(engine) -> None:
         """)
         )
 
+        conn.execute(
+            text("CREATE SEQUENCE IF NOT EXISTS journal_events_id_seq START 1")
+        )
+        conn.execute(
+            text("""
+            CREATE TABLE IF NOT EXISTS journal_events (
+                id INTEGER PRIMARY KEY DEFAULT nextval('journal_events_id_seq'),
+                resource_id VARCHAR NOT NULL,
+                seq INTEGER NOT NULL,
+                event_type VARCHAR NOT NULL,
+                imported_at TIMESTAMP,
+                UNIQUE(resource_id, seq)
+            )
+        """)
+        )
+
         # Create indexes
         conn.execute(
             text("CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name)")
@@ -251,6 +267,7 @@ _SEQUENCE_MAP = {
     "custom_views": "custom_views_id_seq",
     "dalva_tables": "dalva_tables_id_seq",
     "dalva_table_rows": "dalva_table_rows_id_seq",
+    "journal_events": "journal_events_id_seq",
 }
 
 

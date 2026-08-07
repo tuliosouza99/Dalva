@@ -4,20 +4,23 @@ This document describes Dalva's internal architecture.
 
 ## System Overview
 
-Dalva is a full-stack application with:
+Dalva separates durable experiment capture from the on-demand query UI:
 
-- **Backend**: FastAPI + SQLAlchemy + DuckDB
+- **SDK**: Per-run append-only journals; no server connection by default
+- **Replication**: Immutable filesystem or S3-compatible segments
+- **Backend**: On-demand FastAPI materializer + SQLAlchemy + DuckDB
 - **Frontend**: React + TypeScript + Vite
 - **Database**: DuckDB (SQLite-like, file-based)
 
 ```mermaid
 graph TB
-subgraph SDK["Python SDK"]
-    sdk_run[Run Class]
-    sdk_table[Table Class]
+subgraph SDK["Training process"]
+    sdk_run["JournalRun"]
+    sdk_table["JournalTable"]
 end
-sdk_run -->|HTTP POST| api[REST API]
-sdk_table -->|HTTP POST| api
+sdk_run --> journal["Per-run event segments"]
+sdk_table --> journal
+journal -->|"optional async PUT"| objects["Filesystem / S3"]
 subgraph FE["Frontend - React"]
     fe_proj[Projects Page]
     fe_runs[Runs Page]
@@ -28,12 +31,13 @@ end
 FE --> rq[React Query Cache]
 rq --> api
 subgraph BE["Backend - FastAPI"]
+    importer["Journal materializer"]
     routes[API Routes]
-    logger[Logger Functions]
 end
+importer --> journal
 api --> routes
-routes --> logger
-logger --> db[(DuckDB)]
+importer --> db[(DuckDB read model)]
+routes --> db
 db --> tbl_projects[projects]
 db --> tbl_runs[runs]
 db --> tbl_metrics[metrics]
@@ -42,60 +46,68 @@ db --> tbl_dalva_tables[dalva_tables]
 db --> tbl_dalva_rows[dalva_table_rows]
 ```
 
-## SDK Worker + WAL Architecture
+## Daemonless Journal Architecture
 
-The SDK's `log()` is **async** — it enqueues operations to a background `SyncWorker` thread. The worker batches HTTP requests, retries on transient failures, and persists unsent operations to a **write-ahead log (WAL)** for crash recovery.
+`log()` appends to the run's local journal before it returns. A background worker
+only handles replication, so a slow or unavailable network never removes the
+local durability guarantee.
 
 ### Data Flow
 
 ```mermaid
 graph LR
-    TL[Training Loop] -->|run.log| Q[In-Memory Queue]
-    Q --> WT[SyncWorker Thread]
-    WT -->|append| WAL[WAL File ~/.dalva/outbox/]
-    WT -->|send| HTTP[HTTP POST to Server]
-    HTTP -->|success| DEL[WAL deleted on finish]
-    HTTP -->|timeout| DUMP[Dump remaining to WAL]
-    HTTP -->|crash| SURVIVE[WAL survives on disk]
-    SURVIVE -->|dalva sync| REPLAY[Replay later]
+    TL[Training Loop] -->|"run.log"| ACTIVE["Active local journal"]
+    ACTIVE -->|"500 ms or 256 KiB"| SEG["Immutable SHA-256 segment"]
+    SEG --> UP["Background uploader"]
+    UP -->|"acknowledged"| ACK["Local sync marker"]
+    UP -->|"retry"| SEG
+    SEG --> UI["On-demand UI materializer"]
 ```
 
 ### Components
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| `SyncWorker` | `sdk/worker.py` | Daemon thread: queue → batch → HTTP with retry |
-| `WALManager` | `sdk/wal.py` | Append/read/rewrite/delete JSONL files in `~/.dalva/outbox/` |
-| `Run` | `sdk/run.py` | Creates `WALManager("run", db_id)`, passes to worker |
-| `Table` | `sdk/table.py` | Creates `WALManager("table", db_id)`, passes to worker |
-| `dalva sync` | `cli/sync.py` | Replays WAL files: batch, handle 409, partial failure |
+| `SegmentedJournal` | `sdk/journal.py` | Durable append, rotation, checksums, sync barriers |
+| `SegmentUploader` | `sdk/journal.py` | Background retry and acknowledgement tracking |
+| `FileTransport` / `S3Transport` | `sdk/transport.py` | Idempotent immutable replication |
+| `JournalRun` / `JournalTable` | `sdk/local.py` | Daemonless public SDK resources |
+| Journal materializer | `services/journal_import.py` | Idempotent journal → DuckDB projection |
 
-### WAL Behavior
+### Durability Behavior
 
-- **Normal operation**: Worker appends each item to WAL before sending. On successful `finish()`, WAL is deleted.
-- **Timeout**: If `finish()` or `flush()` times out, remaining queue items are dumped to WAL. User sees: `"[Dalva] N operation(s) saved to disk. Run 'dalva sync' to replay."`
-- **Crash**: If the process crashes (SIGKILL, OOM), items already appended to WAL survive. Items still in the in-memory queue but not yet picked up by the worker are lost (~0.2s window).
-- **`dalva sync`**: Groups batchable entries by `batch_key`, sends as batch requests. Handles 409 Conflict (already applied) as success. On partial failure, rewrites WAL with only failed entries.
+- **Balanced mode**: each event is flushed from Python to the operating system
+  before `log()` returns; segment rotation performs an fsync.
+- **Strict mode**: every event is fsynced before `log()` returns.
+- **Replication**: local segments are never deleted after upload failures.
+- **`flush()`**: establishes a local fsync barrier.
+- **`sync()`**: rotates the active segment and waits for remote acknowledgement.
+- **`finish()`**: writes completion, synchronizes, and retains local data.
 
-### WAL File Format
+### Journal Event Format
 
-Stored at `~/.dalva/outbox/{type}_{db_id}.jsonl` (e.g., `run_42.jsonl`, `table_7.jsonl`):
+Stored below `~/.dalva/runs/<run-id>/events/`:
 
 ```jsonl
-{"seq":1,"method":"POST","url":"/api/runs/1/log","payload":{"metrics":{"loss":0.5},"step":0},"batch_key":"run:1","batch_count":0}
-{"seq":2,"method":"POST","url":"/api/runs/1/log","payload":{"metrics":{"loss":0.3},"step":1},"batch_key":"run:1","batch_count":0}
-{"seq":3,"method":"POST","url":"/api/runs/1/finish","payload":null,"batch_key":null,"batch_count":0}
+{"version":1,"seq":1,"timestamp":"...","type":"run_created","payload":{"project":"demo"}}
+{"version":1,"seq":2,"timestamp":"...","type":"metrics_logged","payload":{"metrics":{"loss":0.5},"step":0}}
+{"version":1,"seq":3,"timestamp":"...","type":"run_finished","payload":{"state":"completed"}}
 ```
 
 ### Key Parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `batch_size` | 50 | Max items per batch HTTP request |
-| `flush_interval` | 0.2s | How often worker checks the queue |
-| `max_retries` | 5 | Retry count for 5xx/network errors |
-| `base_backoff` | 1.0s | Exponential backoff base (2^n) |
-| `outbox_dir` | `~/.dalva/outbox/` | WAL file storage location |
+| `segment_bytes` | 256 KiB | Size-triggered segment rotation |
+| `segment_interval` | 0.5s | Time-triggered segment rotation |
+| `durability` | `balanced` | Local acknowledgement policy |
+| `runs_dir` | `~/.dalva/runs/` | Canonical local journal root |
+
+## Legacy HTTP Mode
+
+Passing `server_url` or setting `DALVA_SERVER_URL` selects the previous HTTP
+client. Its WAL is now also persisted before requests enter the in-memory queue,
+removing the former worker-pickup loss window.
 
 ## Backend Architecture
 
@@ -103,9 +115,10 @@ Stored at `~/.dalva/outbox/{type}_{db_id}.jsonl` (e.g., `run_42.jsonl`, `table_7
 
 #### 1. Short-Lived Sessions (DuckDB Compatibility)
 
-DuckDB allows **one writer per file** across OS processes. The old design held sessions open during training, blocking the web server.
-
-**Solution**: Every logger function opens a fresh session, writes, commits, and closes immediately:
+DuckDB allows **one read-write process per file**. Training processes therefore
+never open the shared DuckDB database. The on-demand UI is its sole owning
+process and incrementally materializes journal events. Sessions inside that
+process are still intentionally short-lived:
 
 ```python
 def log_metrics(run_id, metrics, step=None):

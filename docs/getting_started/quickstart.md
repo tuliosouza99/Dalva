@@ -12,18 +12,7 @@ uv add dalva
 pip install dalva
 ```
 
-## 2. Start the Server
-
-```bash
-dalva server start
-```
-
-The server will automatically find an available port and display the URL.
-
-!!! important
-    The Dalva server must be running before you can log experiments. The Python SDK communicates with the server via HTTP.
-
-## 3. Log Your First Experiment
+## 2. Log Your First Experiment
 
 Create a new file `my_experiment.py`:
 
@@ -39,7 +28,6 @@ run = dalva.init(
         "batch_size": 32,
         "epochs": 100,
     },
-    server_url="http://localhost:8000",
 )
 
 # Log metrics during training — nested dicts are flattened with '/' separator
@@ -71,11 +59,16 @@ Run the experiment:
 python my_experiment.py
 ```
 
-## 4. View Results
+## 3. View Results
 
-Open your browser to [http://localhost:8000](http://localhost:8000) to see your experiment.
+```bash
+dalva ui
+```
 
-## 5. More Examples
+Dalva imports the local journals into its DuckDB read model and opens the web
+interface. The UI process only runs while you are viewing experiments.
+
+## 4. More Examples
 
 See [`examples/nested_metrics_and_config.py`](https://github.com/tuliosouza99/Dalva/tree/main/backend/examples/nested_metrics_and_config.py) for a complete walkthrough covering nested metrics, get/remove/relog patterns, and nested config.
 

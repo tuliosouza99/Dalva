@@ -28,6 +28,7 @@ class PendingRequest:
     created_at: float = field(default_factory=time.time)
     batch_key: str | None = None
     batch_count: int = 0
+    wal_persisted: bool = False
 
     @property
     def can_retry(self) -> bool:
@@ -84,6 +85,12 @@ class SyncWorker:
             return self._pending
 
     def enqueue(self, request: PendingRequest, timeout: float | None = None) -> None:
+        # Durability is established before the request enters the in-memory queue.
+        # A process crash after this point can therefore be recovered with
+        # ``dalva sync`` even if the worker thread never observes the item.
+        if self._wal is not None and not request.wal_persisted:
+            self._wal.append(request)
+            request.wal_persisted = True
         try:
             self._queue.put(request, timeout=timeout)
         except queue.Full:
@@ -165,8 +172,6 @@ class SyncWorker:
                 continue
             if item is None:
                 break
-            if self._wal is not None:
-                self._wal.append(item)
             if item.batch_key is not None:
                 self._collect_and_send_batch(item)
             else:
@@ -179,15 +184,17 @@ class SyncWorker:
 
         while len(items) < self._batch_size:
             try:
-                item = self._queue.get_nowait()
+                # Give producers a short group-commit window. WAL persistence
+                # now happens synchronously before enqueue, so without this
+                # window the worker can outrun the producer and fragment what
+                # should be a single batch into many requests.
+                item = self._queue.get(timeout=self._flush_interval)
             except queue.Empty:
                 break
             if item is None:
                 self._queue.put(None)
                 break
             if item.batch_key == batch_key:
-                if self._wal is not None:
-                    self._wal.append(item)
                 items.append(item)
             else:
                 self._process_request(item)

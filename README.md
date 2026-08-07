@@ -9,13 +9,14 @@ For more information on using Dalva, please refer to the [documentation](https:/
 ## Features
 
 - **Simple Python API** - Easy-to-use Python interface
-- **Self-Hosted** - All data stored locally in DuckDB
+- **Daemonless Logging** - Training writes durable per-run journals; no server required
+- **Self-Hosted** - Journals and the on-demand DuckDB view stay under your control
 - **Flexible Metrics** - Log any metrics without predefined schemas
 - **Tabular Data** - Track structured rows alongside runs with `DalvaSchema` + `dalva.table()`
 - **Real-time Visualization** - Interactive charts with Plotly.js
 - **Run Comparison** - Compare metrics across multiple experiments
 - **Resume Support** - Continue logging to existing runs
-- **Crash Recovery** - Automatic WAL persistence + `dalva sync` for replaying lost operations
+- **Crash Recovery** - Append-only journals persist before `log()` returns
 - **CLI Query Tools** - Read-only CLI commands for monitoring experiments (`dalva query`)
 - **Agent-Friendly** - JSON output by default, designed for LLM agent consumption
 - **Lightweight** - No complex setup or external dependencies
@@ -45,25 +46,28 @@ cd ..
 uv sync --frozen
 ```
 
-### Running the App
+### Log an Experiment
 
-**Option 1: Using the CLI (Recommended)**
+No server is required while training. `dalva.init()` writes crash-safe journals
+under `~/.dalva/runs/` by default.
+
+### View Experiments
 
 ```bash
-# Start the server (serves both backend and frontend)
-dalva server start
+dalva ui
 ```
 
-The server will automatically find an available port and display the URL.
+The UI process materializes journals into DuckDB while it is open and exits when
+you press Ctrl+C.
 
-**Option 2: Development Mode (for active development)**
+### Development Mode
 
 ```bash
 # Start backend and frontend separately with hot reload
 uv run dalva server dev
 ```
 
-**Option 3: Manual Setup (advanced)**
+### Manual Development Setup
 
 **Terminal 1 - Start the Backend:**
 ```bash
@@ -103,6 +107,26 @@ for epoch in range(100):
 # Finish the run
 run.finish()
 ```
+
+### Remote Replication
+
+Install the optional S3 transport and replicate immutable segments in the
+background:
+
+```bash
+uv add "dalva[s3]"
+```
+
+```python
+run = dalva.init(
+    project="image-classification",
+    sync="s3://my-experiments/dalva",
+)
+```
+
+`run.log()` acknowledges durable local storage. `run.sync()` waits for remote
+acknowledgement, and `run.finish()` writes the completion event and synchronizes
+all remaining segments. Set `DALVA_S3_ENDPOINT_URL` for an S3-compatible store.
 
 ### Tabular Data
 
@@ -255,7 +279,7 @@ uv run python backend/examples/linked_table.py
 # Fork runs with tables
 uv run python backend/examples/fork_run_full.py
 
-# Crash recovery with WAL
+# Legacy HTTP WAL recovery
 uv run python backend/examples/crash_recovery.py
 ```
 

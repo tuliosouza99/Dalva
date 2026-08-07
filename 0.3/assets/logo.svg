@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="starGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFB800;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FFD700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFB800;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="trailGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#CC8400;stop-opacity:0.3" />
+      <stop offset="30%" style="stop-color:#E6A800;stop-opacity:0.6" />
+      <stop offset="60%" style="stop-color:#FFD700;stop-opacity:0.85" />
+      <stop offset="100%" style="stop-color:#FFB800;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="trailGrad2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#B87300;stop-opacity:0.25" />
+      <stop offset="40%" style="stop-color:#DAA520;stop-opacity:0.65" />
+      <stop offset="100%" style="stop-color:#FFD700;stop-opacity:0.9" />
+    </linearGradient>
+    <linearGradient id="trailGrad3" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#996600;stop-opacity:0.2" />
+      <stop offset="50%" style="stop-color:#CC8400;stop-opacity:0.5" />
+      <stop offset="100%" style="stop-color:#FFD700;stop-opacity:0.75" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:0.7" />
+      <stop offset="100%" style="stop-color:#E6A800;stop-opacity:0" />
+    </radialGradient>
+    <filter id="starShine" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="0.8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="0.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="trailBlur">
+      <feGaussianBlur stdDeviation="0.4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Outer glow of entire trail -->
+  <g filter="url(#trailBlur)">
+    <!-- Wide outer trail glow -->
+    <path d="M1 31 Q8 24 14 18 Q17 15 20 12 L22 10 Q18 14 14 18 Q8 24 3 29 Z" fill="#E6A800" opacity="0.35"/>
+
+    <!-- Main thick trail 1 (top edge) -->
+    <path d="M0 24 Q5 19 10 15 Q14 12 18 9.5 L21 8.5 Q15 12 10 16 Q5 20 1 23 Z" fill="url(#trailGrad)" opacity="0.9"/>
+
+    <!-- Main thick trail 2 (center) -->
+    <path d="M2 28 Q8 22 13 17 Q16 14 20 11 L22 10 Q17 13.5 13 17 Q8 22 3.5 27 Z" fill="url(#trailGrad2)" opacity="0.85"/>
+
+    <!-- Main thick trail 3 (bottom) -->
+    <path d="M5 31 Q10 26 15 20 Q17 17 20 14 L22 12 Q18 16 14 20 Q10 25 6 30 Z" fill="url(#trailGrad)" opacity="0.8"/>
+
+    <!-- Inner bright core trail -->
+    <path d="M1 26 Q7 21 12 16.5 Q15 13.5 19 10.5 L21.5 9.5 Q16 13 12 16.5 Q7 21 2.5 25 Z" fill="#F0C030" opacity="0.7"/>
+
+    <!-- Extra outer trail (very top) -->
+    <path d="M0 21 Q4 17.5 8 14 Q12 11 16 8.5 L19 7.5 Q13 11 8 15 Q4 18 0.5 20.5 Z" fill="url(#trailGrad3)" opacity="0.65"/>
+
+    <!-- Extra outer trail (very bottom) -->
+    <path d="M7 32 Q12 27 16 22 Q18 19 21 15 L22 13.5 Q19 17.5 16 21 Q12 26 8 31 Z" fill="url(#trailGrad3)" opacity="0.6"/>
+  </g>
+
+  <!-- Bright core line -->
+  <line x1="2" y1="25.5" x2="20" y2="10" stroke="#FFD700" stroke-width="0.6" opacity="0.6" stroke-linecap="round"/>
+
+  <!-- Star glow effect -->
+  <circle cx="23" cy="9" r="4.5" fill="url(#glow)" opacity="0.7"/>
+
+  <!-- Main 5-pointed star -->
+  <g filter="url(#starShine)">
+    <polygon
+      points="23,4 24.5,7.5 28,8 25.5,10.5 26,14 23,12.5 20,14 20.5,10.5 18,8 21.5,7.5"
+      fill="url(#starGlow)"
+      stroke="#B87300"
+      stroke-width="0.4"
+    />
+  </g>
+
+  <!-- Small sparkle stars near the main star -->
+  <g filter="url(#softGlow)">
+    <polygon
+      points="16,5 16.5,6 17.5,6.2 16.8,7 17,8 16,7.4 15,8 15.2,7 14.5,6.2 15.5,6"
+      fill="#E6A800"
+      opacity="0.85"
+    />
+    <polygon
+      points="28,15 28.3,15.8 29.2,15.9 28.6,16.5 28.7,17.3 28,16.9 27.3,17.3 27.4,16.5 26.8,15.9 27.7,15.8"
+      fill="#DAA520"
+      opacity="0.8"
+    />
+  </g>
+
+  <!-- Extra sparkle dots -->
+  <circle cx="18" cy="3" r="0.4" fill="#E6A800" opacity="0.7"/>
+  <circle cx="29" cy="12" r="0.35" fill="#DAA520" opacity="0.65"/>
+</svg>

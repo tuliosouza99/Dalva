@@ -1,9 +1,9 @@
 """Pytest configuration and shared fixtures for Dalva backend tests."""
 
 import os
+from collections.abc import Generator
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Generator
 
 import pytest
 from dalva.api.routes import metrics, projects, run_configs, run_metrics, runs, tables

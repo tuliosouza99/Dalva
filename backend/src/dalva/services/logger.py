@@ -13,8 +13,9 @@ leaving the file free for the API server between log steps.
 """
 
 import json
+from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Any, Mapping, Optional, Union
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -23,7 +24,6 @@ from dalva.db.schema import Config, DalvaTable, DalvaTableRow, Metric, Run
 from dalva.services._shared import generate_abbreviation, get_or_create_project
 from dalva.types import InputValue
 
-
 # ------------------------------------------------------------------
 # Run lifecycle
 # ------------------------------------------------------------------
@@ -31,10 +31,10 @@ from dalva.types import InputValue
 
 def create_run(
     project_name: str,
-    run_name: Optional[str] = None,
-    config: Optional[Mapping[str, InputValue]] = None,
-    resume_from: Optional[str] = None,
-) -> tuple[int, str, Optional[str]]:
+    run_name: str | None = None,
+    config: Mapping[str, InputValue] | None = None,
+    resume_from: str | None = None,
+) -> tuple[int, str, str | None]:
     """Create or resume a run.
 
     When resuming, config keys that already exist for the run will cause a
@@ -105,9 +105,9 @@ def create_run(
 def fork_run(
     fork_from: str,
     project_name: str,
-    name: Optional[str] = None,
-    copy_tables_on_fork: Union[bool, list[int]] = False,
-) -> tuple[int, str, Optional[str]]:
+    name: str | None = None,
+    copy_tables_on_fork: bool | list[int] = False,
+) -> tuple[int, str, str | None]:
     """Fork an existing run to create a new one.
 
     Args:
@@ -235,7 +235,7 @@ def _log_config(
     run_id: int,
     config: Mapping[str, InputValue],
     prefix: str = "",
-    session: Optional[Session] = None,
+    session: Session | None = None,
 ) -> None:
     """Recursively persist configuration key-value pairs.
 

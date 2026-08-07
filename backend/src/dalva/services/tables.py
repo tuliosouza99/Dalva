@@ -1,10 +1,11 @@
 """Plain functions for table database operations."""
 
 import json
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
-from typing import Any, Callable, Mapping, Optional
+from typing import Any
 
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, ValidationError, create_model
 from sqlalchemy import func, text
 from sqlalchemy.engine import Connection
 
@@ -55,18 +56,18 @@ def _build_row_model(
     fields = {}
     for col in column_schema:
         python_type = _COLUMN_TYPES.get(col["type"], str)
-        fields[col["name"]] = (Optional[python_type], None)
+        fields[col["name"]] = (python_type | None, None)
     return create_model("RowModel", **fields)
 
 
 def create_table(
     project_name: str,
-    column_schema: Optional[list[dict[str, str]]] = None,
-    name: Optional[str] = None,
-    config: Optional[Mapping[str, InputValue]] = None,
-    run_id: Optional[int] = None,
-    resume_from: Optional[str] = None,
-) -> tuple[int, str, Optional[str]]:
+    column_schema: list[dict[str, str]] | None = None,
+    name: str | None = None,
+    config: Mapping[str, InputValue] | None = None,
+    run_id: int | None = None,
+    resume_from: str | None = None,
+) -> tuple[int, str, str | None]:
 
     with session_scope() as db:
         project = get_or_create_project(project_name, db)
@@ -140,8 +141,8 @@ def add_table_rows(
     for i, row in enumerate(rows):
         try:
             validated_rows.append(RowModel(**row).model_dump())
-        except Exception as e:
-            raise ValueError(f"Row {i} validation failed: {e}")
+        except ValidationError as e:
+            raise ValueError(f"Row {i} validation failed: {e}") from e
 
     with session_scope() as db:
         table = db.query(DalvaTable).filter(DalvaTable.id == table_db_id).first()
@@ -192,12 +193,12 @@ def remove_all_rows(table_db_id: int) -> None:
 
 def get_table_data(
     table_db_id: int,
-    version: Optional[int] = None,
+    version: int | None = None,
     limit: int = 100,
     offset: int = 0,
-    sort_by: Optional[str] = None,
+    sort_by: str | None = None,
     sort_order: str = "asc",
-    filters: Optional[list[dict[str, Any]]] = None,
+    filters: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], int, list[dict[str, str]]]:
     """Get table data with pagination, sorting, and filtering.
 
@@ -355,8 +356,10 @@ def _build_between_clause(
 ) -> tuple[str, dict[str, Any]]:
     if f.get("min") is not None and f.get("max") is not None:
         return (
-            f"CAST(json_extract(row_data, '$.\"{col}\"') AS DOUBLE) "
-            f"BETWEEN :fmin{idx} AND :fmax{idx}",
+            (
+                f"CAST(json_extract(row_data, '$.\"{col}\"') AS DOUBLE) "
+                f"BETWEEN :fmin{idx} AND :fmax{idx}"
+            ),
             {f"fmin{idx}": f["min"], f"fmax{idx}": f["max"]},
         )
     if f.get("min") is not None:
@@ -595,8 +598,8 @@ _STAT_HANDLERS: dict[str, Callable] = {
 
 def get_table_stats(
     table_db_id: int,
-    version: Optional[int] = None,
-    filters: Optional[list[dict[str, Any]]] = None,
+    version: int | None = None,
+    filters: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Compute per-column statistics for a table using DuckDB SQL."""
     engine = get_engine()

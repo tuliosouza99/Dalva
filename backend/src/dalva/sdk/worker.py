@@ -155,7 +155,7 @@ class SyncWorker:
         try:
             self._client.close()
         except Exception:
-            pass
+            _logger.debug("Failed to close HTTP client", exc_info=True)
 
     def _run_loop(self) -> None:
         while not self._stop_event.is_set():
@@ -217,7 +217,8 @@ class SyncWorker:
             self._handle_batch_status_error(request, e, count)
         except httpx.HTTPError as e:
             self._handle_batch_network_error(request, e, count)
-        except Exception as e:
+        # Keep the worker alive while surfacing unexpected request failures on drain.
+        except Exception as e:  # noqa: BLE001
             self._store_error(request, e)
             self._dec_pending_by(count)
 
@@ -284,7 +285,8 @@ class SyncWorker:
             self._handle_status_error(request, e)
         except httpx.HTTPError as e:
             self._handle_network_error(request, e)
-        except Exception as e:
+        # Keep the worker alive while surfacing unexpected request failures on drain.
+        except Exception as e:  # noqa: BLE001
             self._store_error(request, e)
             if request.batch_count > 0:
                 self._dec_pending_by(request.batch_count)

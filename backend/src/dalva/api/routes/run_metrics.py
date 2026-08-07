@@ -1,7 +1,6 @@
 """API routes for run metrics — single log, batch log, get, delete."""
 
 from datetime import datetime, timezone
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -125,7 +124,7 @@ def log_metrics_batch(
 def get_metric(
     run_id: int,
     attribute_path: str,
-    step: Optional[int] = Query(
+    step: int | None = Query(
         None,
         description=(
             "Specific step to retrieve. If omitted, returns the value at the "
@@ -202,7 +201,7 @@ def get_metric(
 def remove_metric(
     run_id: int,
     attribute_path: str,
-    step: Optional[int] = Query(
+    step: int | None = Query(
         None,
         description=(
             "Step to remove. If omitted, removes ALL metrics with this attribute_path "

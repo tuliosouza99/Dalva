@@ -11,7 +11,6 @@ from dalva.config import CONFIG_FILE, load_config
 @click.group()
 def config():
     """Configuration management commands."""
-    pass
 
 
 @config.command()

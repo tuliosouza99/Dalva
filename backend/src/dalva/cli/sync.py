@@ -62,7 +62,7 @@ def _replay_file(
         else:
             non_batch.append(entry)
 
-    for batch_key, batch_entries in batch_groups.items():
+    for batch_entries in batch_groups.values():
         items = batch_entries[:]
         finish_entries = [e for e in items if "/finish" in e["url"]]
         log_entries = [e for e in items if "/finish" not in e["url"]]
@@ -71,7 +71,7 @@ def _replay_file(
             batch_payload = {"entries": [e["payload"] for e in log_entries]}
             first_url = log_entries[0]["url"]
             batch_url = first_url.replace("/log", "/log/batch")
-            ok, msg = _send_entry(
+            ok, _msg = _send_entry(
                 client,
                 {"method": "POST", "url": batch_url, "payload": batch_payload},
             )
@@ -81,14 +81,14 @@ def _replay_file(
                 failed.extend(log_entries)
 
         for entry in finish_entries:
-            ok, msg = _send_entry(client, entry)
+            ok, _msg = _send_entry(client, entry)
             if ok:
                 succeeded += 1
             else:
                 failed.append(entry)
 
     for entry in non_batch:
-        ok, msg = _send_entry(client, entry)
+        ok, _msg = _send_entry(client, entry)
         if ok:
             succeeded += 1
         else:
@@ -172,7 +172,7 @@ def sync(status, dry_run, outbox, timeout):
         with httpx.Client(base_url=server_url, timeout=timeout) as client:
             try:
                 client.get("/api/health").raise_for_status()
-            except Exception:
+            except httpx.HTTPError:
                 click.echo(
                     click.style(
                         f"Error: Cannot reach Dalva server at {server_url}",
@@ -198,7 +198,8 @@ def sync(status, dry_run, outbox, timeout):
                         )
                     else:
                         click.echo(f"  {label}: Synced {ok}/{ok} ✓")
-    except Exception as e:
+    # This is the CLI boundary: report unexpected WAL or filesystem failures cleanly.
+    except Exception as e:  # noqa: BLE001
         click.echo(click.style(f"Error: {e}", fg="red"))
         return
 

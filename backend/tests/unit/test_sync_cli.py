@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 from click.testing import CliRunner
-
 from dalva.cli.sync import sync
 
 

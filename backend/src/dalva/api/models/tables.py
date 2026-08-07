@@ -1,8 +1,9 @@
 """API models for table endpoints."""
 
 import re
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Literal, Mapping, Optional, Union
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -32,11 +33,11 @@ class InitTableRequest(BaseModel):
     """Request to initialize a new table."""
 
     project: str
-    name: Optional[str] = None
-    config: Optional[Mapping[str, InputValue]] = None
-    run_id: Optional[int] = None
-    column_schema: Optional[list[ColumnSchema]] = None
-    resume_from: Optional[str] = None
+    name: str | None = None
+    config: Mapping[str, InputValue] | None = None
+    run_id: int | None = None
+    column_schema: list[ColumnSchema] | None = None
+    resume_from: str | None = None
 
 
 class InitTableResponse(BaseModel):
@@ -44,7 +45,7 @@ class InitTableResponse(BaseModel):
 
     id: int
     table_id: str
-    name: Optional[str]
+    name: str | None
     version: int = 0
 
 
@@ -76,12 +77,12 @@ class TableResponse(BaseModel):
     id: int
     project_id: int
     table_id: str
-    name: Optional[str]
-    run_id: Optional[int]
+    name: str | None
+    run_id: int | None
     version: int
     row_count: int
     column_schema: str
-    config: Optional[str]
+    config: str | None
     state: str
     created_at: datetime
     updated_at: datetime
@@ -100,20 +101,20 @@ class ColumnFilter(BaseModel):
 
     column: str
     op: Literal["between", "contains", "eq"]
-    min: Optional[float] = None
-    max: Optional[float] = None
-    value: Optional[SingleElement] = None
+    min: float | None = None
+    max: float | None = None
+    value: SingleElement | None = None
 
 
 class TableDataRequest(BaseModel):
     """Request for table data with pagination/sort/filter."""
 
-    version: Optional[int] = None
+    version: int | None = None
     limit: int = 100
     offset: int = 0
-    sort_by: Optional[str] = None
+    sort_by: str | None = None
     sort_order: str = "asc"
-    filters: Optional[list[ColumnFilter]] = None
+    filters: list[ColumnFilter] | None = None
 
 
 class TableDataResponse(BaseModel):
@@ -144,8 +145,8 @@ class NumericStats(BaseModel):
     """Statistics for numeric columns (int/float)."""
 
     type: Literal["numeric"] = "numeric"
-    min: Optional[float] = None
-    max: Optional[float] = None
+    min: float | None = None
+    max: float | None = None
     bins: list[Bin] = []
     null_count: int = 0
 
@@ -174,7 +175,7 @@ class SkippedStats(BaseModel):
     null_count: int = 0
 
 
-ColumnStats = Union[NumericStats, BoolStats, StringStats, SkippedStats]
+ColumnStats = NumericStats | BoolStats | StringStats | SkippedStats
 
 
 class TableStatsResponse(BaseModel):

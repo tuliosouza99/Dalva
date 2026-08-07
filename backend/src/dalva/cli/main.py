@@ -14,7 +14,6 @@ from dalva.cli.sync import sync
 @click.version_option(version="0.1.0")
 def cli():
     """Dalva - Lightweight experiment tracker for deep learning."""
-    pass
 
 
 # Register commands and command groups

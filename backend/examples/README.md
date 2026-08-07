@@ -25,10 +25,7 @@ Basic usage showing:
 ```python
 import dalva
 
-run = dalva.init(
-    project="my-project",
-    config={"lr": 0.001}
-)
+run = dalva.init(project="my-project", config={"lr": 0.001})
 
 dalva.log({"loss": 0.5, "accuracy": 0.8}, step=0)
 dalva.finish()
@@ -52,7 +49,7 @@ dalva.finish()
 run = dalva.init(
     project="my-project",
     name="my-run",
-    resume_from="allow"  # or "must"
+    resume_from="allow",  # or "must"
 )
 dalva.log({"loss": 0.5}, step=1)
 dalva.finish()

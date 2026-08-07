@@ -1,11 +1,12 @@
-from typing import Mapping, TypeAlias, TypedDict, TypeVar, Union
+from collections.abc import Mapping
+from typing import TypeAlias, TypedDict, Union
 
-SingleElement: TypeAlias = Union[str, bool, int, float, None]
-ConfigValue: TypeAlias = Union[SingleElement, list]
+SingleElement: TypeAlias = str | bool | int | float | None
+ConfigValue: TypeAlias = SingleElement | list
 OutputDict: TypeAlias = dict[str, SingleElement]
 ConfigOutputDict: TypeAlias = dict[str, ConfigValue]
 
-InputValue: TypeAlias = Union[SingleElement, list, dict]
+InputValue: TypeAlias = SingleElement | list | dict
 
 InputDict: TypeAlias = Mapping[
     str, Union[SingleElement, "list[SingleElement | InputDict]", "InputDict"]
@@ -15,10 +16,8 @@ TableRowValue: TypeAlias = Union[
     str, bool, int, float, None, "list[TableRowValue]", "dict[str, TableRowValue]"
 ]
 
-_T = TypeVar("_T")
-
 
 class Metric(TypedDict):
     key: str
-    value: Union[int, float, str, bool, None]
+    value: int | float | str | bool | None
     step: int | None

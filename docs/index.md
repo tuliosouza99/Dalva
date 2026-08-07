@@ -26,7 +26,7 @@ run = dalva.init(
     project="my-project",
     name="experiment-1",
     config={"lr": 0.001},
-    server_url="http://localhost:8000"
+    server_url="http://localhost:8000",
 )
 
 # Log metrics

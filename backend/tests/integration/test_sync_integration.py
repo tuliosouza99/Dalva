@@ -9,7 +9,6 @@ from unittest.mock import MagicMock
 
 import httpx
 import pytest
-
 from dalva.cli.sync import _replay_file
 from dalva.sdk.wal import WALManager
 from dalva.sdk.worker import PendingRequest, SyncWorker
@@ -326,7 +325,7 @@ class TestSyncPartialFailure:
         )
 
         pending = WALManager.list_pending(outbox_dir=outbox)
-        ok, fail, failed_entries = _replay_file(api_client, pending[0])
+        _ok, fail, failed_entries = _replay_file(api_client, pending[0])
         assert fail == 1
         assert len(failed_entries) == 1
         assert "/999999/" in failed_entries[0]["url"]

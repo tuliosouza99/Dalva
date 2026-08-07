@@ -2,12 +2,13 @@
 
 import json
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from dalva.api.models.common import MessageResponse
 from dalva.api.models.runs import (
     FinishResponse,
     InitRunRequest,
@@ -16,7 +17,6 @@ from dalva.api.models.runs import (
     RunsListResponse,
     RunSummary,
 )
-from dalva.api.models.common import MessageResponse
 from dalva.api.models.tables import TableResponse
 from dalva.api.routes._helpers import extract_metric_value, get_run_or_404
 from dalva.db.connection import get_db
@@ -29,11 +29,11 @@ router = APIRouter()
 
 @router.get("/", response_model=RunsListResponse)
 def list_runs(
-    project_id: Optional[int] = None,
-    group: Optional[str] = None,
-    state: Optional[str] = None,
-    search: Optional[str] = None,
-    tags: Optional[str] = Query(
+    project_id: int | None = None,
+    group: str | None = None,
+    state: str | None = None,
+    search: str | None = None,
+    tags: str | None = Query(
         None, description="Filter by tags (comma-separated, AND logic)"
     ),
     limit: int = 100,

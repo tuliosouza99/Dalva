@@ -1,7 +1,6 @@
 """Path utilities for finding static assets in dev and installed modes."""
 
 from pathlib import Path
-from typing import Optional
 
 
 def is_development_mode() -> bool:
@@ -22,7 +21,7 @@ def is_development_mode() -> bool:
         return (repo_root / "pyproject.toml").exists() and (
             repo_root / "frontend"
         ).exists()
-    except Exception:
+    except OSError:
         return False
 
 
@@ -64,7 +63,7 @@ def get_static_dir() -> Path:
                 static_dir = Path(static_dir_traversable)
             else:
                 # For Python 3.9-3.10, use as_file context manager
-                import importlib.resources as resources
+                from importlib import resources
 
                 with resources.as_file(static_dir_traversable) as path:
                     # Verify it exists while in context
@@ -89,14 +88,14 @@ def get_static_dir() -> Path:
                 f"Cannot locate static directory in installed package. "
                 f"importlib.resources not available: {e}"
             )
-        except Exception as e:
+        except (OSError, TypeError) as e:
             raise FileNotFoundError(
                 f"Static directory not found in installed package. "
                 f"The package may not have been built correctly. Error: {e}"
-            )
+            ) from e
 
 
-def get_frontend_dir() -> Optional[Path]:
+def get_frontend_dir() -> Path | None:
     """
     Get path to frontend source directory (development mode only).
 

@@ -146,7 +146,7 @@ def get_project_tags(project_id: int, db: Session = Depends(get_db)):
             tags = [tag.strip() for tag in run.tags.split(",")]
             tags_set.update(tags)
 
-    return sorted(list(tags_set))
+    return sorted(tags_set)
 
 
 @router.get("/{project_id}/available-columns", response_model=list[str])

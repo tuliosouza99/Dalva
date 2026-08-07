@@ -1,8 +1,8 @@
 """Export database to NDJSON format."""
 
 import json
-from datetime import datetime
-from typing import IO, Optional
+from datetime import datetime, timezone
+from typing import IO
 
 from sqlalchemy import text
 
@@ -26,7 +26,7 @@ def _build_in_clause(ids: list[int]) -> str:
     return ",".join(str(i) for i in ids)
 
 
-def export_db(output: IO[str], project_name: Optional[str] = None) -> dict:
+def export_db(output: IO[str], project_name: str | None = None) -> dict:
     engine = get_engine()
     counts = {
         "projects": 0,
@@ -43,7 +43,7 @@ def export_db(output: IO[str], project_name: Optional[str] = None) -> dict:
             {
                 "type": "header",
                 "version": EXPORT_VERSION,
-                "exported_at": datetime.now().isoformat(),
+                "exported_at": datetime.now(timezone.utc).isoformat(),
             },
         )
 

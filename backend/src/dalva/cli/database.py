@@ -2,11 +2,12 @@
 
 import shutil
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import NullPool
 
 from dalva.config import load_config
@@ -18,7 +19,6 @@ from dalva.services.import_db import import_db
 @click.group(name="db")
 def db():
     """Database management commands."""
-    pass
 
 
 @db.command()
@@ -58,7 +58,7 @@ def info():
             for table in table_names:
                 count = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
                 click.echo(f"  {table:20s}: {count:>8,} rows")
-    except Exception as e:
+    except SQLAlchemyError as e:
         click.echo(click.style(f"\nError reading database: {e}", fg="red"), err=True)
         sys.exit(1)
 
@@ -76,7 +76,7 @@ def backup(output):
 
     # Generate backup path if not provided
     if output is None:
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         output = str(source_path.parent / f"dalva-backup-{timestamp}.duckdb")
 
     output_path = Path(output).expanduser()

@@ -111,12 +111,14 @@ from dalva.sdk import Run
 from dalva.sdk.schema import DalvaSchema
 from typing import Optional
 
+
 class PredictionSchema(DalvaSchema):
     epoch: int
     sample_id: str
     prediction: float
     target: float
     correct: bool
+
 
 run = Run(project="my-project", name="with-predictions")
 table = run.create_table(PredictionSchema, name="predictions")
@@ -125,13 +127,15 @@ for epoch in range(10):
     train_loss = train_one_epoch(model, dataloader)
 
     for sample_id, pred, target in get_predictions(model, val_data):
-        table.log_row({
-            "epoch": epoch,
-            "sample_id": sample_id,
-            "prediction": pred,
-            "target": target,
-            "correct": abs(pred - target) < 0.5,
-        })
+        table.log_row(
+            {
+                "epoch": epoch,
+                "sample_id": sample_id,
+                "prediction": pred,
+                "target": target,
+                "correct": abs(pred - target) < 0.5,
+            }
+        )
 
 run.log({"train_loss": train_loss}, step=epoch)
 
@@ -144,12 +148,15 @@ run.finish()
 Metrics can be nested — they're flattened with `/` as separator:
 
 ```python
-run.log({
-    "train/loss": 0.5,
-    "train/accuracy": 0.95,
-    "val/loss": 0.6,
-    "val/accuracy": 0.92,
-}, step=epoch)
+run.log(
+    {
+        "train/loss": 0.5,
+        "train/accuracy": 0.95,
+        "val/loss": 0.6,
+        "val/accuracy": 0.92,
+    },
+    step=epoch,
+)
 ```
 
 Query as: `dalva query metric <run_id> train/loss`
@@ -240,6 +247,7 @@ Tables require a schema — a Pydantic `BaseModel` subclass that defines columns
 ```python
 from dalva.sdk.schema import DalvaSchema
 from typing import Optional
+
 
 class MySchema(DalvaSchema):
     epoch: int

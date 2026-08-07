@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 from click.testing import CliRunner
-
 from dalva.cli.query import query
 
 

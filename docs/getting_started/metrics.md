@@ -10,12 +10,10 @@ run.log({"loss": 0.3, "accuracy": 0.9}, step=1)
 You can log multiple metrics at once:
 
 ```python
-run.log({
-    "train/loss": 0.5,
-    "train/accuracy": 0.85,
-    "val/loss": 0.6,
-    "val/accuracy": 0.80
-}, step=epoch)
+run.log(
+    {"train/loss": 0.5, "train/accuracy": 0.85, "val/loss": 0.6, "val/accuracy": 0.80},
+    step=epoch,
+)
 ```
 
 ### Nested Dicts
@@ -81,22 +79,28 @@ In addition to numeric types (`float`, `int`), you can log `bool` and `str` valu
 
 ```python
 for step in range(100):
-    run.log({
-        "train/loss": train_loss,
-        "phase/is_training": step % 10 != 7,
-        "phase/is_converged": step >= 50,
-    }, step=step)
+    run.log(
+        {
+            "train/loss": train_loss,
+            "phase/is_training": step % 10 != 7,
+            "phase/is_converged": step >= 50,
+        },
+        step=step,
+    )
 ```
 
 **String series** — track categorical values like optimizer, data source, or phase name:
 
 ```python
 for step in range(100):
-    run.log({
-        "train/loss": train_loss,
-        "hyperparams/optimizer": current_optimizer,
-        "phase/name": "train" if step % 10 != 7 else "validate",
-    }, step=step)
+    run.log(
+        {
+            "train/loss": train_loss,
+            "hyperparams/optimizer": current_optimizer,
+            "phase/name": "train" if step % 10 != 7 else "validate",
+        },
+        step=step,
+    )
 ```
 
 By default, string series show the top 3 categories as separate areas with the rest grouped as "Other". You can adjust this up to 10 in the chart UI.
@@ -121,16 +125,16 @@ This is intentional: overwrites can silently lose data in concurrent scenarios a
 Metric keys are unique per run **per step**. Logging the same metric at the same step raises 409:
 
 ```python
-run.log({"loss": 0.5}, step=0)   # OK
-run.log({"loss": 0.3}, step=0)   # 409 Conflict — use remove() first
-run.log({"loss": 0.1}, step=1)   # OK — different step, new row created
+run.log({"loss": 0.5}, step=0)  # OK
+run.log({"loss": 0.3}, step=0)  # 409 Conflict — use remove() first
+run.log({"loss": 0.1}, step=1)  # OK — different step, new row created
 ```
 
 To overwrite:
 
 ```python
-run.remove("loss", step=0)        # remove specific step
-run.log({"loss": 0.3}, step=0)   # now log the new value
+run.remove("loss", step=0)  # remove specific step
+run.log({"loss": 0.3}, step=0)  # now log the new value
 ```
 
 ### Config
@@ -145,7 +149,7 @@ run.log_config({"batch_size": 32, "epochs": 100})
 
 # Overwrite an existing key — must remove first:
 run.remove_config("lr")
-run.log_config({"lr": 0.01})        # now succeeds
+run.log_config({"lr": 0.01})  # now succeeds
 ```
 
 Nested dicts are flattened with `/` as separator:
@@ -160,8 +164,8 @@ run.log_config({"optimizer": {"lr": 0.001, "betas": [0.9, 0.999]}})
 Once a metric key is logged with a type, it cannot be changed. int and float are treated as distinct types:
 
 ```python
-run.log({"m": 5}, step=0)       # OK — int_series
-run.log({"m": 5.5}, step=0)    # 409 Conflict — cannot change to float_series
+run.log({"m": 5}, step=0)  # OK — int_series
+run.log({"m": 5.5}, step=0)  # 409 Conflict — cannot change to float_series
 ```
 
 ### Scalar vs Series
@@ -169,17 +173,17 @@ run.log({"m": 5.5}, step=0)    # 409 Conflict — cannot change to float_series
 You cannot mix scalar (step=NULL) and series (step!=NULL) values for the same key:
 
 ```python
-run.log({"acc": 0.5})            # OK — scalar
-run.log({"acc": 0.9}, step=0)   # 409 Conflict — acc already has scalar values
+run.log({"acc": 0.5})  # OK — scalar
+run.log({"acc": 0.9}, step=0)  # 409 Conflict — acc already has scalar values
 ```
 
 ### Removing Metrics and Config
 
 ```python
-run.remove("loss")              # removes ALL loss entries (all steps)
-run.remove("loss", step=5)       # removes only step 5
-run.remove_config("lr")         # removes the lr config key
-run.log_config({"lr": 0.01})   # log new value after removal
+run.remove("loss")  # removes ALL loss entries (all steps)
+run.remove("loss", step=5)  # removes only step 5
+run.remove_config("lr")  # removes the lr config key
+run.log_config({"lr": 0.01})  # log new value after removal
 ```
 
 ### Getting Metrics and Config
@@ -188,20 +192,20 @@ Retrieve a specific metric or config key by name:
 
 ```python
 # Get the latest step value for a metric:
-run.get("loss")                  # {"key": "loss", "value": 0.3, "step": 1}
+run.get("loss")  # {"key": "loss", "value": 0.3, "step": 1}
 
 # Get a specific step:
-run.get("loss", step=0)          # {"key": "loss", "value": 0.5, "step": 0}
+run.get("loss", step=0)  # {"key": "loss", "value": 0.5, "step": 0}
 
 # Works with nested/flattened keys too:
-run.get("train/loss", step=0)   # {"key": "train/loss", "value": 0.4, "step": 0}
+run.get("train/loss", step=0)  # {"key": "train/loss", "value": 0.4, "step": 0}
 
 # If the key doesn't exist, returns None (or your default):
-run.get("missing")              # None
-run.get("missing", default=0)   # 0
+run.get("missing")  # None
+run.get("missing", default=0)  # 0
 
 # Get a config key:
-run.get_config("lr")            # {"key": "lr", "value": 0.001}
+run.get_config("lr")  # {"key": "lr", "value": 0.001}
 run.get_config("optimizer/lr")  # {"key": "optimizer/lr", "value": 0.001}
 run.get_config("missing", default="unknown")  # "unknown"
 ```
@@ -251,10 +255,13 @@ Bool series are displayed as **stacked area charts** with two areas (`true` / `f
 
 ```python
 for step in range(50):
-    run.log({
-        "phase/is_training": step % 10 != 7,
-        "phase/is_converged": step >= 30,
-    }, step=step)
+    run.log(
+        {
+            "phase/is_training": step % 10 != 7,
+            "phase/is_converged": step >= 30,
+        },
+        step=step,
+    )
 ```
 
 This lets you visualize when a flag flips — for example, when training switches to validation, or when a model converges.
@@ -268,10 +275,13 @@ String series are displayed as **stacked area charts** showing cumulative counts
 ```python
 optimizers = ["adam", "adam", "sgd", "adam", "rmsprop", ...]
 for step in range(50):
-    run.log({
-        "hyperparams/optimizer": optimizers[step],
-        "phase/name": "train" if step % 8 != 7 else "validate",
-    }, step=step)
+    run.log(
+        {
+            "hyperparams/optimizer": optimizers[step],
+            "phase/name": "train" if step % 8 != 7 else "validate",
+        },
+        step=step,
+    )
 ```
 
 Common scenarios for string series:

@@ -104,7 +104,9 @@ class Table:
         try:
             self.finish(timeout=30)
         except Exception:
-            pass
+            _logger.debug(
+                "Failed to finish table during interpreter shutdown", exc_info=True
+            )
 
     def _verify_server_connection(self):
         try:
@@ -190,7 +192,7 @@ class Table:
                 (p for p in projects if p["name"] == self.project_name), None
             )
             return matched["id"] if matched else None
-        except Exception:
+        except (httpx.HTTPError, KeyError, TypeError, ValueError):
             return None
 
     def log_row(self, row: Mapping[str, object]) -> None:

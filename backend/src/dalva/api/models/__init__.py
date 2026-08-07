@@ -37,8 +37,8 @@ from dalva.api.models.runs import (
 from dalva.api.models.views import CustomViewCreate, CustomViewResponse
 
 __all__ = [
-    "ConfigGetResponse",
     "ConfigCreate",
+    "ConfigGetResponse",
     "ConfigResponse",
     "CustomViewCreate",
     "CustomViewResponse",
@@ -51,9 +51,9 @@ __all__ = [
     "InitRunResponse",
     "LogMetricsRequest",
     "LogResponse",
-    "MetricGetResponse",
     "MetricBase",
     "MetricCreate",
+    "MetricGetResponse",
     "MetricInfo",
     "MetricResponse",
     "MetricValue",
@@ -64,7 +64,7 @@ __all__ = [
     "ProjectSummary",
     "RunBase",
     "RunResponse",
-    "RunsListResponse",
     "RunSummary",
+    "RunsListResponse",
     "SummaryMetricsRequest",
 ]

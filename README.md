@@ -90,11 +90,7 @@ import dalva
 run = dalva.init(
     project="image-classification",
     name="resnet50-experiment",
-    config={
-        "learning_rate": 0.001,
-        "batch_size": 32,
-        "epochs": 100
-    }
+    config={"learning_rate": 0.001, "batch_size": 32, "epochs": 100},
 )
 
 # Log metrics during training
@@ -102,10 +98,7 @@ for epoch in range(100):
     train_loss = train_model()
     val_acc = validate_model()
 
-    run.log({
-        "train/loss": train_loss,
-        "val/accuracy": val_acc
-    }, step=epoch)
+    run.log({"train/loss": train_loss, "val/accuracy": val_acc}, step=epoch)
 
 # Finish the run
 run.finish()
@@ -118,19 +111,23 @@ Define a schema and log structured rows:
 ```python
 import dalva
 
+
 class PredictionSchema(dalva.DalvaSchema):
     sample_id: int
     label: str
     confidence: float
 
+
 run = dalva.init(project="image-classification", name="resnet-eval")
 table = run.create_table(schema=PredictionSchema, name="predictions")
 
 table.log_row({"sample_id": 1, "label": "cat", "confidence": 0.95})
-table.log_rows([
-    {"sample_id": 2, "label": "dog", "confidence": 0.87},
-    {"sample_id": 3, "label": "bird", "confidence": 0.72},
-])
+table.log_rows(
+    [
+        {"sample_id": 2, "label": "dog", "confidence": 0.87},
+        {"sample_id": 3, "label": "bird", "confidence": 0.72},
+    ]
+)
 
 run.finish()  # auto-finishes the table
 ```
@@ -143,7 +140,7 @@ import dalva
 # Resume an existing run
 run = dalva.init(
     project="image-classification",
-    resume_from="resnet50-experiment"  # Pass run_id or run name to resume
+    resume_from="resnet50-experiment",  # Pass run_id or run name to resume
 )
 
 # Continue logging

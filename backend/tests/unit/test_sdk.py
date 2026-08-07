@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-
 from dalva.sdk.errors import DalvaError
 from dalva.sdk.schema import DalvaSchema
 

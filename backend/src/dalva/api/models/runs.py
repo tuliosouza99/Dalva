@@ -1,5 +1,5 @@
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Mapping, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 
@@ -17,9 +17,9 @@ class RunConfigResponse(RootModel[ConfigOutputDict]):
 
 class RunBase(BaseModel):
     run_id: str
-    name: Optional[str] = None
-    group_name: Optional[str] = None
-    tags: Optional[str] = None
+    name: str | None = None
+    group_name: str | None = None
+    tags: str | None = None
     state: str = "running"
 
 
@@ -28,7 +28,7 @@ class RunResponse(RunBase):
 
     id: int
     project_id: int
-    fork_from: Optional[int] = None
+    fork_from: int | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -46,28 +46,28 @@ class RunsListResponse(BaseModel):
 
 class InitRunRequest(BaseModel):
     project: str
-    name: Optional[str] = None
-    config: Optional[Mapping[str, InputValue]] = None
-    resume_from: Optional[str] = None
-    fork_from: Optional[str] = None
-    copy_tables_on_fork: Union[bool, list[int]] = False
+    name: str | None = None
+    config: Mapping[str, InputValue] | None = None
+    resume_from: str | None = None
+    fork_from: str | None = None
+    copy_tables_on_fork: bool | list[int] = False
 
 
 class InitRunResponse(BaseModel):
     id: int
     run_id: str
-    name: Optional[str]
+    name: str | None
 
 
 class LogMetricsRequest(BaseModel):
     metrics: Mapping[str, InputValue]
-    step: Optional[int] = None
-    timestamp: Optional[datetime] = None
+    step: int | None = None
+    timestamp: datetime | None = None
 
 
 class BatchLogEntry(BaseModel):
     metrics: Mapping[str, InputValue]
-    step: Optional[int] = None
+    step: int | None = None
 
 
 class BatchLogMetricsRequest(BaseModel):
@@ -85,7 +85,7 @@ class FinishResponse(BaseModel):
 class MetricGetResponse(BaseModel):
     key: str
     value: SingleElement = None
-    step: Optional[int] = None
+    step: int | None = None
 
 
 class ConfigGetResponse(BaseModel):

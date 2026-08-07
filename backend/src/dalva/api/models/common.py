@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -27,9 +26,9 @@ class FileCreate(BaseModel):
     run_id: int
     file_type: str
     file_path: str
-    file_hash: Optional[str] = None
-    size: Optional[int] = None
-    file_metadata: Optional[str] = None
+    file_hash: str | None = None
+    size: int | None = None
+    file_metadata: str | None = None
 
 
 class FileResponse(BaseModel):
@@ -39,16 +38,16 @@ class FileResponse(BaseModel):
     run_id: int
     file_type: str
     file_path: str
-    file_hash: Optional[str] = None
-    size: Optional[int] = None
-    file_metadata: Optional[str] = None
+    file_hash: str | None = None
+    size: int | None = None
+    file_metadata: str | None = None
 
 
 class DashboardCreate(BaseModel):
     project_id: int
     name: str
-    widgets: Optional[str] = None
-    layout: Optional[str] = None
+    widgets: str | None = None
+    layout: str | None = None
 
 
 class DashboardResponse(BaseModel):
@@ -57,6 +56,6 @@ class DashboardResponse(BaseModel):
     id: int
     project_id: int
     name: str
-    widgets: Optional[str] = None
-    layout: Optional[str] = None
+    widgets: str | None = None
+    layout: str | None = None
     created_at: datetime

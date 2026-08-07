@@ -188,7 +188,7 @@ run.log() ──► queue ──► pick up item ──► append WAL ──► 
 ```python
 run.finish(timeout=120)  # default: 2 min timeout
 run.finish(on_error="raise")  # raise DalvaError on accumulated errors
-run.finish(on_error="warn")   # print warnings (default)
+run.finish(on_error="warn")  # print warnings (default)
 ```
 
 - `_finished` is only set to `True` on success (not on failure/timeout)

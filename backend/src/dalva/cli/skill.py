@@ -7,7 +7,6 @@ from pathlib import Path
 
 import click
 
-
 _SKILLS_DIR = Path(__file__).resolve().parent.parent / "assets" / "skills"
 
 _TARGET_DIRS = {
@@ -19,7 +18,6 @@ _TARGET_DIRS = {
 @click.group()
 def skill():
     """Manage Dalva skills for agent-assisted experiment monitoring."""
-    pass
 
 
 @skill.command("install")

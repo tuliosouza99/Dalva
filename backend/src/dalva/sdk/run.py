@@ -6,11 +6,11 @@ import atexit
 import logging
 import warnings
 from pathlib import Path
-from typing import overload
+from typing import TypeVar, overload
 
 import httpx
 
-from ..types import _T, InputDict, Metric
+from ..types import InputDict, Metric
 from .errors import DalvaError
 from .http_utils import _server_error
 from .schema import DalvaSchema
@@ -19,6 +19,7 @@ from .wal import WALManager
 from .worker import PendingRequest, SyncWorker
 
 _logger = logging.getLogger("dalva.sdk")
+_T = TypeVar("_T")
 
 
 class Run:
@@ -87,7 +88,9 @@ class Run:
         try:
             self.finish(timeout=30)
         except Exception:
-            pass
+            _logger.debug(
+                "Failed to finish run during interpreter shutdown", exc_info=True
+            )
 
     def _verify_server_connection(self):
         try:
@@ -468,7 +471,9 @@ class Run:
                     try:
                         table.finish(on_error=on_error)
                     except Exception:
-                        pass
+                        _logger.warning(
+                            "Failed to finish table %s", table.table_id, exc_info=True
+                        )
 
             client = self._get_client()
             response = client.post(f"/api/runs/{self._db_id}/finish")

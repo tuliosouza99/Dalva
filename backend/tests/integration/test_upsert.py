@@ -10,9 +10,8 @@ These tests verify that:
 
 import json
 
-from sqlalchemy import text
-
 import pytest
+from sqlalchemy import text
 
 
 class TestMetricStrictInsert:

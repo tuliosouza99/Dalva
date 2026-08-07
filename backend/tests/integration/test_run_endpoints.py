@@ -3,7 +3,6 @@
 import time
 
 import pytest
-
 from dalva.db.connection import session_scope
 from dalva.db.schema import Config, Metric, Project, Run
 

@@ -4,7 +4,6 @@ import json
 import queue
 
 import pytest
-
 from dalva.sdk.wal import WALManager
 
 

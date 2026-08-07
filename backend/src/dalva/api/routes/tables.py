@@ -2,7 +2,6 @@
 
 import json
 from datetime import datetime, timezone
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -43,8 +42,8 @@ router = APIRouter()
 
 @router.get("/", response_model=TableListResponse)
 def list_tables(
-    project_id: Optional[int] = None,
-    run_id: Optional[int] = None,
+    project_id: int | None = None,
+    run_id: int | None = None,
     limit: int = 100,
     offset: int = 0,
     db: Session = Depends(get_db),
@@ -92,12 +91,12 @@ def get_table(table_id: int, db: Session = Depends(get_db)):
 @router.get("/{table_id}/data", response_model=TableDataResponse)
 def get_table_data_endpoint(
     table_id: int,
-    version: Optional[int] = None,
+    version: int | None = None,
     limit: int = 100,
     offset: int = 0,
-    sort_by: Optional[str] = None,
+    sort_by: str | None = None,
     sort_order: str = "asc",
-    filters: Optional[str] = None,
+    filters: str | None = None,
     stream: bool = False,
     db: Session = Depends(get_db),
 ):
@@ -138,8 +137,8 @@ def get_table_data_endpoint(
 def _stream_table_data(
     table_id: int,
     column_schema: list[dict],
-    version: Optional[int],
-    filters: Optional[list[dict]],
+    version: int | None,
+    filters: list[dict] | None,
 ):
     """Stream all table rows as NDJSON."""
 
@@ -169,8 +168,8 @@ def _stream_table_data(
 @router.get("/{table_id}/stats", response_model=TableStatsResponse)
 def get_table_stats_endpoint(
     table_id: int,
-    version: Optional[int] = None,
-    filters: Optional[str] = None,
+    version: int | None = None,
+    filters: str | None = None,
     db: Session = Depends(get_db),
 ):
     """Get per-column statistics for a table."""

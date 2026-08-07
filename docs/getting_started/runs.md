@@ -9,7 +9,7 @@ run = dalva.init(
     project="my-project",
     name="experiment-1",
     config={"lr": 0.001, "batch_size": 32},
-    server_url="http://localhost:8000"
+    server_url="http://localhost:8000",
 )
 ```
 
@@ -38,27 +38,23 @@ run = dalva.init(
         "model": "resnet50",
         "num_classes": 1000,
         "pretrained": True,
-
         # Data settings
         "dataset": "imagenet",
         "image_size": 224,
         "augmentation": ["flip", "crop", "color_jitter"],
-
         # Training hyperparameters
         "optimizer": "adam",
         "lr": 0.001,
         "batch_size": 32,
         "epochs": 100,
         "weight_decay": 0.0001,
-
         # Hardware
         "num_workers": 4,
         "device": "cuda",
-
         # Reproducibility
         "seed": 42,
     },
-    server_url="http://localhost:8000"
+    server_url="http://localhost:8000",
 )
 ```
 
@@ -83,9 +79,9 @@ run = dalva.init(
         "data": {
             "train": {"path": "/data/train", "size": 50000},
             "val": {"path": "/data/val", "size": 10000},
-        }
+        },
     },
-    server_url="http://localhost:8000"
+    server_url="http://localhost:8000",
 )
 # Stored as flat keys: model/backbone, optimizer/lr, data/train/path, etc.
 ```
@@ -140,7 +136,7 @@ import dalva
 # Resume an existing run
 run = dalva.init(
     project="my-project",
-    resume_from="ABC-1"  # The run_id to resume
+    resume_from="ABC-1",  # The run_id to resume
 )
 
 run.log({"loss": 0.2}, step=2)
@@ -159,10 +155,7 @@ run1.finish()
 print(f"Run ID: {run1.run_id}")  # e.g., "ABC-1"
 
 # Later, resume the same run
-run2 = dalva.init(
-    project="training",
-    resume_from="ABC-1"
-)
+run2 = dalva.init(project="training", resume_from="ABC-1")
 run2.log({"loss": 0.6}, step=2)
 run2.log({"loss": 0.4}, step=3)
 run2.finish()

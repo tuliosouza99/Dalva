@@ -4,11 +4,9 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from dalva.sdk.errors import DalvaError
 
 from .conftest import _mock_response, _mock_worker
-
 
 TABLE_INIT_RESPONSE = _mock_response(
     json_data={

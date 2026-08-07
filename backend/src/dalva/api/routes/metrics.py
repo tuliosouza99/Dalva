@@ -1,7 +1,5 @@
 """API routes for metrics."""
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -128,8 +126,8 @@ def get_metric_values(
     metric_path: str,
     limit: int = 1000,
     offset: int = 0,
-    step_min: Optional[int] = None,
-    step_max: Optional[int] = None,
+    step_min: int | None = None,
+    step_max: int | None = None,
     db: Session = Depends(get_db),
 ):
     """

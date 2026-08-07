@@ -4,12 +4,12 @@ import json
 import os
 from io import StringIO
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.pool import NullPool
-
 from dalva.db.connection import session_scope
 from dalva.db.schema import Config, Metric
 from dalva.services.import_db import import_db
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
+
 from tests.conftest import _create_tables
 
 

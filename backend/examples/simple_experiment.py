@@ -14,9 +14,10 @@ Examples:
     python examples/demo_remote_tracking.py http://localhost:8001 # Uses custom port
 """
 
-import dalva
 import random
 import sys
+
+import dalva
 
 # Get server URL from command line argument or default
 server_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"

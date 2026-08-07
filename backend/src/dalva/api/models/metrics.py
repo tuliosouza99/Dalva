@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, RootModel
 
@@ -7,16 +6,16 @@ from pydantic import BaseModel, ConfigDict, RootModel
 class MetricBase(BaseModel):
     attribute_path: str
     attribute_type: str
-    step: Optional[int] = None
-    timestamp: Optional[datetime] = None
+    step: int | None = None
+    timestamp: datetime | None = None
 
 
 class MetricCreate(MetricBase):
     run_id: int
-    float_value: Optional[float] = None
-    int_value: Optional[int] = None
-    string_value: Optional[str] = None
-    bool_value: Optional[bool] = None
+    float_value: float | None = None
+    int_value: int | None = None
+    string_value: str | None = None
+    bool_value: bool | None = None
 
 
 class MetricResponse(MetricBase):
@@ -24,17 +23,17 @@ class MetricResponse(MetricBase):
 
     id: int
     run_id: int
-    float_value: Optional[float] = None
-    int_value: Optional[int] = None
-    string_value: Optional[str] = None
-    bool_value: Optional[bool] = None
+    float_value: float | None = None
+    int_value: int | None = None
+    string_value: str | None = None
+    bool_value: bool | None = None
 
 
 class MetricValue(BaseModel):
-    step: Optional[int] = None
-    timestamp: Optional[datetime] = None
+    step: int | None = None
+    timestamp: datetime | None = None
     value: float | int | str | bool
-    attribute_type: Optional[str] = None
+    attribute_type: str | None = None
 
 
 class MetricInfo(BaseModel):
@@ -45,7 +44,7 @@ class MetricInfo(BaseModel):
 class MetricValuesResponse(BaseModel):
     data: list[MetricValue]
     has_more: bool
-    attribute_type: Optional[str] = None
+    attribute_type: str | None = None
 
 
 class SummaryMetricsRequest(BaseModel):

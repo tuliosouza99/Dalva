@@ -9,6 +9,7 @@ Tables require a `DalvaSchema` subclass that defines columns and types:
 ```python
 import dalva
 
+
 class PredictionSchema(dalva.DalvaSchema):
     sample_id: int
     label: str
@@ -35,6 +36,7 @@ Use `Optional[X]` or `X | None` for nullable columns:
 ```python
 from typing import Optional
 
+
 class EvalSchema(dalva.DalvaSchema):
     sample_id: int
     label: str
@@ -51,7 +53,7 @@ table = dalva.table(
     project="my-project",
     schema=PredictionSchema,
     name="predictions",
-    server_url="http://localhost:8000"
+    server_url="http://localhost:8000",
 )
 ```
 
@@ -83,12 +85,14 @@ run.finish()  # auto-finishes the table too
 ### Single Row
 
 ```python
-table.log_row({
-    "sample_id": 1,
-    "label": "cat",
-    "confidence": 0.95,
-    "correct": True,
-})
+table.log_row(
+    {
+        "sample_id": 1,
+        "label": "cat",
+        "confidence": 0.95,
+        "correct": True,
+    }
+)
 ```
 
 `log_row()` is **async** — it enqueues the row and returns immediately.
@@ -96,11 +100,13 @@ table.log_row({
 ### Multiple Rows
 
 ```python
-table.log_rows([
-    {"sample_id": 1, "label": "cat", "confidence": 0.95, "correct": True},
-    {"sample_id": 2, "label": "dog", "confidence": 0.87, "correct": True},
-    {"sample_id": 3, "label": "bird", "confidence": 0.72, "correct": False},
-])
+table.log_rows(
+    [
+        {"sample_id": 1, "label": "cat", "confidence": 0.95, "correct": True},
+        {"sample_id": 2, "label": "dog", "confidence": 0.87, "correct": True},
+        {"sample_id": 3, "label": "bird", "confidence": 0.72, "correct": False},
+    ]
+)
 ```
 
 `log_rows()` is also **async** and batches rows into a single HTTP request.
@@ -155,8 +161,8 @@ Calling `finish()` multiple times is safe — it's a no-op after the first call.
 
 ```python
 table.finish(on_error="raise")  # raise DalvaError on accumulated errors
-table.finish(on_error="warn")   # print warnings (default)
-table.finish(timeout=60)        # custom timeout in seconds
+table.finish(on_error="warn")  # print warnings (default)
+table.finish(timeout=60)  # custom timeout in seconds
 ```
 
 ## Table Object
@@ -174,10 +180,7 @@ See the [Table Class API documentation](../api_documentation/table_class.md) for
 Resume an existing table by passing `resume_from` with the table ID. No schema is needed — it's loaded from the server:
 
 ```python
-table = dalva.table(
-    project="my-project",
-    resume_from="ABC-T1"
-)
+table = dalva.table(project="my-project", resume_from="ABC-T1")
 table.log_rows(new_data)
 table.finish()
 ```
@@ -187,11 +190,13 @@ table.finish()
 ```python
 import dalva
 
+
 class PredictionSchema(dalva.DalvaSchema):
     sample_id: int
     label: str
     confidence: float
     correct: bool
+
 
 run = dalva.init(project="image-classification", name="resnet-eval")
 
@@ -199,12 +204,14 @@ table = run.create_table(schema=PredictionSchema, name="predictions")
 
 for batch in eval_dataloader:
     for sample_id, pred, label in evaluate(batch):
-        table.log_row({
-            "sample_id": sample_id,
-            "label": pred,
-            "confidence": pred.confidence,
-            "correct": pred == label,
-        })
+        table.log_row(
+            {
+                "sample_id": sample_id,
+                "label": pred,
+                "confidence": pred.confidence,
+                "correct": pred == label,
+            }
+        )
 
 run.finish()
 

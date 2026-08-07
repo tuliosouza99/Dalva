@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-
 from dalva.sdk.worker import PendingRequest, SyncWorker
 
 

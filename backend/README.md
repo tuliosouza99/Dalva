@@ -70,7 +70,8 @@ Or set it in your Python code before importing dalva:
 
 ```python
 import os
-os.environ['DALVA_DB_PATH'] = './project_specific.db'
+
+os.environ["DALVA_DB_PATH"] = "./project_specific.db"
 import dalva
 ```
 
@@ -104,7 +105,7 @@ import dalva
 run = dalva.init(
     project="my-project",
     name="experiment-1",
-    config={"learning_rate": 0.001, "batch_size": 32}
+    config={"learning_rate": 0.001, "batch_size": 32},
 )
 
 # Log training metrics
@@ -127,7 +128,7 @@ import dalva
 run = dalva.init(
     project="my-project",
     name="long-running-experiment",
-    resume_from="allow"  # "allow" or "must"
+    resume_from="allow",  # "allow" or "must"
 )
 
 dalva.log({"loss": 0.3}, step=100)

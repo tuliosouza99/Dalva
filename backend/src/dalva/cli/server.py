@@ -14,7 +14,6 @@ from dalva.utils.paths import get_frontend_dir, is_development_mode
 @click.group()
 def server():
     """Server management commands."""
-    pass
 
 
 @server.command()
@@ -62,7 +61,7 @@ def start(port, host, reload):
     click.echo(click.style("\nPress Ctrl+C to stop the server\n", fg="red"))
 
     try:
-        subprocess.run(cmd, cwd=backend_dir)
+        subprocess.run(cmd, cwd=backend_dir, check=False)
     except KeyboardInterrupt:
         click.echo(click.style("\nShutting down server...", fg="red"))
         sys.exit(0)

@@ -93,7 +93,7 @@ class DalvaSchema(BaseModel):
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:
         super().__pydantic_init_subclass__(**kwargs)
-        for field_name, field_info in cls.model_fields.items():
+        for field_info in cls.model_fields.values():
             _validate_annotation(field_info.annotation)
 
     @classmethod

@@ -39,7 +39,7 @@ run = dalva.init(
         "batch_size": 32,
         "epochs": 100,
     },
-    server_url="http://localhost:8000"
+    server_url="http://localhost:8000",
 )
 
 # Log metrics during training — nested dicts are flattened with '/' separator
@@ -51,8 +51,8 @@ for step in range(100):
     # Equivalent to: run.log({"train/loss": loss, "train/accuracy": accuracy}, step=step)
 
 # Retrieve metrics:
-run.get("train/loss", step=0)   # {"key": "train/loss", "value": 1.0, "step": 0}
-run.get("train/accuracy")       # latest step value
+run.get("train/loss", step=0)  # {"key": "train/loss", "value": 1.0, "step": 0}
+run.get("train/accuracy")  # latest step value
 
 # Retrieve config:
 run.get_config("optimizer/lr")  # {"key": "optimizer/lr", "value": 0.001}

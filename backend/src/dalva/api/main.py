@@ -1,8 +1,7 @@
 """FastAPI application for Dalva."""
 
-from contextlib import asynccontextmanager
-
 import os
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request

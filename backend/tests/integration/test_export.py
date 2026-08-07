@@ -4,12 +4,16 @@ import json
 from datetime import datetime, timezone
 from io import StringIO
 
-
+from dalva.db.schema import (
+    Config,
+    DalvaTableRow,
+    Metric,
+    Project,
+    Run,
+)
 from dalva.db.schema import (
     DalvaTable as DalvaTableSchema,
-    DalvaTableRow,
 )
-from dalva.db.schema import Config, Metric, Project, Run
 from dalva.services.export import EXPORT_VERSION, export_db
 
 

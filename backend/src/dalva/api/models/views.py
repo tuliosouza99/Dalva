@@ -1,14 +1,13 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
 
 class CustomViewCreate(BaseModel):
     name: str
-    filters: Optional[str] = None
-    columns: Optional[str] = None
-    sort_by: Optional[str] = None
+    filters: str | None = None
+    columns: str | None = None
+    sort_by: str | None = None
 
 
 class CustomViewResponse(BaseModel):
@@ -17,7 +16,7 @@ class CustomViewResponse(BaseModel):
     id: int
     project_id: int
     name: str
-    filters: Optional[str] = None
-    columns: Optional[str] = None
-    sort_by: Optional[str] = None
+    filters: str | None = None
+    columns: str | None = None
+    sort_by: str | None = None
     created_at: datetime

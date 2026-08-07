@@ -9,8 +9,9 @@ Usage:
     python examples/fork_run.py [server_url]
 """
 
-import dalva
 import sys
+
+import dalva
 
 server_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
 

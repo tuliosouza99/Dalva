@@ -16,7 +16,7 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "axios": "^1.19.0",
     "lucide-react": "^1.28.0",
-    "plotly.js": "^3.7.0",
+    "plotly.js": "^4.3.0",
     "plotly.js-dist-min": "^3.7.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
